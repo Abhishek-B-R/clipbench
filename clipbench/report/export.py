@@ -340,7 +340,60 @@ def build_run(run_id: str, settings: Settings) -> dict[str, Any]:
         "per_clip": per_clip_section(data),
         "limitations": list(limitations(data).items),
         "languages": [status_dict(data)],
+        **v3_sections(run_id, settings),
     }
+
+
+# v3 feature modules (docs/V3.md) each expose export_section(run_id, settings) -> dict | None, whose keys
+# are merged into the run JSON. A module that is not built yet, or has no data for this run, adds nothing;
+# every V3 key is always present (null when absent) so the site can tell "no data" from "old export".
+V3_KEYS = [
+    "streaming", "semantic", "drift", "history", "sweeps", "formatting", "lattice", "longform", "compute",
+    "diarization", "lid", "entities", "style", "reliability", "captions", "features",
+]
+V3_HOOKS = [
+    "clipbench.streaming.export",
+    "clipbench.scoring.export_v3_quality",
+    "clipbench.scoring.semantic",
+    "clipbench.scoring.formatting",
+    "clipbench.scoring.entities",
+    "clipbench.scoring.style",
+    "clipbench.providers.export_v3",
+    "clipbench.scoring.diarization",
+    "clipbench.scoring.lid",
+    "clipbench.scoring.captions",
+    "clipbench.sweeps.export",
+    "clipbench.longform",
+    "clipbench.compute",
+    "clipbench.canary",
+    "clipbench.scoring.reliability",
+]
+
+
+def v3_sections(run_id: str, settings: Settings) -> dict[str, Any]:
+    import importlib
+    import logging
+
+    out: dict[str, Any] = dict.fromkeys(V3_KEYS)
+    for name in V3_HOOKS:
+        try:
+            module = importlib.import_module(name)
+        except ModuleNotFoundError as exc:
+            if exc.name and name.startswith(exc.name):
+                continue  # not built yet
+            raise
+        hook = getattr(module, "export_section", None)
+        if hook is None:
+            continue
+        try:
+            section = hook(run_id, settings)
+        except Exception as exc:  # one broken feature must not block the whole export
+            logging.getLogger(__name__).warning("export hook %s failed: %s", name, exc)
+            continue
+        for key, value in (section or {}).items():
+            if value is not None:
+                out[key] = clean(value)
+    return out
 
 
 def status_dict(data: RunData) -> dict[str, Any]:

@@ -14,6 +14,7 @@ RUN_KEYS = {
     "run_id", "created_at", "language", "git_commit", "sample_seed", "metrics", "providers", "aggregates",
     "paired", "stability", "findings", "errors", "clips", "per_clip", "limitations", "languages",
 }  # fmt: skip
+RUN_KEYS |= set(__import__("clipbench.report.export", fromlist=["V3_KEYS"]).V3_KEYS)
 POLICY_KEYS = {"retention_days", "trains_by_default", "opt_out", "opt_out_note", "policy_url"}
 
 
@@ -263,3 +264,25 @@ def test_creator_run_does_not_unpublish_language(web_settings):
     assert ja["verified_clips"] == 60 and ja["published"] is True
     doc = json.loads((data / "findings" / "ja.json").read_text())
     assert doc["run_id"] == "r1" and doc["published"] is True and doc["findings"]
+
+
+def test_v3_hooks_merge_and_tolerate_failures(web_settings, monkeypatch):
+    import sys
+    import types
+
+    from clipbench.report import export
+
+    good = types.ModuleType("clipbench_test_good_hook")
+    good.export_section = lambda run_id, settings: {"compute": {"rows": [1]}, "sweeps": None}
+    bad = types.ModuleType("clipbench_test_bad_hook")
+
+    def boom(run_id, settings):
+        raise RuntimeError("broken feature")
+
+    bad.export_section = boom
+    monkeypatch.setitem(sys.modules, good.__name__, good)
+    monkeypatch.setitem(sys.modules, bad.__name__, bad)
+    monkeypatch.setattr(export, "V3_HOOKS", [bad.__name__, good.__name__, "clipbench.does_not_exist_yet"])
+    out = export.v3_sections("r1", web_settings)
+    assert out["compute"] == {"rows": [1]}
+    assert out["sweeps"] is None and set(out) == set(export.V3_KEYS)

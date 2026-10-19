@@ -218,3 +218,11 @@ judge model and prompt version, has at least 50 labelled pairs, Spearman at leas
 at most 0.2. Spearman checks that the judge orders pairs as people do; the error bound checks that its scale
 matches theirs. Otherwise the export carries `published: false` and the reason (for example "12 labelled
 pairs, needs 50") and no scores.
+
+### Commands and published data
+
+`clipbench score <run_id>` adds the lattice columns; `clipbench quality <run_id>` writes the formatting,
+entity and style files (free, no requests); `clipbench judge run <run_id> [--dry-run]`, `clipbench judge label`
+and `clipbench judge calibrate [--dry-run]` handle semantic WER. The run export carries `lattice`,
+`formatting`, `entities`, `style` and `semantic`, each null when the run has no such data, with numbers only:
+no reference, hypothesis or judge reason text is ever published.

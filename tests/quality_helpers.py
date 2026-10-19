@@ -30,7 +30,8 @@ def write_run(settings, run_id: str, language: str, clips: list[dict], hyps: dic
                     "run_id": run_id, "provider": provider, "model_id": f"{provider}-1", "video_id": vid,
                     "language": language, "tier": tier, "repeat": 0, "status": "ok",
                     "audio_seconds": c.get("seconds", 60.0), "duration_s": c.get("seconds", 60.0),
-                    "latency_ms": 100.0, "cost_usd": 0.0,
+                    "latency_ms": 100.0, "cost_usd": 0.0, "tags": json.dumps(c.get("tags", [])), "channel": "c",
+                    "cached": False, "provider_version": None, "error": None, "hyp_chars": len(texts_[i]),
                     "options": json.dumps((options or {}).get(provider, {})),
                 }
             )  # fmt: skip

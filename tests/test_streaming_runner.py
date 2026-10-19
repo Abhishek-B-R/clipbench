@@ -72,7 +72,7 @@ async def test_run_score_export(tmp_settings, tmp_path):
     all_row = agg[agg["slice_kind"] == "all"].iloc[0]
     assert all_row["n_clips"] == 2 and all_row["error_rate"] == 0.0 and all_row["too_small"]
 
-    section = export_section(res.run_id, tmp_settings)
+    section = export_section(res.run_id, tmp_settings)["streaming"]
     assert section["kind"] == "stream" and section["n_clips"] == 2
     prov = section["providers"][0]
     assert prov["id"] == "fake-stream" and prov["n_ok"] == 2

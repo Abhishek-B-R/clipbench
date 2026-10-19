@@ -1,0 +1,3203 @@
+{
+ "lang": "en",
+ "run_id": "20261019-0900-synth",
+ "created_at": "2026-10-19T18:25:45Z",
+ "published": true,
+ "findings": [
+  {
+   "id": "0318ddafae",
+   "slug": "wer-synth-a-beats-synth-b",
+   "text": "synth-a beats synth-b on wer on all clips: 4.4 points fewer errors (95% CI 1.8 to 6.9) on the 118 clips both scored (adjusted p=0.00456).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider_a": "synth-a",
+     "provider_b": "synth-b"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.15566625155666253,
+    "loser_error_rate_slice": 0.20266836086404066,
+    "p_adjusted": 0.004556962025316456,
+    "diff": 0.04447268106734434,
+    "ci_low": -0.06948214095175487,
+    "ci_high": -0.01814009056669406,
+    "p_value": 0.002,
+    "n_clips": 118
+   }
+  },
+  {
+   "id": "1bc0dcf421",
+   "slug": "wer-synth-a-beats-synth-b-audio-condition-no-music",
+   "text": "synth-a beats synth-b on wer on clips without music: 4.7 points fewer errors (95% CI 1.6 to 7.5) on the 83 clips both scored (adjusted p=0.00818).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "no_music",
+     "provider_a": "synth-a",
+     "provider_b": "synth-b"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.17253521126760563,
+    "loser_error_rate_slice": 0.223731884057971,
+    "p_adjusted": 0.00818181818181818,
+    "diff": 0.047101449275362306,
+    "ci_low": -0.07531329939000393,
+    "ci_high": -0.016482763123530947,
+    "p_value": 0.004,
+    "n_clips": 83
+   }
+  },
+  {
+   "id": "cbba8dc0f4",
+   "slug": "wer-synth-a-beats-synth-b-category-comedy-skit",
+   "text": "synth-a beats synth-b on wer on comedy skit clips: 9.8 points fewer errors (95% CI 4.5 to 15.9) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "comedy_skit",
+     "provider_a": "synth-a",
+     "provider_b": "synth-b"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.08646616541353383,
+    "loser_error_rate_slice": 0.18421052631578946,
+    "p_adjusted": 0.0,
+    "diff": 0.09774436090225563,
+    "ci_low": -0.15868206977524318,
+    "ci_high": -0.04544665404040405,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "71f63e7cbc",
+   "slug": "wer-synth-a-beats-synth-c-category-vlog-music",
+   "text": "synth-a beats synth-c on wer on vlog music clips: 3.1 points fewer errors (95% CI 0.7 to 6.0) on the 20 clips both scored (adjusted p=0.035).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "vlog_music",
+     "provider_a": "synth-a",
+     "provider_b": "synth-c"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.2054263565891473,
+    "loser_error_rate_slice": 0.2364341085271318,
+    "p_adjusted": 0.03495145631067961,
+    "diff": 0.031007751937984496,
+    "ci_low": -0.05952507598784193,
+    "ci_high": -0.007379395485131333,
+    "p_value": 0.02,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "7310c85d43",
+   "slug": "wer-synth-a-beats-synth-d",
+   "text": "synth-a beats synth-d on wer on all clips: 2.7 points fewer errors (95% CI 1.1 to 4.3) on the 120 clips both scored (adjusted p=0.00456).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider_a": "synth-a",
+     "provider_b": "synth-d"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.15566625155666253,
+    "loser_error_rate_slice": 0.18244084682440848,
+    "p_adjusted": 0.004556962025316456,
+    "diff": 0.02677459526774595,
+    "ci_low": -0.043272243531387956,
+    "ci_high": -0.010544765785331436,
+    "p_value": 0.002,
+    "n_clips": 120
+   }
+  },
+  {
+   "id": "09afb04353",
+   "slug": "wer-synth-a-beats-synth-d-audio-condition-no-music",
+   "text": "synth-a beats synth-d on wer on clips without music: 2.9 points fewer errors (95% CI 1.3 to 4.6) on the 85 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "no_music",
+     "provider_a": "synth-a",
+     "provider_b": "synth-d"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.17253521126760563,
+    "loser_error_rate_slice": 0.20158450704225353,
+    "p_adjusted": 0.0,
+    "diff": 0.029049295774647904,
+    "ci_low": -0.04610236406619385,
+    "ci_high": -0.013499386851436845,
+    "p_value": 0.0,
+    "n_clips": 85
+   }
+  },
+  {
+   "id": "7e6f98b445",
+   "slug": "wer-synth-a-beats-synth-d-category-cooking-tutorial",
+   "text": "synth-a beats synth-d on wer on cooking tutorial clips: 4.2 points fewer errors (95% CI 0.4 to 7.8) on the 20 clips both scored (adjusted p=0.0475).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "cooking_tutorial",
+     "provider_a": "synth-a",
+     "provider_b": "synth-d"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.09923664122137404,
+    "loser_error_rate_slice": 0.14122137404580154,
+    "p_adjusted": 0.047547169811320754,
+    "diff": 0.041984732824427495,
+    "ci_low": -0.07782101167315174,
+    "ci_high": -0.003967472815898014,
+    "p_value": 0.028,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "e5c98d5e29",
+   "slug": "wer-synth-a-beats-synth-d-category-talking-head",
+   "text": "synth-a beats synth-d on wer on talking head clips: 6.4 points fewer errors (95% CI 2.2 to 10.8) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "talking_head",
+     "provider_a": "synth-a",
+     "provider_b": "synth-d"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.1978798586572438,
+    "loser_error_rate_slice": 0.26148409893992935,
+    "p_adjusted": 0.0,
+    "diff": 0.06360424028268555,
+    "ci_low": -0.10753905810947512,
+    "ci_high": -0.022218137254901942,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "0268760f02",
+   "slug": "wer-synth-a-beats-synth-e",
+   "text": "synth-a beats synth-e on wer on all clips: 7.8 points fewer errors (95% CI 5.8 to 10.0) on the 120 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider_a": "synth-a",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.15566625155666253,
+    "loser_error_rate_slice": 0.23412204234122042,
+    "p_adjusted": 0.0,
+    "diff": 0.07845579078455789,
+    "ci_low": -0.09956595560673608,
+    "ci_high": -0.05784291091593476,
+    "p_value": 0.0,
+    "n_clips": 120
+   }
+  },
+  {
+   "id": "c28f09c50a",
+   "slug": "wer-synth-a-beats-synth-e-audio-condition-music",
+   "text": "synth-a beats synth-e on wer on clips with music under the speech: 12.6 points fewer errors (95% CI 8.9 to 16.2) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider_a": "synth-a",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.1148936170212766,
+    "loser_error_rate_slice": 0.2404255319148936,
+    "p_adjusted": 0.0,
+    "diff": 0.125531914893617,
+    "ci_low": -0.16228351327035537,
+    "ci_high": -0.08947861260408253,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "c82291fffc",
+   "slug": "wer-synth-a-beats-synth-e-audio-condition-no-music",
+   "text": "synth-a beats synth-e on wer on clips without music: 5.9 points fewer errors (95% CI 3.5 to 8.7) on the 85 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "no_music",
+     "provider_a": "synth-a",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.17253521126760563,
+    "loser_error_rate_slice": 0.23151408450704225,
+    "p_adjusted": 0.0,
+    "diff": 0.058978873239436624,
+    "ci_low": -0.08688286178370418,
+    "ci_high": -0.03459829239411626,
+    "p_value": 0.0,
+    "n_clips": 85
+   }
+  },
+  {
+   "id": "e8be68a8bd",
+   "slug": "wer-synth-a-beats-synth-e-category-comedy-skit",
+   "text": "synth-a beats synth-e on wer on comedy skit clips: 14.3 points fewer errors (95% CI 9.2 to 19.6) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "comedy_skit",
+     "provider_a": "synth-a",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.08646616541353383,
+    "loser_error_rate_slice": 0.22932330827067668,
+    "p_adjusted": 0.0,
+    "diff": 0.14285714285714285,
+    "ci_low": -0.19560391666908797,
+    "ci_high": -0.09230627306273063,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "528ecfd185",
+   "slug": "wer-synth-a-beats-synth-e-category-cooking-tutorial",
+   "text": "synth-a beats synth-e on wer on cooking tutorial clips: 6.1 points fewer errors (95% CI 1.8 to 10.3) on the 20 clips both scored (adjusted p=0.022).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "cooking_tutorial",
+     "provider_a": "synth-a",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.09923664122137404,
+    "loser_error_rate_slice": 0.16030534351145037,
+    "p_adjusted": 0.022040816326530613,
+    "diff": 0.06106870229007633,
+    "ci_low": -0.10266422699469485,
+    "ci_high": -0.01824486935364434,
+    "p_value": 0.012,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "36a1cf8fdb",
+   "slug": "wer-synth-a-beats-synth-e-category-gaming",
+   "text": "synth-a beats synth-e on wer on gaming clips: 7.7 points fewer errors (95% CI 2.3 to 13.6) on the 20 clips both scored (adjusted p=0.00818).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "gaming",
+     "provider_a": "synth-a",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.09225092250922509,
+    "loser_error_rate_slice": 0.16974169741697417,
+    "p_adjusted": 0.00818181818181818,
+    "diff": 0.07749077490774908,
+    "ci_low": -0.13638047138047138,
+    "ci_high": -0.02280725578204066,
+    "p_value": 0.004,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "252d59410a",
+   "slug": "wer-synth-a-beats-synth-e-category-talking-head",
+   "text": "synth-a beats synth-e on wer on talking head clips: 8.5 points fewer errors (95% CI 4.5 to 12.8) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "talking_head",
+     "provider_a": "synth-a",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.1978798586572438,
+    "loser_error_rate_slice": 0.2826855123674912,
+    "p_adjusted": 0.0,
+    "diff": 0.08480565371024737,
+    "ci_low": -0.1281138790035587,
+    "ci_high": -0.04545454545454544,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "ded43d664b",
+   "slug": "wer-synth-a-beats-synth-e-category-vlog-music",
+   "text": "synth-a beats synth-e on wer on vlog music clips: 6.6 points fewer errors (95% CI 1.7 to 12.3) on the 20 clips both scored (adjusted p=0.00818).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "vlog_music",
+     "provider_a": "synth-a",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.2054263565891473,
+    "loser_error_rate_slice": 0.2713178294573643,
+    "p_adjusted": 0.00818181818181818,
+    "diff": 0.06589147286821703,
+    "ci_low": -0.12260714438319871,
+    "ci_high": -0.016525538544912614,
+    "p_value": 0.004,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "386a5bb99a",
+   "slug": "wer-synth-a-beats-synth-e-tag-background-music",
+   "text": "synth-a beats synth-e on wer on clips tagged background music: 12.6 points fewer errors (95% CI 8.9 to 16.2) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "tag",
+     "slice": "background_music",
+     "provider_a": "synth-a",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.1148936170212766,
+    "loser_error_rate_slice": 0.2404255319148936,
+    "p_adjusted": 0.0,
+    "diff": 0.125531914893617,
+    "ci_low": -0.16228351327035537,
+    "ci_high": -0.08947861260408253,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "c1e4bec617",
+   "slug": "wer-synth-a-beats-synth-f",
+   "text": "synth-a beats synth-f on wer on all clips: 12.6 points fewer errors (95% CI 10.1 to 15.2) on the 120 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider_a": "synth-a",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.15566625155666253,
+    "loser_error_rate_slice": 0.28144458281444584,
+    "p_adjusted": 0.0,
+    "diff": 0.12577833125778332,
+    "ci_low": -0.15160935724097274,
+    "ci_high": -0.10060873409599527,
+    "p_value": 0.0,
+    "n_clips": 120
+   }
+  },
+  {
+   "id": "ec82b6f94d",
+   "slug": "wer-synth-a-beats-synth-f-audio-condition-music",
+   "text": "synth-a beats synth-f on wer on clips with music under the speech: 19.8 points fewer errors (95% CI 14.4 to 25.5) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider_a": "synth-a",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.1148936170212766,
+    "loser_error_rate_slice": 0.3127659574468085,
+    "p_adjusted": 0.0,
+    "diff": 0.19787234042553192,
+    "ci_low": -0.25519351682400476,
+    "ci_high": -0.14444324712643677,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "32d691ac4a",
+   "slug": "wer-synth-a-beats-synth-f-audio-condition-no-music",
+   "text": "synth-a beats synth-f on wer on clips without music: 9.6 points fewer errors (95% CI 7.1 to 12.2) on the 85 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "no_music",
+     "provider_a": "synth-a",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.17253521126760563,
+    "loser_error_rate_slice": 0.26848591549295775,
+    "p_adjusted": 0.0,
+    "diff": 0.09595070422535212,
+    "ci_low": -0.12218901195118427,
+    "ci_high": -0.07105263157894737,
+    "p_value": 0.0,
+    "n_clips": 85
+   }
+  },
+  {
+   "id": "c20509bdd6",
+   "slug": "wer-synth-a-beats-synth-f-category-comedy-skit",
+   "text": "synth-a beats synth-f on wer on comedy skit clips: 16.5 points fewer errors (95% CI 11.0 to 22.2) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "comedy_skit",
+     "provider_a": "synth-a",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.08646616541353383,
+    "loser_error_rate_slice": 0.2518796992481203,
+    "p_adjusted": 0.0,
+    "diff": 0.16541353383458648,
+    "ci_low": -0.22223236009732358,
+    "ci_high": -0.10979467258601555,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "103df0bd9f",
+   "slug": "wer-synth-a-beats-synth-f-category-cooking-tutorial",
+   "text": "synth-a beats synth-f on wer on cooking tutorial clips: 12.2 points fewer errors (95% CI 6.9 to 18.3) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "cooking_tutorial",
+     "provider_a": "synth-a",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.09923664122137404,
+    "loser_error_rate_slice": 0.22137404580152673,
+    "p_adjusted": 0.0,
+    "diff": 0.12213740458015268,
+    "ci_low": -0.1825660342261905,
+    "ci_high": -0.06916577776621487,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "c629245b0e",
+   "slug": "wer-synth-a-beats-synth-f-category-gaming",
+   "text": "synth-a beats synth-f on wer on gaming clips: 11.4 points fewer errors (95% CI 6.9 to 16.0) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "gaming",
+     "provider_a": "synth-a",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.09225092250922509,
+    "loser_error_rate_slice": 0.2066420664206642,
+    "p_adjusted": 0.0,
+    "diff": 0.11439114391143912,
+    "ci_low": -0.16000763358778625,
+    "ci_high": -0.06922101449275364,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "0b09322473",
+   "slug": "wer-synth-a-beats-synth-f-category-news-explainer",
+   "text": "synth-a beats synth-f on wer on news explainer clips: 11.3 points fewer errors (95% CI 3.7 to 18.4) on the 20 clips both scored (adjusted p=0.0155).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "news_explainer",
+     "provider_a": "synth-a",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.2518796992481203,
+    "loser_error_rate_slice": 0.36466165413533835,
+    "p_adjusted": 0.015483870967741935,
+    "diff": 0.11278195488721804,
+    "ci_low": -0.18422482837528606,
+    "ci_high": -0.037269925078166545,
+    "p_value": 0.008,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "ed4165c2c4",
+   "slug": "wer-synth-a-beats-synth-f-category-talking-head",
+   "text": "synth-a beats synth-f on wer on talking head clips: 12.0 points fewer errors (95% CI 6.0 to 18.2) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "talking_head",
+     "provider_a": "synth-a",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.1978798586572438,
+    "loser_error_rate_slice": 0.31802120141342755,
+    "p_adjusted": 0.0,
+    "diff": 0.12014134275618374,
+    "ci_low": -0.18249846260795163,
+    "ci_high": -0.06007067137809191,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "911ba84966",
+   "slug": "wer-synth-a-beats-synth-f-category-vlog-music",
+   "text": "synth-a beats synth-f on wer on vlog music clips: 12.0 points fewer errors (95% CI 5.8 to 18.5) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "vlog_music",
+     "provider_a": "synth-a",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.2054263565891473,
+    "loser_error_rate_slice": 0.32558139534883723,
+    "p_adjusted": 0.0,
+    "diff": 0.12015503875968994,
+    "ci_low": -0.18506214615735014,
+    "ci_high": -0.05784174028688139,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "f3f045d93c",
+   "slug": "wer-synth-a-beats-synth-f-tag-background-music",
+   "text": "synth-a beats synth-f on wer on clips tagged background music: 19.8 points fewer errors (95% CI 14.4 to 25.5) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "tag",
+     "slice": "background_music",
+     "provider_a": "synth-a",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.1148936170212766,
+    "loser_error_rate_slice": 0.3127659574468085,
+    "p_adjusted": 0.0,
+    "diff": 0.19787234042553192,
+    "ci_low": -0.25519351682400476,
+    "ci_high": -0.14444324712643677,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "554ac5d292",
+   "slug": "wer-synth-b-beats-synth-e",
+   "text": "synth-b beats synth-e on wer on all clips: 3.5 points fewer errors (95% CI 0.7 to 6.0) on the 118 clips both scored (adjusted p=0.0155).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider_a": "synth-b",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.20266836086404066,
+    "loser_error_rate_slice": 0.23412204234122042,
+    "p_adjusted": 0.015483870967741935,
+    "diff": 0.03494282083862771,
+    "ci_low": -0.06005318566080566,
+    "ci_high": -0.006974061565099065,
+    "p_value": 0.008,
+    "n_clips": 118
+   }
+  },
+  {
+   "id": "53a2643b44",
+   "slug": "wer-synth-b-beats-synth-e-audio-condition-music",
+   "text": "synth-b beats synth-e on wer on clips with music under the speech: 8.7 points fewer errors (95% CI 5.0 to 12.8) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider_a": "synth-b",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.15319148936170213,
+    "loser_error_rate_slice": 0.2404255319148936,
+    "p_adjusted": 0.0,
+    "diff": 0.08723404255319148,
+    "ci_low": -0.12758784425451092,
+    "ci_high": -0.04978961849027184,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "f3765eab96",
+   "slug": "wer-synth-b-beats-synth-e-tag-background-music",
+   "text": "synth-b beats synth-e on wer on clips tagged background music: 8.7 points fewer errors (95% CI 5.0 to 12.8) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "tag",
+     "slice": "background_music",
+     "provider_a": "synth-b",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.15319148936170213,
+    "loser_error_rate_slice": 0.2404255319148936,
+    "p_adjusted": 0.0,
+    "diff": 0.08723404255319148,
+    "ci_low": -0.12758784425451092,
+    "ci_high": -0.04978961849027184,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "21bad3f5c7",
+   "slug": "wer-synth-b-beats-synth-f",
+   "text": "synth-b beats synth-f on wer on all clips: 8.1 points fewer errors (95% CI 5.1 to 11.1) on the 118 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider_a": "synth-b",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.20266836086404066,
+    "loser_error_rate_slice": 0.28144458281444584,
+    "p_adjusted": 0.0,
+    "diff": 0.08132147395171535,
+    "ci_low": -0.11111288604898825,
+    "ci_high": -0.050911640197597384,
+    "p_value": 0.0,
+    "n_clips": 118
+   }
+  },
+  {
+   "id": "12d1b56154",
+   "slug": "wer-synth-b-beats-synth-f-audio-condition-music",
+   "text": "synth-b beats synth-f on wer on clips with music under the speech: 16.0 points fewer errors (95% CI 9.7 to 22.0) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider_a": "synth-b",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.15319148936170213,
+    "loser_error_rate_slice": 0.3127659574468085,
+    "p_adjusted": 0.0,
+    "diff": 0.1595744680851064,
+    "ci_low": -0.22035037197024235,
+    "ci_high": -0.09724486494860395,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "48c5468354",
+   "slug": "wer-synth-b-beats-synth-f-audio-condition-no-music",
+   "text": "synth-b beats synth-f on wer on clips without music: 4.8 points fewer errors (95% CI 1.9 to 7.8) on the 83 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "no_music",
+     "provider_a": "synth-b",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.223731884057971,
+    "loser_error_rate_slice": 0.26848591549295775,
+    "p_adjusted": 0.0,
+    "diff": 0.048007246376811585,
+    "ci_low": -0.07838496002705121,
+    "ci_high": -0.018531004752956815,
+    "p_value": 0.0,
+    "n_clips": 83
+   }
+  },
+  {
+   "id": "78193d6df6",
+   "slug": "wer-synth-b-beats-synth-f-category-cooking-tutorial",
+   "text": "synth-b beats synth-f on wer on cooking tutorial clips: 10.3 points fewer errors (95% CI 3.9 to 16.6) on the 20 clips both scored (adjusted p=0.00456).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "cooking_tutorial",
+     "provider_a": "synth-b",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.1183206106870229,
+    "loser_error_rate_slice": 0.22137404580152673,
+    "p_adjusted": 0.004556962025316456,
+    "diff": 0.10305343511450382,
+    "ci_low": -0.16602316602316602,
+    "ci_high": -0.0389067354387235,
+    "p_value": 0.002,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "baf6a690da",
+   "slug": "wer-synth-b-beats-synth-f-category-gaming",
+   "text": "synth-b beats synth-f on wer on gaming clips: 6.3 points fewer errors (95% CI 1.5 to 10.9) on the 20 clips both scored (adjusted p=0.022).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "gaming",
+     "provider_a": "synth-b",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.14391143911439114,
+    "loser_error_rate_slice": 0.2066420664206642,
+    "p_adjusted": 0.022040816326530613,
+    "diff": 0.06273062730627307,
+    "ci_low": -0.10861996483986855,
+    "ci_high": -0.014922609176340524,
+    "p_value": 0.012,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "407cd2bc6b",
+   "slug": "wer-synth-b-beats-synth-f-category-news-explainer",
+   "text": "synth-b beats synth-f on wer on news explainer clips: 12.0 points fewer errors (95% CI 5.8 to 18.0) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "news_explainer",
+     "provider_a": "synth-b",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.24436090225563908,
+    "loser_error_rate_slice": 0.36466165413533835,
+    "p_adjusted": 0.0,
+    "diff": 0.12030075187969927,
+    "ci_low": -0.18045248500312153,
+    "ci_high": -0.05769230769230771,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "ffd611e07c",
+   "slug": "wer-synth-b-beats-synth-f-category-vlog-music",
+   "text": "synth-b beats synth-f on wer on vlog music clips: 7.5 points fewer errors (95% CI 1.7 to 14.2) on the 19 clips both scored (adjusted p=0.022).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "vlog_music",
+     "provider_a": "synth-b",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.25311203319502074,
+    "loser_error_rate_slice": 0.32558139534883723,
+    "p_adjusted": 0.022040816326530613,
+    "diff": 0.07468879668049794,
+    "ci_low": -0.14224183018323475,
+    "ci_high": -0.0165272251130837,
+    "p_value": 0.012,
+    "n_clips": 19
+   }
+  },
+  {
+   "id": "fadb8a75cd",
+   "slug": "wer-synth-b-beats-synth-f-tag-background-music",
+   "text": "synth-b beats synth-f on wer on clips tagged background music: 16.0 points fewer errors (95% CI 9.7 to 22.0) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "tag",
+     "slice": "background_music",
+     "provider_a": "synth-b",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.15319148936170213,
+    "loser_error_rate_slice": 0.3127659574468085,
+    "p_adjusted": 0.0,
+    "diff": 0.1595744680851064,
+    "ci_low": -0.22035037197024235,
+    "ci_high": -0.09724486494860395,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "f34f238026",
+   "slug": "wer-synth-c-beats-synth-a-audio-condition-music",
+   "text": "synth-c beats synth-a on wer on clips with music under the speech: 3.8 points fewer errors (95% CI 0.9 to 6.8) on the 35 clips both scored (adjusted p=0.00818).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider_a": "synth-a",
+     "provider_b": "synth-c"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.07659574468085106,
+    "loser_error_rate_slice": 0.1148936170212766,
+    "p_adjusted": 0.00818181818181818,
+    "diff": 0.03829787234042553,
+    "ci_low": 0.008676789587852493,
+    "ci_high": 0.06790824915824915,
+    "p_value": 0.004,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "a56f5052e2",
+   "slug": "wer-synth-c-beats-synth-a-category-news-explainer",
+   "text": "synth-c beats synth-a on wer on news explainer clips: 4.5 points fewer errors (95% CI 1.1 to 8.6) on the 20 clips both scored (adjusted p=0.0381).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "news_explainer",
+     "provider_a": "synth-a",
+     "provider_b": "synth-c"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.20676691729323307,
+    "loser_error_rate_slice": 0.2518796992481203,
+    "p_adjusted": 0.03807692307692308,
+    "diff": 0.04511278195488724,
+    "ci_low": 0.011317586595325259,
+    "ci_high": 0.08560589216231242,
+    "p_value": 0.022,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "5d2d61be95",
+   "slug": "wer-synth-c-beats-synth-a-category-talking-head",
+   "text": "synth-c beats synth-a on wer on talking head clips: 2.8 points fewer errors (95% CI 1.0 to 5.1) on the 20 clips both scored (adjusted p=0.0155).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "talking_head",
+     "provider_a": "synth-a",
+     "provider_b": "synth-c"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.1696113074204947,
+    "loser_error_rate_slice": 0.1978798586572438,
+    "p_adjusted": 0.015483870967741935,
+    "diff": 0.028268551236749095,
+    "ci_low": 0.01013428200928199,
+    "ci_high": 0.050724637681159424,
+    "p_value": 0.008,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "cf2652f736",
+   "slug": "wer-synth-c-beats-synth-a-tag-background-music",
+   "text": "synth-c beats synth-a on wer on clips tagged background music: 3.8 points fewer errors (95% CI 0.9 to 6.8) on the 35 clips both scored (adjusted p=0.00818).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "tag",
+     "slice": "background_music",
+     "provider_a": "synth-a",
+     "provider_b": "synth-c"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.07659574468085106,
+    "loser_error_rate_slice": 0.1148936170212766,
+    "p_adjusted": 0.00818181818181818,
+    "diff": 0.03829787234042553,
+    "ci_low": 0.008676789587852493,
+    "ci_high": 0.06790824915824915,
+    "p_value": 0.004,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "60ef7b3783",
+   "slug": "wer-synth-c-beats-synth-b",
+   "text": "synth-c beats synth-b on wer on all clips: 5.8 points fewer errors (95% CI 3.1 to 8.3) on the 118 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider_a": "synth-b",
+     "provider_b": "synth-c"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.14196762141967623,
+    "loser_error_rate_slice": 0.20266836086404066,
+    "p_adjusted": 0.0,
+    "diff": 0.05781448538754766,
+    "ci_low": 0.031197690624350547,
+    "ci_high": 0.08285072583193412,
+    "p_value": 0.0,
+    "n_clips": 118
+   }
+  },
+  {
+   "id": "4cf4459c5b",
+   "slug": "wer-synth-c-beats-synth-b-audio-condition-music",
+   "text": "synth-c beats synth-b on wer on clips with music under the speech: 7.7 points fewer errors (95% CI 3.8 to 11.2) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider_a": "synth-b",
+     "provider_b": "synth-c"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.07659574468085106,
+    "loser_error_rate_slice": 0.15319148936170213,
+    "p_adjusted": 0.0,
+    "diff": 0.07659574468085106,
+    "ci_low": 0.03845948827292112,
+    "ci_high": 0.11226723483742923,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "121090b9e3",
+   "slug": "wer-synth-c-beats-synth-b-audio-condition-no-music",
+   "text": "synth-c beats synth-b on wer on clips without music: 5.0 points fewer errors (95% CI 2.0 to 8.1) on the 83 clips both scored (adjusted p=0.00818).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "no_music",
+     "provider_a": "synth-b",
+     "provider_b": "synth-c"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.16901408450704225,
+    "loser_error_rate_slice": 0.223731884057971,
+    "p_adjusted": 0.00818181818181818,
+    "diff": 0.049818840579710144,
+    "ci_low": 0.019674501218555074,
+    "ci_high": 0.08053202319740771,
+    "p_value": 0.004,
+    "n_clips": 83
+   }
+  },
+  {
+   "id": "13f73019a4",
+   "slug": "wer-synth-c-beats-synth-b-category-comedy-skit",
+   "text": "synth-c beats synth-b on wer on comedy skit clips: 11.7 points fewer errors (95% CI 7.0 to 16.3) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "comedy_skit",
+     "provider_a": "synth-b",
+     "provider_b": "synth-c"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.06766917293233082,
+    "loser_error_rate_slice": 0.18421052631578946,
+    "p_adjusted": 0.0,
+    "diff": 0.11654135338345864,
+    "ci_low": 0.07037037037037036,
+    "ci_high": 0.16297810821974387,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "1714b6bc05",
+   "slug": "wer-synth-c-beats-synth-b-category-gaming",
+   "text": "synth-c beats synth-b on wer on gaming clips: 5.9 points fewer errors (95% CI 1.4 to 10.9) on the 20 clips both scored (adjusted p=0.00818).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "gaming",
+     "provider_a": "synth-b",
+     "provider_b": "synth-c"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.08487084870848709,
+    "loser_error_rate_slice": 0.14391143911439114,
+    "p_adjusted": 0.00818181818181818,
+    "diff": 0.05904059040590405,
+    "ci_low": 0.013735632183908048,
+    "ci_high": 0.10852713178294573,
+    "p_value": 0.004,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "b356b852c9",
+   "slug": "wer-synth-c-beats-synth-b-tag-background-music",
+   "text": "synth-c beats synth-b on wer on clips tagged background music: 7.7 points fewer errors (95% CI 3.8 to 11.2) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "tag",
+     "slice": "background_music",
+     "provider_a": "synth-b",
+     "provider_b": "synth-c"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.07659574468085106,
+    "loser_error_rate_slice": 0.15319148936170213,
+    "p_adjusted": 0.0,
+    "diff": 0.07659574468085106,
+    "ci_low": 0.03845948827292112,
+    "ci_high": 0.11226723483742923,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "8e70718195",
+   "slug": "wer-synth-c-beats-synth-d",
+   "text": "synth-c beats synth-d on wer on all clips: 4.0 points fewer errors (95% CI 2.3 to 5.9) on the 120 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider_a": "synth-c",
+     "provider_b": "synth-d"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.14196762141967623,
+    "loser_error_rate_slice": 0.18244084682440848,
+    "p_adjusted": 0.0,
+    "diff": 0.04047322540473225,
+    "ci_low": -0.058751662370499294,
+    "ci_high": -0.023371868955796505,
+    "p_value": 0.0,
+    "n_clips": 120
+   }
+  },
+  {
+   "id": "7fee3e18ba",
+   "slug": "wer-synth-c-beats-synth-d-audio-condition-music",
+   "text": "synth-c beats synth-d on wer on clips with music under the speech: 6.0 points fewer errors (95% CI 2.3 to 9.2) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider_a": "synth-c",
+     "provider_b": "synth-d"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.07659574468085106,
+    "loser_error_rate_slice": 0.13617021276595745,
+    "p_adjusted": 0.0,
+    "diff": 0.059574468085106386,
+    "ci_low": -0.0922471685198817,
+    "ci_high": -0.022513783184514892,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "80a7b89a36",
+   "slug": "wer-synth-c-beats-synth-d-audio-condition-no-music",
+   "text": "synth-c beats synth-d on wer on clips without music: 3.3 points fewer errors (95% CI 1.4 to 5.0) on the 85 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "no_music",
+     "provider_a": "synth-c",
+     "provider_b": "synth-d"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.16901408450704225,
+    "loser_error_rate_slice": 0.20158450704225353,
+    "p_adjusted": 0.0,
+    "diff": 0.03257042253521128,
+    "ci_low": -0.05005303906328987,
+    "ci_high": -0.013788875317109841,
+    "p_value": 0.0,
+    "n_clips": 85
+   }
+  },
+  {
+   "id": "6657b3fd2f",
+   "slug": "wer-synth-c-beats-synth-d-category-cooking-tutorial",
+   "text": "synth-c beats synth-d on wer on cooking tutorial clips: 5.3 points fewer errors (95% CI 1.1 to 9.3) on the 20 clips both scored (adjusted p=0.0324).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "cooking_tutorial",
+     "provider_a": "synth-c",
+     "provider_b": "synth-d"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.08778625954198473,
+    "loser_error_rate_slice": 0.14122137404580154,
+    "p_adjusted": 0.0324,
+    "diff": 0.053435114503816813,
+    "ci_low": -0.09293896429497708,
+    "ci_high": -0.01107521885118126,
+    "p_value": 0.018,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "a649b940c0",
+   "slug": "wer-synth-c-beats-synth-d-category-news-explainer",
+   "text": "synth-c beats synth-d on wer on news explainer clips: 2.6 points fewer errors (95% CI 0.8 to 4.9) on the 20 clips both scored (adjusted p=0.00818).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "news_explainer",
+     "provider_a": "synth-c",
+     "provider_b": "synth-d"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.20676691729323307,
+    "loser_error_rate_slice": 0.23308270676691728,
+    "p_adjusted": 0.00818181818181818,
+    "diff": 0.02631578947368421,
+    "ci_low": -0.04869832520669918,
+    "ci_high": -0.007547169811320753,
+    "p_value": 0.004,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "63a40d0b22",
+   "slug": "wer-synth-c-beats-synth-d-category-talking-head",
+   "text": "synth-c beats synth-d on wer on talking head clips: 9.2 points fewer errors (95% CI 5.9 to 12.8) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "talking_head",
+     "provider_a": "synth-c",
+     "provider_b": "synth-d"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.1696113074204947,
+    "loser_error_rate_slice": 0.26148409893992935,
+    "p_adjusted": 0.0,
+    "diff": 0.09187279151943464,
+    "ci_low": -0.1276635738281875,
+    "ci_high": -0.05947340129269591,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "e4c6050172",
+   "slug": "wer-synth-c-beats-synth-d-tag-background-music",
+   "text": "synth-c beats synth-d on wer on clips tagged background music: 6.0 points fewer errors (95% CI 2.3 to 9.2) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "tag",
+     "slice": "background_music",
+     "provider_a": "synth-c",
+     "provider_b": "synth-d"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.07659574468085106,
+    "loser_error_rate_slice": 0.13617021276595745,
+    "p_adjusted": 0.0,
+    "diff": 0.059574468085106386,
+    "ci_low": -0.0922471685198817,
+    "ci_high": -0.022513783184514892,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "76ca25af8d",
+   "slug": "wer-synth-c-beats-synth-e",
+   "text": "synth-c beats synth-e on wer on all clips: 9.2 points fewer errors (95% CI 7.2 to 11.2) on the 120 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider_a": "synth-c",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.14196762141967623,
+    "loser_error_rate_slice": 0.23412204234122042,
+    "p_adjusted": 0.0,
+    "diff": 0.09215442092154419,
+    "ci_low": -0.11242626665104105,
+    "ci_high": -0.07156196613004984,
+    "p_value": 0.0,
+    "n_clips": 120
+   }
+  },
+  {
+   "id": "a9cc0ffc3c",
+   "slug": "wer-synth-c-beats-synth-e-audio-condition-music",
+   "text": "synth-c beats synth-e on wer on clips with music under the speech: 16.4 points fewer errors (95% CI 12.8 to 19.8) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider_a": "synth-c",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.07659574468085106,
+    "loser_error_rate_slice": 0.2404255319148936,
+    "p_adjusted": 0.0,
+    "diff": 0.16382978723404254,
+    "ci_low": -0.19830377441082195,
+    "ci_high": -0.12846030664553154,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "bc77d64a14",
+   "slug": "wer-synth-c-beats-synth-e-audio-condition-no-music",
+   "text": "synth-c beats synth-e on wer on clips without music: 6.2 points fewer errors (95% CI 3.9 to 8.8) on the 85 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "no_music",
+     "provider_a": "synth-c",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.16901408450704225,
+    "loser_error_rate_slice": 0.23151408450704225,
+    "p_adjusted": 0.0,
+    "diff": 0.0625,
+    "ci_low": -0.0875339694425992,
+    "ci_high": -0.03913936460473552,
+    "p_value": 0.0,
+    "n_clips": 85
+   }
+  },
+  {
+   "id": "7814da7fbf",
+   "slug": "wer-synth-c-beats-synth-e-category-comedy-skit",
+   "text": "synth-c beats synth-e on wer on comedy skit clips: 16.2 points fewer errors (95% CI 12.5 to 19.9) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "comedy_skit",
+     "provider_a": "synth-c",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.06766917293233082,
+    "loser_error_rate_slice": 0.22932330827067668,
+    "p_adjusted": 0.0,
+    "diff": 0.16165413533834586,
+    "ci_low": -0.1992488013512041,
+    "ci_high": -0.12451322800931351,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "c5e277e72c",
+   "slug": "wer-synth-c-beats-synth-e-category-cooking-tutorial",
+   "text": "synth-c beats synth-e on wer on cooking tutorial clips: 7.3 points fewer errors (95% CI 2.8 to 11.2) on the 20 clips both scored (adjusted p=0.00456).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "cooking_tutorial",
+     "provider_a": "synth-c",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.08778625954198473,
+    "loser_error_rate_slice": 0.16030534351145037,
+    "p_adjusted": 0.004556962025316456,
+    "diff": 0.07251908396946564,
+    "ci_low": -0.11154850746268657,
+    "ci_high": -0.027559055118110243,
+    "p_value": 0.002,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "77c34be232",
+   "slug": "wer-synth-c-beats-synth-e-category-gaming",
+   "text": "synth-c beats synth-e on wer on gaming clips: 8.5 points fewer errors (95% CI 2.6 to 14.9) on the 20 clips both scored (adjusted p=0.0121).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "gaming",
+     "provider_a": "synth-c",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.08487084870848709,
+    "loser_error_rate_slice": 0.16974169741697417,
+    "p_adjusted": 0.012134831460674157,
+    "diff": 0.08487084870848709,
+    "ci_low": -0.14926770641176143,
+    "ci_high": -0.026019895360044062,
+    "p_value": 0.006,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "d4037ed352",
+   "slug": "wer-synth-c-beats-synth-e-category-news-explainer",
+   "text": "synth-c beats synth-e on wer on news explainer clips: 8.3 points fewer errors (95% CI 3.7 to 13.0) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "news_explainer",
+     "provider_a": "synth-c",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.20676691729323307,
+    "loser_error_rate_slice": 0.2894736842105263,
+    "p_adjusted": 0.0,
+    "diff": 0.08270676691729326,
+    "ci_low": -0.12996389891696752,
+    "ci_high": -0.037303106240017626,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "aede8ac503",
+   "slug": "wer-synth-c-beats-synth-e-category-talking-head",
+   "text": "synth-c beats synth-e on wer on talking head clips: 11.3 points fewer errors (95% CI 7.5 to 15.2) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "talking_head",
+     "provider_a": "synth-c",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.1696113074204947,
+    "loser_error_rate_slice": 0.2826855123674912,
+    "p_adjusted": 0.0,
+    "diff": 0.11307420494699646,
+    "ci_low": -0.15188117833135623,
+    "ci_high": -0.07472917546293502,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "19dd1fdd3c",
+   "slug": "wer-synth-c-beats-synth-e-tag-background-music",
+   "text": "synth-c beats synth-e on wer on clips tagged background music: 16.4 points fewer errors (95% CI 12.8 to 19.8) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "tag",
+     "slice": "background_music",
+     "provider_a": "synth-c",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.07659574468085106,
+    "loser_error_rate_slice": 0.2404255319148936,
+    "p_adjusted": 0.0,
+    "diff": 0.16382978723404254,
+    "ci_low": -0.19830377441082195,
+    "ci_high": -0.12846030664553154,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "83bef0e1a3",
+   "slug": "wer-synth-c-beats-synth-f",
+   "text": "synth-c beats synth-f on wer on all clips: 13.9 points fewer errors (95% CI 11.1 to 16.9) on the 120 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider_a": "synth-c",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.14196762141967623,
+    "loser_error_rate_slice": 0.28144458281444584,
+    "p_adjusted": 0.0,
+    "diff": 0.13947696139476962,
+    "ci_low": -0.16862667501565434,
+    "ci_high": -0.11137545347136871,
+    "p_value": 0.0,
+    "n_clips": 120
+   }
+  },
+  {
+   "id": "12a4175e98",
+   "slug": "wer-synth-c-beats-synth-f-audio-condition-music",
+   "text": "synth-c beats synth-f on wer on clips with music under the speech: 23.6 points fewer errors (95% CI 17.7 to 29.7) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider_a": "synth-c",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.07659574468085106,
+    "loser_error_rate_slice": 0.3127659574468085,
+    "p_adjusted": 0.0,
+    "diff": 0.23617021276595745,
+    "ci_low": -0.29684463341760514,
+    "ci_high": -0.17691775637512075,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "5df2628df7",
+   "slug": "wer-synth-c-beats-synth-f-audio-condition-no-music",
+   "text": "synth-c beats synth-f on wer on clips without music: 9.9 points fewer errors (95% CI 7.2 to 12.9) on the 85 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "no_music",
+     "provider_a": "synth-c",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.16901408450704225,
+    "loser_error_rate_slice": 0.26848591549295775,
+    "p_adjusted": 0.0,
+    "diff": 0.0994718309859155,
+    "ci_low": -0.12890125301457478,
+    "ci_high": -0.07198029387460583,
+    "p_value": 0.0,
+    "n_clips": 85
+   }
+  },
+  {
+   "id": "2101524e5b",
+   "slug": "wer-synth-c-beats-synth-f-category-comedy-skit",
+   "text": "synth-c beats synth-f on wer on comedy skit clips: 18.4 points fewer errors (95% CI 12.5 to 24.8) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "comedy_skit",
+     "provider_a": "synth-c",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.06766917293233082,
+    "loser_error_rate_slice": 0.2518796992481203,
+    "p_adjusted": 0.0,
+    "diff": 0.1842105263157895,
+    "ci_low": -0.24815011820330968,
+    "ci_high": -0.12498744979919679,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "13fc47d973",
+   "slug": "wer-synth-c-beats-synth-f-category-cooking-tutorial",
+   "text": "synth-c beats synth-f on wer on cooking tutorial clips: 13.4 points fewer errors (95% CI 7.7 to 19.2) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "cooking_tutorial",
+     "provider_a": "synth-c",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.08778625954198473,
+    "loser_error_rate_slice": 0.22137404580152673,
+    "p_adjusted": 0.0,
+    "diff": 0.13358778625954199,
+    "ci_low": -0.19217577582213985,
+    "ci_high": -0.07722007722007723,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "7824a2ae2e",
+   "slug": "wer-synth-c-beats-synth-f-category-gaming",
+   "text": "synth-c beats synth-f on wer on gaming clips: 12.2 points fewer errors (95% CI 6.4 to 18.2) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "gaming",
+     "provider_a": "synth-c",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.08487084870848709,
+    "loser_error_rate_slice": 0.2066420664206642,
+    "p_adjusted": 0.0,
+    "diff": 0.12177121771217712,
+    "ci_low": -0.18181818181818182,
+    "ci_high": -0.06437419691615806,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "63ab9f7d28",
+   "slug": "wer-synth-c-beats-synth-f-category-news-explainer",
+   "text": "synth-c beats synth-f on wer on news explainer clips: 15.8 points fewer errors (95% CI 7.7 to 23.4) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "news_explainer",
+     "provider_a": "synth-c",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.20676691729323307,
+    "loser_error_rate_slice": 0.36466165413533835,
+    "p_adjusted": 0.0,
+    "diff": 0.15789473684210528,
+    "ci_low": -0.23445910973084885,
+    "ci_high": -0.07657727989328167,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "75c3a077dd",
+   "slug": "wer-synth-c-beats-synth-f-category-talking-head",
+   "text": "synth-c beats synth-f on wer on talking head clips: 14.8 points fewer errors (95% CI 8.2 to 22.2) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "talking_head",
+     "provider_a": "synth-c",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.1696113074204947,
+    "loser_error_rate_slice": 0.31802120141342755,
+    "p_adjusted": 0.0,
+    "diff": 0.14840989399293283,
+    "ci_low": -0.22182828282828282,
+    "ci_high": -0.08218324964656562,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "82fc30b789",
+   "slug": "wer-synth-c-beats-synth-f-category-vlog-music",
+   "text": "synth-c beats synth-f on wer on vlog music clips: 8.9 points fewer errors (95% CI 1.2 to 16.2) on the 20 clips both scored (adjusted p=0.0411).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "vlog_music",
+     "provider_a": "synth-c",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.2364341085271318,
+    "loser_error_rate_slice": 0.32558139534883723,
+    "p_adjusted": 0.04114285714285715,
+    "diff": 0.08914728682170545,
+    "ci_low": -0.16236762367623678,
+    "ci_high": -0.012186686590186077,
+    "p_value": 0.024,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "4c58bd390f",
+   "slug": "wer-synth-c-beats-synth-f-tag-background-music",
+   "text": "synth-c beats synth-f on wer on clips tagged background music: 23.6 points fewer errors (95% CI 17.7 to 29.7) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "tag",
+     "slice": "background_music",
+     "provider_a": "synth-c",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.07659574468085106,
+    "loser_error_rate_slice": 0.3127659574468085,
+    "p_adjusted": 0.0,
+    "diff": 0.23617021276595745,
+    "ci_low": -0.29684463341760514,
+    "ci_high": -0.17691775637512075,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "817f939a72",
+   "slug": "wer-synth-d-beats-synth-e",
+   "text": "synth-d beats synth-e on wer on all clips: 5.2 points fewer errors (95% CI 3.1 to 7.3) on the 120 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider_a": "synth-d",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.18244084682440848,
+    "loser_error_rate_slice": 0.23412204234122042,
+    "p_adjusted": 0.0,
+    "diff": 0.05168119551681194,
+    "ci_low": -0.07273528738264254,
+    "ci_high": -0.031067734327647638,
+    "p_value": 0.0,
+    "n_clips": 120
+   }
+  },
+  {
+   "id": "98959bc216",
+   "slug": "wer-synth-d-beats-synth-e-audio-condition-music",
+   "text": "synth-d beats synth-e on wer on clips with music under the speech: 10.4 points fewer errors (95% CI 5.8 to 15.2) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider_a": "synth-d",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.13617021276595745,
+    "loser_error_rate_slice": 0.2404255319148936,
+    "p_adjusted": 0.0,
+    "diff": 0.10425531914893615,
+    "ci_low": -0.15232630545625037,
+    "ci_high": -0.05842901733459674,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "f75486a896",
+   "slug": "wer-synth-d-beats-synth-e-audio-condition-no-music",
+   "text": "synth-d beats synth-e on wer on clips without music: 3.0 points fewer errors (95% CI 0.9 to 5.1) on the 85 clips both scored (adjusted p=0.00818).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "no_music",
+     "provider_a": "synth-d",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.20158450704225353,
+    "loser_error_rate_slice": 0.23151408450704225,
+    "p_adjusted": 0.00818181818181818,
+    "diff": 0.02992957746478872,
+    "ci_low": -0.05142344241544277,
+    "ci_high": -0.00874588691944138,
+    "p_value": 0.004,
+    "n_clips": 85
+   }
+  },
+  {
+   "id": "a6f508f982",
+   "slug": "wer-synth-d-beats-synth-e-category-comedy-skit",
+   "text": "synth-d beats synth-e on wer on comedy skit clips: 10.5 points fewer errors (95% CI 5.7 to 16.0) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "comedy_skit",
+     "provider_a": "synth-d",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.12406015037593984,
+    "loser_error_rate_slice": 0.22932330827067668,
+    "p_adjusted": 0.0,
+    "diff": 0.10526315789473684,
+    "ci_low": -0.1601684080070281,
+    "ci_high": -0.057454937304075235,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "90400d3166",
+   "slug": "wer-synth-d-beats-synth-e-category-gaming",
+   "text": "synth-d beats synth-e on wer on gaming clips: 7.4 points fewer errors (95% CI 1.5 to 14.5) on the 20 clips both scored (adjusted p=0.0189).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "gaming",
+     "provider_a": "synth-d",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.0959409594095941,
+    "loser_error_rate_slice": 0.16974169741697417,
+    "p_adjusted": 0.018947368421052633,
+    "diff": 0.07380073800738007,
+    "ci_low": -0.1445439229484733,
+    "ci_high": -0.014793416854491764,
+    "p_value": 0.01,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "037b534b7f",
+   "slug": "wer-synth-d-beats-synth-e-category-news-explainer",
+   "text": "synth-d beats synth-e on wer on news explainer clips: 5.6 points fewer errors (95% CI 0.7 to 10.8) on the 20 clips both scored (adjusted p=0.0324).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "news_explainer",
+     "provider_a": "synth-d",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.23308270676691728,
+    "loser_error_rate_slice": 0.2894736842105263,
+    "p_adjusted": 0.0324,
+    "diff": 0.05639097744360905,
+    "ci_low": -0.10832123177981053,
+    "ci_high": -0.007490636704119867,
+    "p_value": 0.018,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "bf8acd2e5c",
+   "slug": "wer-synth-d-beats-synth-e-tag-background-music",
+   "text": "synth-d beats synth-e on wer on clips tagged background music: 10.4 points fewer errors (95% CI 5.8 to 15.2) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "tag",
+     "slice": "background_music",
+     "provider_a": "synth-d",
+     "provider_b": "synth-e"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.13617021276595745,
+    "loser_error_rate_slice": 0.2404255319148936,
+    "p_adjusted": 0.0,
+    "diff": 0.10425531914893615,
+    "ci_low": -0.15232630545625037,
+    "ci_high": -0.05842901733459674,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "9fe518d74b",
+   "slug": "wer-synth-d-beats-synth-f",
+   "text": "synth-d beats synth-f on wer on all clips: 9.9 points fewer errors (95% CI 7.2 to 12.5) on the 120 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider_a": "synth-d",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.18244084682440848,
+    "loser_error_rate_slice": 0.28144458281444584,
+    "p_adjusted": 0.0,
+    "diff": 0.09900373599003737,
+    "ci_low": -0.12485324836877437,
+    "ci_high": -0.07213205781867163,
+    "p_value": 0.0,
+    "n_clips": 120
+   }
+  },
+  {
+   "id": "bd0634fdbb",
+   "slug": "wer-synth-d-beats-synth-f-audio-condition-music",
+   "text": "synth-d beats synth-f on wer on clips with music under the speech: 17.7 points fewer errors (95% CI 12.5 to 23.2) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider_a": "synth-d",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.13617021276595745,
+    "loser_error_rate_slice": 0.3127659574468085,
+    "p_adjusted": 0.0,
+    "diff": 0.17659574468085107,
+    "ci_low": -0.23199898724227586,
+    "ci_high": -0.12496610629067245,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "f24007f748",
+   "slug": "wer-synth-d-beats-synth-f-audio-condition-no-music",
+   "text": "synth-d beats synth-f on wer on clips without music: 6.7 points fewer errors (95% CI 3.9 to 9.6) on the 85 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "no_music",
+     "provider_a": "synth-d",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.20158450704225353,
+    "loser_error_rate_slice": 0.26848591549295775,
+    "p_adjusted": 0.0,
+    "diff": 0.06690140845070422,
+    "ci_low": -0.09588758068330001,
+    "ci_high": -0.03929693925799954,
+    "p_value": 0.0,
+    "n_clips": 85
+   }
+  },
+  {
+   "id": "f3c39a8108",
+   "slug": "wer-synth-d-beats-synth-f-category-comedy-skit",
+   "text": "synth-d beats synth-f on wer on comedy skit clips: 12.8 points fewer errors (95% CI 7.4 to 18.5) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "comedy_skit",
+     "provider_a": "synth-d",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.12406015037593984,
+    "loser_error_rate_slice": 0.2518796992481203,
+    "p_adjusted": 0.0,
+    "diff": 0.12781954887218047,
+    "ci_low": -0.18452945040814045,
+    "ci_high": -0.07446185172872341,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "97be961555",
+   "slug": "wer-synth-d-beats-synth-f-category-cooking-tutorial",
+   "text": "synth-d beats synth-f on wer on cooking tutorial clips: 8.0 points fewer errors (95% CI 2.3 to 13.8) on the 20 clips both scored (adjusted p=0.00456).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "cooking_tutorial",
+     "provider_a": "synth-d",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.14122137404580154,
+    "loser_error_rate_slice": 0.22137404580152673,
+    "p_adjusted": 0.004556962025316456,
+    "diff": 0.08015267175572519,
+    "ci_low": -0.13765540820555325,
+    "ci_high": -0.023076923076923078,
+    "p_value": 0.002,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "993e853ece",
+   "slug": "wer-synth-d-beats-synth-f-category-gaming",
+   "text": "synth-d beats synth-f on wer on gaming clips: 11.1 points fewer errors (95% CI 6.2 to 15.9) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "gaming",
+     "provider_a": "synth-d",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.0959409594095941,
+    "loser_error_rate_slice": 0.2066420664206642,
+    "p_adjusted": 0.0,
+    "diff": 0.11070110701107011,
+    "ci_low": -0.1594526397515528,
+    "ci_high": -0.06203815527538155,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "1a9d467794",
+   "slug": "wer-synth-d-beats-synth-f-category-news-explainer",
+   "text": "synth-d beats synth-f on wer on news explainer clips: 13.2 points fewer errors (95% CI 5.5 to 20.4) on the 20 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "news_explainer",
+     "provider_a": "synth-d",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.23308270676691728,
+    "loser_error_rate_slice": 0.36466165413533835,
+    "p_adjusted": 0.0,
+    "diff": 0.13157894736842107,
+    "ci_low": -0.20363804713804712,
+    "ci_high": -0.055024742460552216,
+    "p_value": 0.0,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "9657ba4f7c",
+   "slug": "wer-synth-d-beats-synth-f-category-vlog-music",
+   "text": "synth-d beats synth-f on wer on vlog music clips: 8.9 points fewer errors (95% CI 2.4 to 15.4) on the 20 clips both scored (adjusted p=0.0189).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "category",
+     "slice": "vlog_music",
+     "provider_a": "synth-d",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.2364341085271318,
+    "loser_error_rate_slice": 0.32558139534883723,
+    "p_adjusted": 0.018947368421052633,
+    "diff": 0.08914728682170545,
+    "ci_low": -0.15352737935766328,
+    "ci_high": -0.02428662016487002,
+    "p_value": 0.01,
+    "n_clips": 20
+   }
+  },
+  {
+   "id": "4582de7542",
+   "slug": "wer-synth-d-beats-synth-f-tag-background-music",
+   "text": "synth-d beats synth-f on wer on clips tagged background music: 17.7 points fewer errors (95% CI 12.5 to 23.2) on the 35 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "tag",
+     "slice": "background_music",
+     "provider_a": "synth-d",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.13617021276595745,
+    "loser_error_rate_slice": 0.3127659574468085,
+    "p_adjusted": 0.0,
+    "diff": 0.17659574468085107,
+    "ci_low": -0.23199898724227586,
+    "ci_high": -0.12496610629067245,
+    "p_value": 0.0,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "944c6dbdec",
+   "slug": "wer-synth-e-beats-synth-f",
+   "text": "synth-e beats synth-f on wer on all clips: 4.7 points fewer errors (95% CI 2.1 to 7.9) on the 120 clips both scored (adjusted p=0).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider_a": "synth-e",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.23412204234122042,
+    "loser_error_rate_slice": 0.28144458281444584,
+    "p_adjusted": 0.0,
+    "diff": 0.04732254047322543,
+    "ci_low": -0.07884193956603597,
+    "ci_high": -0.02086650153199312,
+    "p_value": 0.0,
+    "n_clips": 120
+   }
+  },
+  {
+   "id": "a9e206f0a9",
+   "slug": "wer-synth-e-beats-synth-f-audio-condition-music",
+   "text": "synth-e beats synth-f on wer on clips with music under the speech: 7.2 points fewer errors (95% CI 1.7 to 12.4) on the 35 clips both scored (adjusted p=0.035).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider_a": "synth-e",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.2404255319148936,
+    "loser_error_rate_slice": 0.3127659574468085,
+    "p_adjusted": 0.03495145631067961,
+    "diff": 0.07234042553191491,
+    "ci_low": -0.1244857594936709,
+    "ci_high": -0.016839462673419965,
+    "p_value": 0.02,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "c50053b926",
+   "slug": "wer-synth-e-beats-synth-f-tag-background-music",
+   "text": "synth-e beats synth-f on wer on clips tagged background music: 7.2 points fewer errors (95% CI 1.7 to 12.4) on the 35 clips both scored (adjusted p=0.035).",
+   "status": "draft",
+   "source": {
+    "table": "paired",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "tag",
+     "slice": "background_music",
+     "provider_a": "synth-e",
+     "provider_b": "synth-f"
+    }
+   },
+   "numbers": {
+    "winner_error_rate_slice": 0.2404255319148936,
+    "loser_error_rate_slice": 0.3127659574468085,
+    "p_adjusted": 0.03495145631067961,
+    "diff": 0.07234042553191491,
+    "ci_low": -0.1244857594936709,
+    "ci_high": -0.016839462673419965,
+    "p_value": 0.02,
+    "n_clips": 35
+   }
+  },
+  {
+   "id": "1dbbd96a80",
+   "slug": "music-vs-no-music-synth-a",
+   "text": "synth-a has a wer of 11.5% on 35 clips with music and 17.3% on 85 clips without (95% CIs 6.5% to 18.6% and 10.7% to 23.8%).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider": "synth-a"
+    }
+   },
+   "numbers": {
+    "music_error_rate": 0.1148936170212766,
+    "no_music_error_rate": 0.17253521126760563,
+    "music_n_clips": 35,
+    "no_music_n_clips": 85
+   }
+  },
+  {
+   "id": "3215f0d5f6",
+   "slug": "music-vs-no-music-synth-b",
+   "text": "synth-b has a wer of 15.3% on 35 clips with music and 22.4% on 83 clips without (95% CIs 10.4% to 21.6% and 16.4% to 28.6%).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider": "synth-b"
+    }
+   },
+   "numbers": {
+    "music_error_rate": 0.15319148936170213,
+    "no_music_error_rate": 0.223731884057971,
+    "music_n_clips": 35,
+    "no_music_n_clips": 83
+   }
+  },
+  {
+   "id": "5ffd4c1d7c",
+   "slug": "music-vs-no-music-synth-c",
+   "text": "synth-c has a wer of 7.7% on 35 clips with music and 16.9% on 85 clips without (95% CIs 3.1% to 14.8% and 10.5% to 23.5%).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider": "synth-c"
+    }
+   },
+   "numbers": {
+    "music_error_rate": 0.07659574468085106,
+    "no_music_error_rate": 0.16901408450704225,
+    "music_n_clips": 35,
+    "no_music_n_clips": 85
+   }
+  },
+  {
+   "id": "95437ed6e8",
+   "slug": "music-vs-no-music-synth-d",
+   "text": "synth-d has a wer of 13.6% on 35 clips with music and 20.2% on 85 clips without (95% CIs 8.8% to 20.3% and 14.0% to 26.3%).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider": "synth-d"
+    }
+   },
+   "numbers": {
+    "music_error_rate": 0.13617021276595745,
+    "no_music_error_rate": 0.20158450704225353,
+    "music_n_clips": 35,
+    "no_music_n_clips": 85
+   }
+  },
+  {
+   "id": "94cb550a0d",
+   "slug": "music-vs-no-music-synth-e",
+   "text": "synth-e has a wer of 24.0% on 35 clips with music and 23.2% on 85 clips without (95% CIs 19.4% to 30.3% and 16.8% to 29.6%).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider": "synth-e"
+    }
+   },
+   "numbers": {
+    "music_error_rate": 0.2404255319148936,
+    "no_music_error_rate": 0.23151408450704225,
+    "music_n_clips": 35,
+    "no_music_n_clips": 85
+   }
+  },
+  {
+   "id": "4a7d848830",
+   "slug": "music-vs-no-music-synth-f",
+   "text": "synth-f has a wer of 31.3% on 35 clips with music and 26.8% on 85 clips without (95% CIs 25.6% to 37.3% and 20.5% to 33.1%).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider": "synth-f"
+    }
+   },
+   "numbers": {
+    "music_error_rate": 0.3127659574468085,
+    "no_music_error_rate": 0.26848591549295775,
+    "music_n_clips": 35,
+    "no_music_n_clips": 85
+   }
+  },
+  {
+   "id": "186ec07727",
+   "slug": "halluc-synth-a",
+   "text": "synth-a emits 0.0 words per minute of non-speech (0 words over 1.3 min, 120 clips).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-a",
+     "sort": "halluc"
+    }
+   },
+   "numbers": {
+    "halluc_per_nonspeech_min": 0.0,
+    "halluc_nonspeech_words": 0,
+    "nonspeech_minutes": 1.3416666666666666,
+    "nonspeech_n_clips": 120
+   }
+  },
+  {
+   "id": "b2c8740937",
+   "slug": "halluc-synth-a-music",
+   "text": "synth-a emits 0.0 words per minute of non-speech in clips with music (0 words over 1.3 min, 35 clips).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider": "synth-a",
+     "sort": "halluc"
+    }
+   },
+   "numbers": {
+    "halluc_per_nonspeech_min": 0.0,
+    "halluc_nonspeech_words": 0,
+    "nonspeech_minutes": 1.3416666666666666,
+    "nonspeech_n_clips": 35
+   }
+  },
+  {
+   "id": "7f02a2ec51",
+   "slug": "halluc-synth-b",
+   "text": "synth-b emits 0.7 words per minute of non-speech (1 words over 1.3 min, 118 clips).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-b",
+     "sort": "halluc"
+    }
+   },
+   "numbers": {
+    "halluc_per_nonspeech_min": 0.7453416149068324,
+    "halluc_nonspeech_words": 1,
+    "nonspeech_minutes": 1.3416666666666666,
+    "nonspeech_n_clips": 118
+   }
+  },
+  {
+   "id": "ecefe04098",
+   "slug": "halluc-synth-b-music",
+   "text": "synth-b emits 0.7 words per minute of non-speech in clips with music (1 words over 1.3 min, 35 clips).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider": "synth-b",
+     "sort": "halluc"
+    }
+   },
+   "numbers": {
+    "halluc_per_nonspeech_min": 0.7453416149068324,
+    "halluc_nonspeech_words": 1,
+    "nonspeech_minutes": 1.3416666666666666,
+    "nonspeech_n_clips": 35
+   }
+  },
+  {
+   "id": "055eab440b",
+   "slug": "halluc-synth-c",
+   "text": "synth-c emits 0.0 words per minute of non-speech (0 words over 1.3 min, 120 clips).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-c",
+     "sort": "halluc"
+    }
+   },
+   "numbers": {
+    "halluc_per_nonspeech_min": 0.0,
+    "halluc_nonspeech_words": 0,
+    "nonspeech_minutes": 1.3416666666666666,
+    "nonspeech_n_clips": 120
+   }
+  },
+  {
+   "id": "1861b6f199",
+   "slug": "halluc-synth-c-music",
+   "text": "synth-c emits 0.0 words per minute of non-speech in clips with music (0 words over 1.3 min, 35 clips).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider": "synth-c",
+     "sort": "halluc"
+    }
+   },
+   "numbers": {
+    "halluc_per_nonspeech_min": 0.0,
+    "halluc_nonspeech_words": 0,
+    "nonspeech_minutes": 1.3416666666666666,
+    "nonspeech_n_clips": 35
+   }
+  },
+  {
+   "id": "426bbb4594",
+   "slug": "halluc-synth-d",
+   "text": "synth-d emits 0.0 words per minute of non-speech (0 words over 1.3 min, 120 clips).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-d",
+     "sort": "halluc"
+    }
+   },
+   "numbers": {
+    "halluc_per_nonspeech_min": 0.0,
+    "halluc_nonspeech_words": 0,
+    "nonspeech_minutes": 1.3416666666666666,
+    "nonspeech_n_clips": 120
+   }
+  },
+  {
+   "id": "3e81fbee63",
+   "slug": "halluc-synth-d-music",
+   "text": "synth-d emits 0.0 words per minute of non-speech in clips with music (0 words over 1.3 min, 35 clips).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider": "synth-d",
+     "sort": "halluc"
+    }
+   },
+   "numbers": {
+    "halluc_per_nonspeech_min": 0.0,
+    "halluc_nonspeech_words": 0,
+    "nonspeech_minutes": 1.3416666666666666,
+    "nonspeech_n_clips": 35
+   }
+  },
+  {
+   "id": "a0e8743907",
+   "slug": "halluc-synth-e",
+   "text": "synth-e emits 0.0 words per minute of non-speech (0 words over 1.3 min, 120 clips).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-e",
+     "sort": "halluc"
+    }
+   },
+   "numbers": {
+    "halluc_per_nonspeech_min": 0.0,
+    "halluc_nonspeech_words": 0,
+    "nonspeech_minutes": 1.3416666666666666,
+    "nonspeech_n_clips": 120
+   }
+  },
+  {
+   "id": "9088e581b4",
+   "slug": "halluc-synth-e-music",
+   "text": "synth-e emits 0.0 words per minute of non-speech in clips with music (0 words over 1.3 min, 35 clips).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider": "synth-e",
+     "sort": "halluc"
+    }
+   },
+   "numbers": {
+    "halluc_per_nonspeech_min": 0.0,
+    "halluc_nonspeech_words": 0,
+    "nonspeech_minutes": 1.3416666666666666,
+    "nonspeech_n_clips": 35
+   }
+  },
+  {
+   "id": "6aa95fcf40",
+   "slug": "halluc-synth-f",
+   "text": "synth-f emits 0.0 words per minute of non-speech (0 words over 1.3 min, 120 clips).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-f",
+     "sort": "halluc"
+    }
+   },
+   "numbers": {
+    "halluc_per_nonspeech_min": 0.0,
+    "halluc_nonspeech_words": 0,
+    "nonspeech_minutes": 1.3416666666666666,
+    "nonspeech_n_clips": 120
+   }
+  },
+  {
+   "id": "776ea77633",
+   "slug": "halluc-synth-f-music",
+   "text": "synth-f emits 0.0 words per minute of non-speech in clips with music (0 words over 1.3 min, 35 clips).",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "audio_condition",
+     "slice": "music",
+     "provider": "synth-f",
+     "sort": "halluc"
+    }
+   },
+   "numbers": {
+    "halluc_per_nonspeech_min": 0.0,
+    "halluc_nonspeech_words": 0,
+    "nonspeech_minutes": 1.3416666666666666,
+    "nonspeech_n_clips": 35
+   }
+  },
+  {
+   "id": "4c1962ae70",
+   "slug": "timing-synth-a",
+   "text": "synth-a places words a median 41 ms from the reference start (p90 62 ms); 99.6% of matched words land within 200 ms, over 116 clips.",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-a",
+     "sort": "timing"
+    }
+   },
+   "numbers": {
+    "timing_median_ms": 41.0,
+    "timing_p90_ms": 62.0,
+    "timing_within_200ms": 0.9962574850299402,
+    "timing_n_clips": 116,
+    "timing_n_words": 1336
+   }
+  },
+  {
+   "id": "597b126b5f",
+   "slug": "timing-synth-b",
+   "text": "synth-b places words a median 179 ms from the reference start (p90 288 ms); 57.5% of matched words land within 200 ms, over 112 clips.",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-b",
+     "sort": "timing"
+    }
+   },
+   "numbers": {
+    "timing_median_ms": 178.75,
+    "timing_p90_ms": 288.0,
+    "timing_within_200ms": 0.5747776879547292,
+    "timing_n_clips": 112,
+    "timing_n_words": 1237
+   }
+  },
+  {
+   "id": "dfddd2c71a",
+   "slug": "timing-synth-c",
+   "text": "synth-c places words a median 90 ms from the reference start (p90 140 ms); 98.8% of matched words land within 200 ms, over 115 clips.",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-c",
+     "sort": "timing"
+    }
+   },
+   "numbers": {
+    "timing_median_ms": 90.0,
+    "timing_p90_ms": 140.2,
+    "timing_within_200ms": 0.9882092851879145,
+    "timing_n_clips": 115,
+    "timing_n_words": 1357
+   }
+  },
+  {
+   "id": "bf7ec8634f",
+   "slug": "timing-synth-d",
+   "text": "synth-d places words a median 139 ms from the reference start (p90 209 ms); 82.0% of matched words land within 200 ms, over 116 clips.",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-d",
+     "sort": "timing"
+    }
+   },
+   "numbers": {
+    "timing_median_ms": 139.0,
+    "timing_p90_ms": 209.3,
+    "timing_within_200ms": 0.8200155159038014,
+    "timing_n_clips": 116,
+    "timing_n_words": 1289
+   }
+  },
+  {
+   "id": "41d912ad39",
+   "slug": "timing-synth-e",
+   "text": "synth-e places words a median 70 ms from the reference start (p90 109 ms); 99.3% of matched words land within 200 ms, over 114 clips.",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-e",
+     "sort": "timing"
+    }
+   },
+   "numbers": {
+    "timing_median_ms": 70.5,
+    "timing_p90_ms": 108.85,
+    "timing_within_200ms": 0.9933829611248967,
+    "timing_n_clips": 114,
+    "timing_n_words": 1209
+   }
+  },
+  {
+   "id": "a91940a0c5",
+   "slug": "timing-synth-f",
+   "text": "synth-f places words a median 242 ms from the reference start (p90 353 ms); 37.8% of matched words land within 200 ms, over 115 clips.",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-f",
+     "sort": "timing"
+    }
+   },
+   "numbers": {
+    "timing_median_ms": 242.0,
+    "timing_p90_ms": 353.00000000000006,
+    "timing_within_200ms": 0.37764084507042256,
+    "timing_n_clips": 115,
+    "timing_n_words": 1136
+   }
+  },
+  {
+   "id": "c7f487e4d1",
+   "slug": "readiness-synth-a",
+   "text": "synth-a scores punctuation F1 0.96 and casing accuracy 100.0% on 60 clips with checked punctuation.",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-a",
+     "sort": "punct"
+    }
+   },
+   "numbers": {
+    "punct_f1": 0.9565217391304348,
+    "casing_acc": 1.0,
+    "readiness_n_clips": 60
+   }
+  },
+  {
+   "id": "de95af751b",
+   "slug": "readiness-synth-b",
+   "text": "synth-b scores punctuation F1 0.99 and casing accuracy 100.0% on 59 clips with checked punctuation.",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-b",
+     "sort": "punct"
+    }
+   },
+   "numbers": {
+    "punct_f1": 0.9914529914529915,
+    "casing_acc": 1.0,
+    "readiness_n_clips": 59
+   }
+  },
+  {
+   "id": "c4bc867c03",
+   "slug": "readiness-synth-c",
+   "text": "synth-c scores punctuation F1 0.98 and casing accuracy 100.0% on 60 clips with checked punctuation.",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-c",
+     "sort": "punct"
+    }
+   },
+   "numbers": {
+    "punct_f1": 0.9830508474576272,
+    "casing_acc": 1.0,
+    "readiness_n_clips": 60
+   }
+  },
+  {
+   "id": "f8cb3638b5",
+   "slug": "readiness-synth-d",
+   "text": "synth-d scores punctuation F1 0.00 and casing accuracy 92.2% on 60 clips with checked punctuation.",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-d",
+     "sort": "punct"
+    }
+   },
+   "numbers": {
+    "punct_f1": 0.0,
+    "casing_acc": 0.9219440353460973,
+    "readiness_n_clips": 60
+   }
+  },
+  {
+   "id": "72d62b1eb7",
+   "slug": "readiness-synth-e",
+   "text": "synth-e scores punctuation F1 0.98 and casing accuracy 100.0% on 60 clips with checked punctuation.",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-e",
+     "sort": "punct"
+    }
+   },
+   "numbers": {
+    "punct_f1": 0.9818181818181818,
+    "casing_acc": 1.0,
+    "readiness_n_clips": 60
+   }
+  },
+  {
+   "id": "578f49a925",
+   "slug": "readiness-synth-f",
+   "text": "synth-f scores punctuation F1 0.93 and casing accuracy 100.0% on 60 clips with checked punctuation.",
+   "status": "draft",
+   "source": {
+    "table": "aggregates",
+    "filters": {
+     "tier": "verified",
+     "metric": "wer",
+     "slice_kind": "all",
+     "slice": "all",
+     "provider": "synth-f",
+     "sort": "punct"
+    }
+   },
+   "numbers": {
+    "punct_f1": 0.9259259259259259,
+    "casing_acc": 1.0,
+    "readiness_n_clips": 60
+   }
+  }
+ ]
+}

@@ -1,6 +1,6 @@
 """Export hook for the streaming track: the `streaming` key of web/public/data/runs/<run_id>.json.
 
-`export_section(run_id, settings)` returns None unless results/<run_id>/stream_aggregates.parquet exists
+`export_section(run_id, settings)` returns `{"streaming": <section>}`, or None unless results/<run_id>/stream_aggregates.parquet exists
 (run `clipbench score-stream <run_id>` first). Numbers and labels only, no text:
 
     {"kind": "stream", "run_id", "language", "tier", "chunk_ms", "speed", "real_time", "n_clips",
@@ -43,8 +43,44 @@ def _median(series: pd.Series) -> float | None:
     return float(v.median()) if len(v) else None
 
 
+def _read_meta(path) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text()) if path.exists() else {}
+    except ValueError:
+        return {}
+
+
+def latest_stream_run(language: str | None, settings: Settings) -> str | None:
+    """Newest scored stream run (run_meta kind "stream", stream_aggregates present) in `language`."""
+    if not language or not settings.runs_dir.exists():
+        return None
+    for d in sorted((p for p in settings.runs_dir.iterdir() if p.is_dir()), key=lambda p: p.name, reverse=True):
+        meta = _read_meta(d / "run_meta.json")
+        if meta.get("kind") != "stream" or meta.get("language") != language:
+            continue
+        if (settings.results_dir / d.name / "stream_aggregates.parquet").exists() and (d / "stream_rows.parquet").exists():
+            return d.name
+    return None
+
+
 def export_section(run_id: str, settings: Settings | None = None) -> dict | None:
+    """`{"streaming": section}` for clipbench.report.export (hooks return their export keys), or None."""
+    section = stream_section(run_id, settings)
+    return {"streaming": section} if section else None
+
+
+def stream_section(run_id: str, settings: Settings | None = None) -> dict | None:
+    """The run's own streaming section when it is a stream run; for a batch run, the newest scored stream run in
+    the same language (streaming runs are a separate kind, so a batch export would otherwise never carry one)."""
     s = settings or get_settings()
+    own = _read_meta(s.runs_dir / run_id / "run_meta.json")
+    if own and own.get("kind") != "stream":
+        other = latest_stream_run(own.get("language"), s)
+        return _stream_section(other, s) if other else None
+    return _stream_section(run_id, s)
+
+
+def _stream_section(run_id: str, s: Settings) -> dict | None:
     agg_path = s.results_dir / run_id / "stream_aggregates.parquet"
     rows_path = s.runs_dir / run_id / "stream_rows.parquet"
     if not agg_path.exists() or not rows_path.exists():

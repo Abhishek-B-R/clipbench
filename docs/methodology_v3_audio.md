@@ -102,3 +102,58 @@ license, attribution) and the primary metric rows of `sweeps.parquet`. Null when
   and choose tracks that fit; a fixed-SNR bed does not.
 - The reverb is synthetic and the same shape for every clip apart from the noise seed.
 - Hallucination over non-speech needs provider word timings; providers without them have null there.
+
+## Long-form track (A8)
+
+Does a provider still work on a whole video: accuracy, word timing drift over time, and chunking errors.
+A **separate track**: its runs live in `results/longform/<run_id>/` and `data/longform/`, never under
+`results/runs/`, `run_meta.kind = "longform"`, and the export key is `longform` with `track =
+"longform"`. Long-form numbers are never mixed into the short-form leaderboard. Code: `clipbench/longform.py`.
+Commands: `clipbench longform list | fetch | run | score`.
+
+### Videos and reference
+
+- From the existing manifest, no new discovery: the source videos behind window clips (and any `long`
+  rows), 3 to 20 minutes (180 to 1200 s by their info.json), with a creator caption track for the whole
+  video. `fetch --limit N` picks N of them spread across channels (seeded shuffle, one per channel per
+  round), keeps the choice in `data/longform/selection-<lang>.json`, and downloads the audio with the same
+  gentle rules as `clipbench data fetch-audio`: one video at a time, at least 10 s apart (plus 0 to 3 s
+  jitter), stop on a bot check or HTTP 429.
+- The reference is the creator track (tier `creator`, **unverified**: creator captions are often not
+  verbatim, so absolute error rates are inflated; comparisons between providers on the same videos still
+  hold). Its caption lines with their start and end times are the timing anchors.
+- Each provider call gets a timeout of the longest video's length plus 10 minutes (per instance), since a
+  20 minute file takes far longer than a Short. Stability reruns are off.
+
+### Metrics (primary metric of the language)
+
+- **Accuracy**: corpus error rate over the whole video, with a clip (video) bootstrap CI.
+- **Error rate per minute**: each reference token is placed in time by spreading a caption line's tokens
+  evenly over the line. Substitutions and deletions count at their reference token, insertions at the
+  reference position they are inserted before. Minute buckets 0 to 19 (19 holds everything after 19:00);
+  per bucket a corpus rate with a bootstrap CI over videos (`slice_kind = "minute"`).
+- **Timing drift**: for every caption line whose first token the provider got right (an exact hit, as in
+  caption timing error), offset = provider start of that token minus the line start. Per minute: median
+  absolute and median signed offset. Per video: least squares slope of the signed offset against time in
+  minutes (`drift_slope_ms_per_min`, systematic drift), of the absolute offset (`abs_slope_ms_per_min`,
+  degradation; both need at least 10 matched lines over at least 2 minutes), and the median absolute
+  offset before and after minute 5. Aggregates take the median across videos.
+- **Gaps**: a stretch of the video with no hypothesis word at all that contains reference caption lines
+  spanning more than 10 s (first such line start to last such line end). Needs provider word timings
+  (null otherwise). Reported as `n_gaps`, `gap_seconds`, `longest_gap_s`; aggregates `gaps_per_hour` and
+  `gap_share` (gap seconds over audio seconds).
+- **Duplicated text**: an insertion run (consecutive inserted tokens in the alignment) of at least 4 words
+  (8 characters for ja) that repeats hypothesis text right next to it (within 3 x the run length + 20
+  tokens before or after), the signature of a chunk boundary transcribed twice. `dup_events`,
+  `dup_tokens`; aggregates `dup_events_per_hour` and `dup_token_rate` (over reference tokens).
+- **Failure rate**: share of videos whose call errored or timed out (status not ok), the bluntest way a
+  provider fails to handle the length.
+
+Files: `longform.parquet` (per provider and video), `longform_minutes.parquet` (per provider, video and
+minute), `longform_aggregates.parquet` (`slice_kind` `all` and `minute`). Numbers only.
+
+### Export
+
+`clipbench.longform.export_section(run_id, settings)` returns `{"longform": {track, run_id, language,
+created_at, reference, n_videos, min_minutes, max_minutes, aggregates, minutes}}` for the newest scored
+long-form run in the run's language, else null.

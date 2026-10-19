@@ -76,12 +76,14 @@ ROW_COLUMNS = [
     "detected_language",
     "options",
 ]
-TEXT_COLUMNS = ["provider", "video_id", "repeat", "hyp_text", "words_json"]
+TEXT_COLUMNS = ["provider", "video_id", "repeat", "hyp_text", "words_json", "speakers_json"]
 REF_COLUMNS = [
     "video_id", "tier", "ref_text", "words_json", "tags",
     # v2 (docs/V2.md)
     "category", "nonspeech_spans_json", "codeswitch_spans_json", "punctuated", "timing_source",
     "clip_source", "source_id", "start_ms",
+    # v3 (docs/V3.md)
+    "conditions_json", "speaker_turns_json", "entity_spans_json", "alternatives_json", "itn_spans_json",
 ]
 
 KEY_PACKAGES = [
@@ -286,7 +288,7 @@ def _rows_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
 def _texts_frame(texts: list[dict[str, Any]]) -> pd.DataFrame:
     df = pd.DataFrame(texts, columns=TEXT_COLUMNS)
     df["repeat"] = df["repeat"].astype("int64")
-    for col in ("provider", "video_id", "hyp_text", "words_json"):
+    for col in ("provider", "video_id", "hyp_text", "words_json", "speakers_json"):
         df[col] = df[col].astype("string")
     return df.sort_values(["provider", "video_id", "repeat"]).reset_index(drop=True)
 
@@ -312,6 +314,11 @@ def _refs_frame(clips: list[Clip]) -> pd.DataFrame:
                 "clip_source": ref.clip_source,
                 "source_id": ref.source_id,
                 "start_ms": None if ref.start_ms is None else str(ref.start_ms),
+                "conditions_json": json.dumps(list(ref.conditions)),
+                "speaker_turns_json": json.dumps([t.model_dump() for t in ref.speaker_turns]),
+                "entity_spans_json": json.dumps([e.model_dump() for e in ref.entity_spans]),
+                "alternatives_json": json.dumps([a.model_dump() for a in ref.alternatives], ensure_ascii=False),
+                "itn_spans_json": json.dumps([i.model_dump() for i in ref.itn_spans]),
             }
         )
     df = pd.DataFrame(recs, columns=REF_COLUMNS)
@@ -589,6 +596,7 @@ async def run(
                 "repeat": row["repeat"],
                 "hyp_text": result.text,
                 "words_json": _words_json(result),
+                "speakers_json": None if result.speakers is None else json.dumps(result.speakers),
             }
         async with write_lock:
             # Text first: a row that is on disk always has its hypothesis on disk too.
@@ -610,8 +618,10 @@ async def run(
             cost_usd=float(result.cost_usd),
             cached=cached,
             hyp_chars=len(result.text),
-            retries=int(result.retries or 0),
-            http_status=result.http_status,
+            # A cache hit made no request: its stored retries and status belong to the original call and
+            # would inflate the reliability board.
+            retries=0 if cached else int(result.retries or 0),
+            http_status=None if cached else result.http_status,
             detected_language=result.detected_language,
         )
         return row

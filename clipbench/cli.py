@@ -29,7 +29,9 @@ _MODULES = [
     "clipbench.submit",  # clipbench submit, clipbench submission-check
     "clipbench.sweeps.cli",  # clipbench sweep build|fetch-beds|beds|run|score
     "clipbench.longform",  # clipbench longform list|fetch|run|score
-    "clipbench.streaming.cli",  # clipbench run-stream, clipbench score-stream
+    "clipbench.compute",  # clipbench compute machine|bench|table
+    "clipbench.streaming.cli",
+    "clipbench.providers.cli",  # clipbench providers features  # clipbench run-stream, clipbench score-stream
 ]
 
 for _name in _MODULES:

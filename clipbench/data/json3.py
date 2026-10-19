@@ -54,6 +54,10 @@ def _num(value: Any) -> float | None:
 
 def tidy(text: str, language: str) -> str:
     """Collapse display whitespace. A newline goes the way a space would in this language."""
+    if is_unspaced(language):
+        # A line break between two Latin words (English inside a Japanese caption) is still a word gap;
+        # between CJK characters it is only a display break.
+        text = re.sub(r"(?<=[A-Za-z0-9.,!?'])\r?\n(?=[A-Za-z0-9])", " ", text)
     unbroken = re.sub(r"\r?\n", "" if is_unspaced(language) else " ", text)
     return re.sub(r"[ \t]+", " ", unbroken).strip()
 

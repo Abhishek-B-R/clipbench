@@ -68,3 +68,11 @@ def test_bad_input():
 def test_estimate_duration():
     assert estimate_duration_s(read("asr.json3")) == pytest.approx(6.0)
     assert estimate_duration_s('{"events": []}') is None
+
+
+def test_unspaced_language_keeps_word_gaps_between_latin_words_across_line_breaks():
+    from clipbench.data.json3 import tidy
+
+    assert tidy("今日は\nいい天気", "ja") == "今日はいい天気"
+    assert tidy("SP\nsome\nto baby", "ja") == "SP some to baby"
+    assert tidy("ママの\nmorning\nルーティーン", "ja") == "ママのmorningルーティーン"

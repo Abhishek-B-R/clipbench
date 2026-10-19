@@ -1,0 +1,637 @@
+"""Run providers over clips: cache, budget guard, stability reruns, resumable output.
+
+Outputs (see docs/INTERFACES.md):
+
+- results/runs/<run_id>/rows.parquet      numeric rows, one per (provider, clip, repeat)
+- results/runs/<run_id>/run_meta.json     commit, versions, model ids, seed
+- data/runs/<run_id>/texts.parquet        hypothesis text (never published)
+- data/runs/<run_id>/refs.parquet         reference snapshot (never published)
+
+While a run is in progress each finished row is appended to `rows.part.jsonl` (results side, numbers only)
+and `texts.part.jsonl` (data side, text). Rerunning with the same run id skips rows that are done and
+compacts everything into the parquet files at the end. A row counts as done when it is `ok`, or
+`skipped` for a reason other than the budget; errors and budget skips are retried.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import importlib.metadata
+import json
+import os
+import platform
+import secrets
+import subprocess
+import sys
+import time
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+from rich.console import Console
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn, TimeElapsedColumn
+from rich.table import Table
+
+from clipbench.budget import (
+    BUDGET_ERROR,
+    BudgetGuard,
+    Estimate,
+    check_can_start,
+    estimate,
+    is_billable,
+    load_spend,
+    repeat_settings_hash,
+    stability_subset,
+)
+from clipbench.config import Settings, get_settings
+from clipbench.models import Clip, Result
+from clipbench.providers.base import Provider, ProviderSkip, load_pricing
+from clipbench.providers.cache import ResultCache
+
+ROW_COLUMNS = [
+    "run_id",
+    "provider",
+    "model_id",
+    "provider_version",
+    "video_id",
+    "language",
+    "tier",
+    "repeat",
+    "status",
+    "error",
+    "latency_ms",
+    "audio_seconds",
+    "cost_usd",
+    "cached",
+    "duration_s",
+    "channel",
+    "tags",
+    "hyp_chars",
+]
+TEXT_COLUMNS = ["provider", "video_id", "repeat", "hyp_text", "words_json"]
+REF_COLUMNS = ["video_id", "tier", "ref_text", "words_json", "tags"]
+
+KEY_PACKAGES = [
+    "pydantic",
+    "pandas",
+    "pyarrow",
+    "numpy",
+    "jiwer",
+    "httpx",
+    "rich",
+    "typer",
+    "soundfile",
+    "fugashi",
+    "unidic-lite",
+    "pykakasi",
+    "mlx-whisper",
+    "mlx",
+    "faster-whisper",
+    "ctranslate2",
+    "boto3",
+]
+
+Key = tuple[str, str, int]
+
+
+def new_run_id() -> str:
+    return datetime.now(UTC).strftime("%Y%m%d-%H%M") + "-" + secrets.token_hex(2)
+
+
+@dataclass
+class RunResult:
+    run_id: str
+    dry_run: bool
+    estimate: Estimate
+    spent_before: float
+    cap: float
+    allowed: bool
+    skipped_providers: dict[str, str] = field(default_factory=dict)
+    rows_path: Path | None = None
+    texts_path: Path | None = None
+    refs_path: Path | None = None
+    meta_path: Path | None = None
+    rows: pd.DataFrame | None = None
+    n_calls: dict[str, int] = field(default_factory=dict)
+
+
+# ---------------------------------------------------------------- helpers
+
+
+def _resolve_providers(specs: list[str | Provider]) -> tuple[list[Provider], dict[str, str]]:
+    from clipbench.providers import registry
+
+    ok: list[Provider] = []
+    skipped: dict[str, str] = {}
+    for spec in specs:
+        if isinstance(spec, Provider):
+            p = spec
+        else:
+            if spec not in registry.REGISTRY:
+                raise KeyError(f"unknown provider {spec!r}; known: {', '.join(registry.REGISTRY)}")
+            try:
+                p = registry.make(spec)
+            except Exception as exc:  # adapter module missing, bad config
+                skipped[spec] = f"{spec}: skipped, could not load adapter ({type(exc).__name__}: {exc})"
+                continue
+        try:
+            available, message = p.availability()
+        except Exception as exc:
+            available, message = False, f"{p.id}: skipped, availability check failed ({exc})"
+        if available:
+            ok.append(p)
+        else:
+            skipped[p.id] = message
+    return ok, skipped
+
+
+def _git_info(root: Path) -> tuple[str | None, bool | None]:
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True, timeout=10
+        )
+        if commit.returncode != 0:
+            return None, None
+        status = subprocess.run(
+            ["git", "status", "--porcelain"], cwd=root, capture_output=True, text=True, timeout=10
+        )
+        dirty = bool(status.stdout.strip()) if status.returncode == 0 else None
+        return commit.stdout.strip(), dirty
+    except (OSError, subprocess.SubprocessError):
+        return None, None
+
+
+def _package_versions() -> dict[str, str]:
+    out: dict[str, str] = {}
+    for name in KEY_PACKAGES:
+        try:
+            out[name] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+    return out
+
+
+def _atomic_parquet(df: pd.DataFrame, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    df.to_parquet(tmp, index=False)
+    os.replace(tmp, path)
+
+
+def _atomic_json(data: Any, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str))
+    os.replace(tmp, path)
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    out = []
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            out.append(json.loads(line))
+        except ValueError:
+            continue  # a torn last line from a crash
+    return out
+
+
+def _key(row: dict[str, Any]) -> Key:
+    return (str(row["provider"]), str(row["video_id"]), int(row["repeat"]))
+
+
+def _is_done(row: dict[str, Any]) -> bool:
+    if row.get("status") == "ok":
+        return True
+    return row.get("status") == "skipped" and row.get("error") != BUDGET_ERROR
+
+
+def _words_json(result: Result | None) -> str | None:
+    if result is None or result.words is None:
+        return None
+    return json.dumps([w.model_dump() for w in result.words], ensure_ascii=False)
+
+
+def _rows_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
+    df = pd.DataFrame(rows, columns=ROW_COLUMNS)
+    df["repeat"] = df["repeat"].astype("int64")
+    df["cached"] = df["cached"].astype(bool)
+    for col in ("latency_ms", "audio_seconds", "cost_usd", "duration_s"):
+        df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
+    df["hyp_chars"] = pd.to_numeric(df["hyp_chars"], errors="coerce").astype("Int64")
+    for col in ("run_id", "provider", "model_id", "provider_version", "video_id", "language", "tier",
+                "status", "error", "channel", "tags"):
+        df[col] = df[col].astype("string")
+    return df.sort_values(["provider", "video_id", "repeat"]).reset_index(drop=True)
+
+
+def _texts_frame(texts: list[dict[str, Any]]) -> pd.DataFrame:
+    df = pd.DataFrame(texts, columns=TEXT_COLUMNS)
+    df["repeat"] = df["repeat"].astype("int64")
+    for col in ("provider", "video_id", "hyp_text", "words_json"):
+        df[col] = df[col].astype("string")
+    return df.sort_values(["provider", "video_id", "repeat"]).reset_index(drop=True)
+
+
+def _refs_frame(clips: list[Clip]) -> pd.DataFrame:
+    recs = []
+    for c in clips:
+        ref = c.reference
+        recs.append(
+            {
+                "video_id": c.video_id,
+                "tier": ref.tier,
+                "ref_text": ref.text,
+                "words_json": None
+                if ref.words is None
+                else json.dumps([w.model_dump() for w in ref.words], ensure_ascii=False),
+                "tags": json.dumps(list(ref.tags), ensure_ascii=False),
+            }
+        )
+    df = pd.DataFrame(recs, columns=REF_COLUMNS)
+    for col in REF_COLUMNS:
+        df[col] = df[col].astype("string")
+    return df.sort_values("video_id").reset_index(drop=True)
+
+
+def _provider_meta(p: Provider) -> dict[str, Any]:
+    pricing = load_pricing().get(p.id, {})
+    return {
+        "id": p.id,
+        "model_id": p.model_id,
+        "settings": p.settings(),
+        "settings_hash": p.settings_hash(),
+        "paid": bool(p.paid),
+        "uploads_audio": bool(p.uploads_audio),
+        "usd_per_minute": p.price_per_minute(),
+        "pricing_checked_on": pricing.get("checked_on"),
+        "pricing_checked_url": pricing.get("checked_url"),
+    }
+
+
+# ---------------------------------------------------------------- dry run table
+
+
+def print_plan(
+    console: Console,
+    est: Estimate,
+    providers: list[Provider],
+    skipped: dict[str, str],
+    spent: float,
+    cap: float,
+    *,
+    title: str = "clipbench run plan (dry run, no network)",
+) -> bool:
+    table = Table(title=title)
+    for col in ("provider", "available", "model", "clips", "audio min", "est cost (incl stability)", "note"):
+        table.add_column(col, justify="right" if col in ("clips", "audio min") else "left")
+    for p in providers:
+        e = est.providers[p.id]
+        note = []
+        if e.stability_repeats:
+            note.append(f"stability {e.stability_clips} x {e.stability_repeats}")
+        if e.cached_requests:
+            note.append(f"{e.cached_requests} cached")
+        if not is_billable(p):
+            note.append("free")
+        table.add_row(
+            p.id, "yes", p.model_id, str(e.n_clips), f"{e.audio_seconds / 60:.1f}", f"${e.total_usd:.4f}",
+            ", ".join(note),
+        )
+    for pid, msg in skipped.items():
+        table.add_row(pid, "no", "-", "-", "-", "-", msg)
+    console.print(table)
+    total = est.total_usd
+    allowed = total + spent <= cap + 1e-12
+    console.print(f"total audio minutes: {est.total_audio_seconds / 60:.1f}")
+    console.print(f"total estimated cost: ${total:.4f}")
+    console.print(f"spent so far: ${spent:.4f}")
+    console.print(f"cap: ${cap:.2f}")
+    console.print(
+        "a real run would be allowed" if allowed else "a real run would be REFUSED (estimate + spent > cap)"
+    )
+    return allowed
+
+
+# ---------------------------------------------------------------- run
+
+
+async def run(
+    providers: list[str | Provider],
+    tier: str = "verified",
+    clips: list[Clip] | None = None,
+    run_id: str | None = None,
+    no_cache: bool = False,
+    dry_run: bool = False,
+    limit: int | None = None,
+    stability_n: int = 20,
+    stability_repeats: int = 3,
+    seed: int = 7,
+    *,
+    settings: Settings | None = None,
+    console: Console | None = None,
+    stability: bool = True,
+    progress: bool = True,
+) -> RunResult:
+    """Run `providers` (ids or Provider instances) over `clips` (default: load_clips(tier))."""
+    settings = settings or get_settings()
+    console = console or Console(stderr=True)
+    if not stability:
+        stability_n = 0
+        stability_repeats = 0
+
+    if clips is None:
+        from clipbench.data.references import load_clips  # lazy: written by another module
+
+        clips = load_clips(tier, settings=settings)
+    clips = sorted(clips, key=lambda c: c.video_id)
+    if limit is not None:
+        clips = clips[:limit]
+
+    active, skipped = _resolve_providers(providers)
+    for msg in skipped.values():
+        console.print(f"[yellow]{msg}[/yellow]")
+
+    cache = ResultCache(settings.cache_dir)
+    est = estimate(
+        active,
+        clips,
+        stability_n=stability_n,
+        stability_repeats=stability_repeats,
+        seed=seed,
+        cache=None if no_cache else cache,
+    )
+    spent_before = float(load_spend(settings.spend_path)["total_usd"])
+    cap = settings.budget_usd
+    run_id = run_id or new_run_id()
+
+    if dry_run:
+        allowed = print_plan(console, est, active, skipped, spent_before, cap)
+        return RunResult(run_id, True, est, spent_before, cap, allowed, skipped)
+
+    check_can_start(est, cap, spent_before)
+
+    rows_dir = settings.runs_dir / run_id
+    text_dir = settings.runs_text_dir / run_id
+    rows_dir.mkdir(parents=True, exist_ok=True)
+    text_dir.mkdir(parents=True, exist_ok=True)
+    rows_path = rows_dir / "rows.parquet"
+    rows_part = rows_dir / "rows.part.jsonl"
+    texts_path = text_dir / "texts.parquet"
+    texts_part = text_dir / "texts.part.jsonl"
+    refs_path = text_dir / "refs.parquet"
+    meta_path = rows_dir / "run_meta.json"
+
+    # Previous state for resume: compacted parquet first, then the part files on top.
+    prev_rows: dict[Key, dict[str, Any]] = {}
+    prev_texts: dict[Key, dict[str, Any]] = {}
+    if rows_path.exists():
+        for r in pd.read_parquet(rows_path).astype(object).where(lambda d: d.notna(), None).to_dict("records"):
+            prev_rows[_key(r)] = r
+    if texts_path.exists():
+        for t in pd.read_parquet(texts_path).astype(object).where(lambda d: d.notna(), None).to_dict("records"):
+            prev_texts[_key(t)] = t
+    for r in _read_jsonl(rows_part):
+        prev_rows[_key(r)] = r
+    for t in _read_jsonl(texts_part):
+        prev_texts[_key(t)] = t
+    done = {k for k, r in prev_rows.items() if _is_done(r)}
+
+    guard = BudgetGuard(settings.spend_path, cap, run_id)
+    write_lock = asyncio.Lock()
+    new_rows: dict[Key, dict[str, Any]] = {}
+    new_texts: dict[Key, dict[str, Any]] = {}
+    stopped: dict[str, bool] = {p.id: False for p in active}
+    calls: dict[str, int] = {p.id: 0 for p in active}
+    subset = stability_subset(clips, stability_n, seed)
+
+    jobs: list[tuple[Provider, Clip, int]] = []
+    for p in active:
+        for c in clips:
+            jobs.append((p, c, 0))
+        if p.paid and stability_repeats > 0:
+            for r in range(1, stability_repeats + 1):
+                for c in subset:
+                    jobs.append((p, c, r))
+
+    def base_row(p: Provider, c: Clip, repeat: int) -> dict[str, Any]:
+        return {
+            "run_id": run_id,
+            "provider": p.id,
+            "model_id": p.model_id,
+            "provider_version": None,
+            "video_id": c.video_id,
+            "language": c.language,
+            "tier": c.tier,
+            "repeat": repeat,
+            "status": "ok",
+            "error": None,
+            "latency_ms": None,
+            "audio_seconds": c.duration_s,
+            "cost_usd": 0.0,
+            "cached": False,
+            "duration_s": c.duration_s,
+            "channel": c.channel,
+            "tags": json.dumps(list(c.tags), ensure_ascii=False),
+            "hyp_chars": None,
+        }
+
+    async def emit(row: dict[str, Any], result: Result | None) -> None:
+        key = _key(row)
+        text = None
+        if result is not None:
+            text = {
+                "provider": row["provider"],
+                "video_id": row["video_id"],
+                "repeat": row["repeat"],
+                "hyp_text": result.text,
+                "words_json": _words_json(result),
+            }
+        async with write_lock:
+            new_rows[key] = row
+            with rows_part.open("a") as fh:
+                fh.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
+            if text is not None:
+                new_texts[key] = text
+                with texts_part.open("a") as fh:
+                    fh.write(json.dumps(text, ensure_ascii=False) + "\n")
+
+    def ok_row(row: dict[str, Any], result: Result, cached: bool) -> dict[str, Any]:
+        row.update(
+            status="ok",
+            model_id=result.model_id or row["model_id"],
+            provider_version=result.provider_version,
+            latency_ms=float(result.latency_ms),
+            audio_seconds=float(result.audio_seconds),
+            cost_usd=float(result.cost_usd),
+            cached=cached,
+            hyp_chars=len(result.text),
+        )
+        return row
+
+    sems = {p.id: asyncio.Semaphore(max(1, int(p.concurrency))) for p in active}
+
+    async def do_job(p: Provider, c: Clip, repeat: int, advance) -> None:
+        try:
+            await _do_job(p, c, repeat)
+        finally:
+            advance(p.id)
+
+    async def _do_job(p: Provider, c: Clip, repeat: int) -> None:
+        key: Key = (p.id, c.video_id, repeat)
+        if key in done:
+            return
+        row = base_row(p, c, repeat)
+        shash = repeat_settings_hash(p, repeat)
+        if not no_cache:
+            # Cache hits are free, so they are served even after the budget stopped this provider.
+            hit = cache.get(p.id, p.model_id, c.audio_sha256, shash)
+            if hit is not None:
+                await emit(ok_row(row, hit, cached=True), hit)
+                return
+        billable = is_billable(p)
+        async with sems[p.id]:
+            if stopped[p.id]:
+                row.update(status="skipped", error=BUDGET_ERROR)
+                await emit(row, None)
+                return
+            reserved = 0.0
+            if billable:
+                reserved = p.estimate_cost(c.duration_s)
+                if not await guard.reserve(reserved):
+                    if not stopped[p.id]:
+                        console.print(
+                            f"[red]{p.id}: stopping, the next request would cross the ${cap:.2f} cap[/red]"
+                        )
+                    stopped[p.id] = True
+                    row.update(status="skipped", error=BUDGET_ERROR)
+                    await emit(row, None)
+                    return
+            calls[p.id] += 1
+            t0 = time.perf_counter()
+            try:
+                result = await asyncio.wait_for(
+                    p.transcribe(Path(c.audio_path), c.language, clip=c), timeout=float(p.timeout_s)
+                )
+            except ProviderSkip as exc:
+                if billable:
+                    await guard.release(reserved)
+                row.update(status="skipped", error=str(exc) or "skipped")
+                await emit(row, None)
+                return
+            except TimeoutError:
+                # The request may have been billed even though we gave up: count the estimate as spent.
+                if billable:
+                    await guard.record(p.id, c.video_id, reserved, reserved)
+                row.update(
+                    status="error",
+                    error=f"timeout after {p.timeout_s:.0f}s",
+                    latency_ms=(time.perf_counter() - t0) * 1000.0,
+                )
+                await emit(row, None)
+                return
+            except Exception as exc:
+                if billable:
+                    await guard.release(reserved)
+                row.update(
+                    status="error",
+                    error=f"{type(exc).__name__}: {exc}"[:500],
+                    latency_ms=(time.perf_counter() - t0) * 1000.0,
+                )
+                await emit(row, None)
+                return
+            if billable:
+                await guard.record(p.id, c.video_id, result.cost_usd, reserved)
+            cache.put(p.id, p.model_id, c.audio_sha256, shash, result)
+            await emit(ok_row(row, result, cached=False), result)
+
+    show = progress and console.is_terminal
+    with Progress(
+        TextColumn("{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        console=console,
+        disable=not show,
+        transient=False,
+    ) as bar:
+        tasks = {
+            p.id: bar.add_task(p.id, total=sum(1 for j in jobs if j[0].id == p.id)) for p in active
+        }
+
+        def advance(pid: str) -> None:
+            bar.advance(tasks[pid])
+
+        await asyncio.gather(*(do_job(p, c, r, advance) for p, c, r in jobs))
+
+    # Compact: previous state, then this pass on top.
+    all_rows = {**prev_rows, **new_rows}
+    all_texts = {**prev_texts, **new_texts}
+    # A row that is no longer ok must not keep an old hypothesis.
+    all_texts = {k: v for k, v in all_texts.items() if k in all_rows and all_rows[k].get("status") == "ok"}
+    rows_df = _rows_frame(list(all_rows.values()))
+    _atomic_parquet(rows_df, rows_path)
+    _atomic_parquet(_texts_frame(list(all_texts.values())), texts_path)
+    _atomic_parquet(_refs_frame(clips), refs_path)
+    rows_part.unlink(missing_ok=True)
+    texts_part.unlink(missing_ok=True)
+
+    from clipbench import __version__
+
+    commit, dirty = _git_info(settings.root)
+    old_meta: dict[str, Any] = {}
+    if meta_path.exists():
+        try:
+            old_meta = json.loads(meta_path.read_text())
+        except ValueError:
+            old_meta = {}
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    meta = {
+        "run_id": run_id,
+        "created_at": old_meta.get("created_at", now),
+        "updated_at": now,
+        "git_commit": commit,
+        "git_dirty": dirty,
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+        "packages": _package_versions(),
+        "clipbench_version": __version__,
+        "providers": [_provider_meta(p) for p in active],
+        "skipped_providers": skipped,
+        "budget_stopped": [pid for pid, s in stopped.items() if s],
+        "sample_seed": settings.sample_seed,
+        "stability_seed": seed,
+        "stability_n": stability_n,
+        "stability_repeats": stability_repeats,
+        "tier": tier,
+        "language": clips[0].language if clips else settings.language,
+        "n_clips": len(clips),
+        "no_cache": no_cache,
+        "estimate_usd": est.total_usd,
+        "spent_before_usd": spent_before,
+        "spent_after_usd": guard.spent,
+        "budget_cap_usd": cap,
+    }
+    _atomic_json(meta, meta_path)
+
+    return RunResult(
+        run_id=run_id,
+        dry_run=False,
+        estimate=est,
+        spent_before=spent_before,
+        cap=cap,
+        allowed=True,
+        skipped_providers=skipped,
+        rows_path=rows_path,
+        texts_path=texts_path,
+        refs_path=refs_path,
+        meta_path=meta_path,
+        rows=rows_df,
+        n_calls=calls,
+    )

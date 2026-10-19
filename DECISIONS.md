@@ -39,3 +39,15 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - Cost per hour uses the list cost of every row, cached or not; actual money spent is tracked separately in data/spend.json.
 - Clips over 90 s go in the 60-90s bucket.
 - Stability disagreement is symmetric edit distance / max length between repeats, since neither repeat is the reference.
+
+## Runner and budget
+
+- Rows store the list cost even on a cache hit, and the original call's latency; data/spend.json records only real requests. Cost per hour and latency stay comparable across reruns.
+- The budget guard applies to any provider with a nonzero price, not only `paid=True`, so the fake provider can test it.
+- Stability reruns (20 seeded clips x 3) run only for paid providers; local and on-disk systems are deterministic or free. Each repeat has its own cache key, so rerunning a run is still free.
+- `--limit` and the stability subset sort by video_id first, so they do not depend on input order.
+- On resume, errors and budget skips are retried; ok rows and other skips are kept.
+- A timeout on a billable request counts the reserved estimate as spent: the provider may have billed anyway.
+- Unavailable providers produce no rows; they are listed in run_meta.skipped_providers.
+- Whisper backend (mlx-whisper, else faster-whisper) is chosen by an actual import and is part of the cache key, since the two decode differently (greedy vs beam 5). condition_on_previous_text is off to reduce repetition loops.
+- Wayin: Vako keeps Wayin output only in Postgres (`Transcript.source = 'wayin'`), nothing under .vr/. The adapter reads data/wayin/<videoId>.json, or the DB read-only only when CLIPBENCH_WAYIN_DB=1 and DATABASE_URL are set, and only whole-video transcripts (slices are rebased and do not match full audio). Otherwise it skips cleanly.

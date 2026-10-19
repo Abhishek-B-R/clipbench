@@ -139,7 +139,8 @@ def draft_findings(
         if cheap["provider"] == best["provider"]:
             out.append(
                 f"{PREFIX} No provider is cheaper than {best['provider']} while staying inside its 95% CI; "
-                f"it costs {_cost(cheap['cost'])} {src_all}."
+                + (f"it has no API cost (local or free) {src_all}." if float(cheap["cost"]) == 0
+                 else f"it costs {_cost(cheap['cost'])} {src_all}.")
             )
         else:
             out.append(
@@ -150,7 +151,11 @@ def draft_findings(
 
     # Hallucination.
     hal = overall.dropna(subset=["hallucination_rate"]).sort_values("hallucination_rate", ascending=False)
-    if len(hal):
+    if len(hal) and float(hal.iloc[0]["hallucination_rate"]) == 0 and not float(
+        pd.to_numeric(hal["long_output_rate"], errors="coerce").fillna(0).max()
+    ):
+        out.append(f"{PREFIX} No provider hallucinated: 0.0% of reference tokens and no long outputs {src_all}.")
+    elif len(hal):
         h = hal.iloc[0]
         out.append(
             f"{PREFIX} {h['provider']} has the highest hallucination rate: {_pct(h['hallucination_rate'])} of "

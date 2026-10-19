@@ -1,0 +1,6 @@
+{"id": "BBBBBBBBBBB", "title": "Synthetic short spoken in English", "duration": 30, "language": "en",
+ "channel": "Synthetic Channel Two", "channel_id": "UCsynthetic000000000002",
+ "subtitles": {},
+ "automatic_captions": {"en-orig": [{"ext": "json3", "name": "English (Original)"}],
+                        "en": [{"ext": "json3", "name": "English"}],
+                        "ja": [{"ext": "json3", "name": "Japanese"}]}}

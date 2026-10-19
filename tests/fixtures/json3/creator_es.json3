@@ -1,0 +1,4 @@
+{"events": [
+  {"tStartMs": 0, "dDurationMs": 1500, "segs": [{"utf8": "Hola a\ntodos"}]},
+  {"tStartMs": 1500, "dDurationMs": 1500, "segs": [{"utf8": "hoy  hace sol"}]}
+ ]}

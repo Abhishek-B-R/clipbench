@@ -1,0 +1,6 @@
+{"wireMagic": "pb3", "pens": [{}],
+ "events": [
+  {"tStartMs": 500, "dDurationMs": 2000, "segs": [{"utf8": "こんにちは\n皆さん"}]},
+  {"tStartMs": 2600, "dDurationMs": 1500, "segs": [{"utf8": "[笑] 今日は晴れです"}]},
+  {"tStartMs": 4200, "dDurationMs": 800, "segs": [{"utf8": "   "}]}
+ ]}

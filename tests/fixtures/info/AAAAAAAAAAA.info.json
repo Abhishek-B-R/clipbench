@@ -1,0 +1,9 @@
+{"id": "AAAAAAAAAAA", "title": "Synthetic short with creator captions", "duration": 42, "language": "ja",
+ "channel": "Synthetic Channel One", "channel_id": "UCsynthetic000000000001",
+ "subtitles": {"ja": [{"ext": "json3", "name": "Japanese"}],
+               "ja-XyZ12345678": [{"ext": "json3", "name": "Japanese - Synthetic named track"}],
+               "live_chat": []},
+ "automatic_captions": {"ja-orig": [{"ext": "json3", "name": "Japanese (Original)"}],
+                        "ja": [{"ext": "json3", "name": "Japanese"}],
+                        "en": [{"ext": "json3", "name": "English"}],
+                        "ko": []}}

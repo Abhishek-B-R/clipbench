@@ -1,0 +1,8 @@
+{"wireMagic": "pb3", "pens": [{}], "wsWinStyles": [{}], "wpWinPositions": [{}],
+ "events": [
+  {"tStartMs": 0, "dDurationMs": 6000, "id": 1, "wpWinPosId": 1, "wsWinStyleId": 1},
+  {"tStartMs": 100, "dDurationMs": 4000, "wWinId": 1, "segs": [{"utf8": "[音楽]"}]},
+  {"tStartMs": 1000, "dDurationMs": 3000, "wWinId": 1, "segs": [{"utf8": "こんにちは"}, {"utf8": "皆さん", "tOffsetMs": 600}]},
+  {"tStartMs": 2000, "dDurationMs": 30, "wWinId": 1, "aAppend": 1, "segs": [{"utf8": "\n"}]},
+  {"tStartMs": 2500, "dDurationMs": 2000, "wWinId": 1, "segs": [{"utf8": "今日は"}, {"utf8": "晴れ", "tOffsetMs": 400}, {"utf8": "です", "tOffsetMs": 900}]}
+ ]}

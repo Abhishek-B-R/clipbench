@@ -1,0 +1,5 @@
+{"id": "CCCCCCCCCCC", "title": "Synthetic old short with no language", "duration": 15, "language": null,
+ "channel": "Synthetic Channel Three", "channel_id": "UCsynthetic000000000003",
+ "subtitles": {},
+ "automatic_captions": {"ja": [{"ext": "json3", "name": "Japanese"}],
+                        "en": [{"ext": "json3", "name": "English"}]}}

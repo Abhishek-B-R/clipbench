@@ -82,3 +82,13 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - Signed-in features: provider watchlist, email alerts on new runs, saved and shareable comparisons, a vote board for new providers and languages, and API keys for the public data API. Browsing results never needs an account.
 - The web app reads run results from JSON written by `clipbench export`; the publish check scans that JSON too.
 - Demo data before the first real run uses "Model A".."Model F", never real provider names on fake numbers.
+
+## Dataset
+
+- Track kind comes only from info.json (full rule in docs/data_rules.md): `subtitles` means creator; `automatic_captions` with `-orig`, or a plain key when the info language matches, means auto; any other automatic key means auto_translation; no info.json means unknown. This mirrors Vako `chooseTrack`/`parseInfo`. A key counts only if its format list is non-empty.
+- `ja-<suffix>` keys are named creator tracks: the fetched info.json lists them under `subtitles`.
+- Vako has info.json for only 182 of 1344 ja videos, so `clipbench data fetch-info` fetches the missing ones with yt-dlp into data/info/ (5 s apart, resumable). It only fetches ids whose json3 suggests 95 s or less (`--all` overrides); checked against Vako's probed durations, this loses nothing.
+- Fetched info.json drops formats, thumbnails and heatmap to keep files small.
+- The sample visits channels round robin in a seeded order, capped at floor(0.1 * n) per channel, to spread clips across as many channels as possible.
+- `load_clips("verified")` skips a clip whose verified audio_sha256 no longer matches the WAV, since the reviewer heard different audio.
+- Fetchers stop on a bot check or HTTP 429 and keep going on other failures.

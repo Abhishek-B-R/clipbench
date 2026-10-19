@@ -4,6 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { useActiveHeading } from "@/lib/useActiveHeading";
 import { ACCOUNTS } from "@/lib/flags";
 import { useRun, useSource } from "@/lib/data";
+import { API_V1, badgeSnippets } from "@/lib/config";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui/Badge";
 import { CodeBlock, type CodeSample } from "@/components/ui/CodeBlock";
@@ -22,10 +23,15 @@ const NAV = [
   { group: "Endpoints", items: [
     { id: "list-runs", label: "List runs", method: "GET" },
     { id: "get-run", label: "Get a run", method: "GET" },
+    { id: "leaderboard", label: "Leaderboard", method: "GET" },
+    { id: "provider", label: "One model", method: "GET" },
+    { id: "history", label: "Model history", method: "GET" },
+    { id: "badge", label: "Badge", method: "GET" },
   ] },
   { group: "Objects", items: [
     { id: "run-object", label: "The run object" },
     { id: "aggregate-object", label: "Aggregates and paired" },
+    { id: "v3-sections", label: "Measures beyond accuracy" },
   ] },
 ];
 
@@ -41,6 +47,14 @@ export default function ApiDocs() {
   }, []);
   const live = useExamples();
   const ex = examples(origin, live.latest);
+  const pid = live.provider ?? "<provider_id>";
+  const lang = live.lang ?? "ja";
+  const badge = badgeSnippets(origin, pid, lang, live.providerLabel ?? pid);
+  const get = (path: string): CodeSample[] => [
+    { label: "curl", lang: "shell", code: `curl -s "${origin}${path}"` },
+    { label: "JavaScript", lang: "js", code: `const data = await fetch("${origin}${path}").then((r) => r.json());` },
+    { label: "Python", lang: "python", code: `import requests\n\ndata = requests.get("${origin}${path}").json()` },
+  ];
   return (
     <>
       <header className="frame frame-lines pt-12 pb-10 sm:pt-16">
@@ -124,6 +138,44 @@ export default function ApiDocs() {
             <p>One run in full. Use the index's <Mono>latest</Mono> for the current numbers, or pin a run id for reproducible work.</p>
             <Fields head={["Parameter", "In", "Description"]} rows={[["runId", "path", "A run id from List runs. Letters, digits, dot, dash and underscore."]]} />
           </Section>
+          <Section id="leaderboard" title="Leaderboard" method="GET" path="/api/v1/leaderboard/:lang" code={<CodeBlock samples={get(`${API_V1.leaderboard(lang)}?tier=verified&slice_kind=condition&slice=music`)} />}>
+            <p>
+              The ranking for one language from its latest published run: the <Mono>aggregates</Mono> rows for one tier, metric and slice, sorted by error rate, with the paired verdict against the leader. A language below the publication gate returns <Mono>404 not_published</Mono>, never a ranking.
+            </p>
+            <Fields
+              head={["Parameter", "In", "Description"]}
+              rows={[
+                ["lang", "path", "en, ja, ko, es or hi."],
+                ["tier", "query", "verified (default when present) or creator."],
+                ["metric", "query", "Defaults to the run's primary metric."],
+                ["slice_kind, slice", "query", "all (default), condition, category, audio_condition, tag or duration, and a value of it."],
+                ["track", "query", "batch (default) or streaming. Streaming rows come from the streaming section and are never mixed with batch."],
+              ]}
+            />
+          </Section>
+          <Section id="provider" title="One model" method="GET" path="/api/v1/providers/:id" code={<CodeBlock samples={get(`${API_V1.provider(pid)}?lang=${lang}`)} />}>
+            <p>Everything measured for one model in a language's latest run: its aggregates on every slice, paired results, and its rows from each measure below (streaming, formatting, speakers, language ID, names, style, caption files, long-form, compute, reliability), plus its feature support and the settings it ran with.</p>
+            <Fields head={["Parameter", "In", "Description"]} rows={[["id", "path", "A provider id from a run's providers[]."], ["lang", "query", "Language; defaults to the newest published one."]]} />
+          </Section>
+          <Section id="history" title="Model history" method="GET" path="/api/v1/providers/:id/history" code={<CodeBlock samples={get(`${API_V1.history(pid)}?lang=${lang}`)} />}>
+            <p>
+              The model's error rate on every scheduled canary rerun and every full run, oldest first, each with its 95% interval and model version, plus its drift events: dates where the score moved beyond its own interval.
+            </p>
+            <Fields
+              head={["Field", "Type", "Description"]}
+              rows={[
+                ["points[]", "object[]", "date, run_id, kind (canary or full), model_id, metric, error_rate, ci_low, ci_high, n_clips."],
+                ["drift[]", "object[]", "date, metric, before, after, ci (the interval it moved beyond), direction."],
+              ]}
+            />
+          </Section>
+          <Section id="badge" title="Badge" method="GET" path="/api/v1/badges/:id.svg" code={<CodeBlock title="Embed" samples={[{ label: "Markdown", code: badge.markdown }, { label: "HTML", code: badge.html }, { label: "URL", code: badge.img }]} />}>
+            <p>
+              A small SVG badge with a model's current error rate in a language, for a README or a pricing page. It is computed from the latest published run when requested, links back to the model page, and is cached like the run documents. For a language that is not published yet the badge says so instead of showing a number.
+            </p>
+            <Fields head={["Parameter", "In", "Description"]} rows={[["id", "path", "Provider id."], ["lang", "query", "Language code. Required."], ["metric", "query", "Optional; the primary metric by default."]]} />
+            <p>Every model page has its own snippet ready to copy.</p>
+          </Section>
           <Section id="run-object" title="The run object">
             <p>Tiers are never mixed: every row says which tier it belongs to, and creator-tier numbers measure agreement with the creator's captions, not accuracy.</p>
             <Fields
@@ -141,15 +193,17 @@ export default function ApiDocs() {
                 ["clips[]", "object[]", "video_id, tier, duration_s, channel, tags, kind (short or window), start_s."],
                 ["per_clip[]", "object[]", "Error, hallucination and latency per provider and clip."],
                 ["limitations[]", "string[]", "What this run cannot tell you."],
+                ["streaming, semantic, drift, history, sweeps, formatting, lattice, longform, compute, diarization, lid, entities, style, reliability, captions, features", "object or null", "Measures beyond batch accuracy. Each is null when the run has no such data. See below."],
               ]}
             />
           </Section>
-          <Section id="aggregate-object" title="Aggregates and paired" last>
+          <Section id="aggregate-object" title="Aggregates and paired">
             <Fields
               head={["aggregates[] field", "Type", "Description"]}
               rows={[
                 ["provider, model_id, tier, metric", "string", "What the row is about."],
-                ["slice_kind, slice", "string", "all/all, tag/<tag>, or duration/<bucket>."],
+                ["slice_kind, slice", "string", "all/all, condition/<condition>, category/<category>, audio_condition/<music or no_music>, tag/<tag>, or duration/<bucket>."],
+                ["error_rate_lattice, ci_low_lattice, ci_high_lattice", "number or null", "Scored against the closest valid form of the reference (kana or kanji, numerals or words)."],
                 ["n_clips, too_small", "number, boolean", "too_small is true under 15 clips: do not rank on it."],
                 ["error_rate, ci_low, ci_high", "number", "Corpus rate with a 95% percentile bootstrap interval (0 to 1)."],
                 ["hallucination_rate, long_output_rate", "number", "See the methodology."],
@@ -168,6 +222,29 @@ export default function ApiDocs() {
             <p>
               The full method is in the <Link to="/methodology" className="text-ink underline decoration-line-strong underline-offset-4">methodology</Link>.
             </p>
+          </Section>
+          <Section id="v3-sections" title="Measures beyond accuracy" last>
+            <p>
+              Each section carries its own rows with <Mono>provider, model_id, tier, language, slice_kind, slice, n_clips</Mono> and its metrics, with 95% intervals where the metric is a rate. Numbers only: no reference, transcript or judge text is ever published.
+            </p>
+            <Fields
+              head={["Key", "Type", "What it holds"]}
+              rows={[
+                ["streaming", "object", "Realtime runs: final error rate, time to first partial and to final segment (p50, p95), partial stability; its own paired table."],
+                ["semantic", "object", "LLM judge scores and the judge's calibration against human labels. published is false, with a reason, until the calibration passes."],
+                ["history, drift", "object", "Canary reruns per provider over time, and the drift events found in them."],
+                ["sweeps", "object", "Error rate per provider at fixed speech-to-music and speech-to-noise ratios, plus reverb levels. Mix recipes only, never audio."],
+                ["formatting", "object", "Punctuation error rate, casing, and number, date, time, currency, percent and unit formatting."],
+                ["lattice", "object", "Lattice scores when they are not already in aggregates."],
+                ["longform", "object", "Full videos: error rate, share handled, chunk join errors, timing drift, and word timing by minute."],
+                ["compute", "object", "Local models: machine, RTFx, model size, parameters, peak memory."],
+                ["diarization, lid, entities", "object", "Speaker error and speaker count; language identification and the cost of no hint; names and brands with and without custom vocabulary."],
+                ["style", "object", "Fillers, stutters and profanity kept or masked. Style choices, not errors."],
+                ["reliability", "object", "Failure, timeout and retry rates and p99 latency, for this run and across all runs."],
+                ["captions", "object", "SRT and VTT built with one fixed line-break rule: cue timing and readability."],
+                ["features", "object", "The feature matrix: each provider's documented features, with doc links and the date they were checked."],
+              ]}
+            />
           </Section>
         </div>
       </div>
@@ -325,5 +402,6 @@ function useExamples() {
         2,
       )
     : "// Loading the live run";
-  return { latest, list, one };
+  const first = run?.providers[0];
+  return { latest, list, one, provider: first?.id, providerLabel: first?.label, lang: run?.language };
 }

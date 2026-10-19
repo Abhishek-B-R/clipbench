@@ -2,6 +2,12 @@
 
 https://www.assemblyai.com/docs/api-reference/transcripts/submit
 Latency is submit-to-result: upload + submit + polling, minus our own retry backoff.
+
+Run options (checked 2026-10-19, https://www.assemblyai.com/docs/api-reference/transcripts/submit):
+- diarize: `speaker_labels=true`; per word `speaker` letters ("A", "B").
+- detect_language: no `language_code`, `language_detection=true`; the result is `language_code`.
+- keyterms: `keyterms_prompt` (1000 terms on Universal-3.5 Pro, 200 on Universal-2, at most 6 words
+  per phrase). We cap at 200 so the Universal-2 fallback (Korean) accepts the same list.
 """
 
 from __future__ import annotations
@@ -12,7 +18,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from clipbench.models import Clip, Result, Word
-from clipbench.providers.base import ProviderError, load_pricing
+from clipbench.providers.base import ProviderError, load_pricing, normalize_language_code
 from clipbench.providers.http import HttpProvider, stopwatch, wav_seconds
 
 
@@ -24,6 +30,9 @@ class AssemblyAI(HttpProvider):
     poll_timeout_s: ClassVar[float] = 900.0  # whole job
     poll_interval_s: ClassVar[float] = 1.0
     base_url: ClassVar[str] = "https://api.assemblyai.com/v2"
+    supported_options: ClassVar[frozenset[str]] = frozenset({"diarize", "detect_language", "keyterms"})
+    max_keyterms: ClassVar[int] = 200
+    max_keyterm_words: ClassVar[int] = 6
 
     def __init__(self, model_id: str | None = None, **kwargs: Any) -> None:
         kwargs.setdefault("fallback_models", ["universal-2"])
@@ -44,13 +53,22 @@ class AssemblyAI(HttpProvider):
 
     def request_body(self, upload_url: str, language: str) -> dict[str, Any]:
         models = [self.model_id, *[m for m in self.options["fallback_models"] if m != self.model_id]]
-        return {
+        body: dict[str, Any] = {
             "audio_url": upload_url,
             "speech_models": models,
-            "language_code": language,  # ja, es, ko (ko is served by universal-2)
             "punctuate": True,
             "format_text": True,
         }
+        if self.detect_language:
+            body["language_detection"] = True
+        else:
+            body["language_code"] = language  # ja, es, ko (ko is served by universal-2)
+        if self.diarize:
+            body["speaker_labels"] = True
+        terms = [t for t in self.keyterms if len(t.split()) <= self.max_keyterm_words]
+        if terms:
+            body["keyterms_prompt"] = terms[: self.max_keyterms]
+        return body
 
     async def transcribe(self, audio_path: Path, language: str, *, clip: Clip | None = None) -> Result:
         audio_path = Path(audio_path)
@@ -79,10 +97,11 @@ class AssemblyAI(HttpProvider):
         if job["status"] == "error":
             raise ProviderError(f"assemblyai: transcript {transcript_id} failed: {job.get('error')}")
         used = job.get("speech_model_used") or self.model_id
-        words = [
-            Word(text=w["text"], start_ms=int(w["start"]), end_ms=int(w["end"]))
-            for w in job.get("words") or []
-        ]
+        raw_words = job.get("words") or []
+        words = [Word(text=w["text"], start_ms=int(w["start"]), end_ms=int(w["end"])) for w in raw_words]
+        speakers = None
+        if self.diarize and any(w.get("speaker") is not None for w in raw_words):
+            speakers = [None if w.get("speaker") is None else str(w["speaker"]) for w in raw_words]
         billed = float(job.get("audio_duration") or seconds)
         return Result(
             text=(job.get("text") or "").strip(),
@@ -93,6 +112,8 @@ class AssemblyAI(HttpProvider):
             raw_response=job,
             model_id=self.model_id,
             provider_version=used,
+            speakers=speakers if words else None,
+            detected_language=normalize_language_code(job.get("language_code")) if self.detect_language else None,
         )
 
     def cost_for(self, model_used: str, seconds: float) -> float:

@@ -4,6 +4,17 @@ Upload the WAV to CLIPBENCH_AWS_BUCKET, start a job that writes its JSON back to
 poll, read the transcript, then delete the S3 objects and the job (always, in a finally block).
 boto3 is sync, so every call runs in asyncio.to_thread.
 https://docs.aws.amazon.com/transcribe/latest/dg/batch-med-transcription.html
+
+Run options (checked 2026-10-19):
+- diarize: Settings.ShowSpeakerLabels with MaxSpeakerLabels (2 to 30); per item `speaker_label`
+  ("spk_0"), or results.speaker_labels.segments[].items[] in older output.
+  https://docs.aws.amazon.com/transcribe/latest/dg/diarization.html
+- detect_language: IdentifyLanguage=true with LanguageOptions (our five languages) instead of
+  LanguageCode; the result is the job's LanguageCode / results.language_code.
+  https://docs.aws.amazon.com/transcribe/latest/dg/lang-id-batch.html
+- keyterms: not supported. Custom vocabularies are account resources (CreateVocabulary, then
+  Settings.VocabularyName); the benchmark does not create persistent resources in an account.
+  https://docs.aws.amazon.com/transcribe/latest/dg/custom-vocabulary.html
 """
 
 from __future__ import annotations
@@ -17,10 +28,11 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from clipbench.models import Clip, Result, Word
-from clipbench.providers.base import Provider, ProviderError, ProviderSkip
+from clipbench.providers.base import Provider, ProviderError, ProviderSkip, normalize_language_code
 from clipbench.providers.http import RetryPolicy, retry_async, stopwatch, wav_seconds
 
-LANGUAGE_CODES = {"ja": "ja-JP", "es": "es-US", "ko": "ko-KR", "en": "en-US"}
+LANGUAGE_CODES = {"ja": "ja-JP", "es": "es-US", "ko": "ko-KR", "en": "en-US", "hi": "hi-IN"}
+MAX_SPEAKER_LABELS = 10
 
 RETRYABLE_CODES = {
     "ThrottlingException",
@@ -60,6 +72,7 @@ class AwsTranscribe(Provider):
     timeout_s: ClassVar[float] = 900.0  # whole job, including queueing at AWS
     poll_interval_s: ClassVar[float] = 2.0
     key_prefix: ClassVar[str] = "clipbench-tmp"
+    supported_options: ClassVar[frozenset[str]] = frozenset({"diarize", "detect_language"})
 
     def __init__(
         self,
@@ -101,6 +114,19 @@ class AwsTranscribe(Provider):
             raise ProviderSkip(f"{self.id}: no Amazon Transcribe language code for {language!r}")
         return LANGUAGE_CODES[language]
 
+    def job_args(self, language: str) -> dict[str, Any]:
+        """Language and settings arguments of start_transcription_job."""
+        args: dict[str, Any] = {}
+        if self.detect_language:
+            args["IdentifyLanguage"] = True
+            options = [self.language_code(code) for code in sorted(LANGUAGE_CODES)]
+            args["LanguageOptions"] = options
+        else:
+            args["LanguageCode"] = self.language_code(language)
+        if self.diarize:
+            args["Settings"] = {"ShowSpeakerLabels": True, "MaxSpeakerLabels": MAX_SPEAKER_LABELS}
+        return args
+
     @property
     def bucket(self) -> str:
         return os.environ.get("CLIPBENCH_AWS_BUCKET", "")
@@ -135,7 +161,7 @@ class AwsTranscribe(Provider):
 
     async def transcribe(self, audio_path: Path, language: str, *, clip: Clip | None = None) -> Result:
         audio_path = Path(audio_path)
-        lang = self.language_code(language)
+        job_args = self.job_args(language)
         seconds = wav_seconds(audio_path)
         audio = audio_path.read_bytes()
         s3, tx = self.clients()
@@ -152,11 +178,11 @@ class AwsTranscribe(Provider):
                     "start_transcription_job",
                     tx.start_transcription_job,
                     TranscriptionJobName=job_name,
-                    LanguageCode=lang,
                     MediaFormat="wav",
                     Media={"MediaFileUri": f"s3://{bucket}/{in_key}"},
                     OutputBucketName=bucket,
                     OutputKey=out_key,
+                    **job_args,
                 )
                 started = True
                 deadline = time.monotonic() + self.timeout_s
@@ -181,7 +207,7 @@ class AwsTranscribe(Provider):
             finally:
                 await self._cleanup(s3, tx, bucket, [in_key, out_key], job_name if started else None)
         body = json.loads(payload)
-        return parse_transcript(body, self, seconds, latency)
+        return parse_transcript(body, self, seconds, latency, job=job)
 
     async def _cleanup(self, s3: Any, tx: Any, bucket: str, keys: list[str], job_name: str | None) -> None:
         """Best effort; never masks the real error."""
@@ -197,13 +223,31 @@ class AwsTranscribe(Provider):
                 pass
 
 
+def _segment_speakers(results: dict[str, Any]) -> dict[str, str]:
+    """start_time -> speaker_label from results.speaker_labels.segments (older output shape)."""
+    out: dict[str, str] = {}
+    for seg in (results.get("speaker_labels") or {}).get("segments") or []:
+        for item in seg.get("items") or []:
+            label = item.get("speaker_label") or seg.get("speaker_label")
+            if "start_time" in item and label:
+                out[str(item["start_time"])] = str(label)
+    return out
+
+
 def parse_transcript(
-    body: dict[str, Any], provider: AwsTranscribe, seconds: float, latency_ms: float
+    body: dict[str, Any],
+    provider: AwsTranscribe,
+    seconds: float,
+    latency_ms: float,
+    *,
+    job: dict[str, Any] | None = None,
 ) -> Result:
     results = body.get("results") or {}
     transcripts = results.get("transcripts") or [{}]
     text = " ".join(t.get("transcript", "") for t in transcripts).strip()
+    by_start = _segment_speakers(results) if provider.diarize else {}
     words: list[Word] = []
+    speakers: list[str | None] = []
     for item in results.get("items") or []:
         if item.get("type") != "pronunciation" or "start_time" not in item:
             continue
@@ -215,6 +259,10 @@ def parse_transcript(
                 end_ms=round(float(item["end_time"]) * 1000),
             )
         )
+        speakers.append(item.get("speaker_label") or by_start.get(str(item["start_time"])))
+    detected = None
+    if provider.detect_language:
+        detected = normalize_language_code(results.get("language_code") or (job or {}).get("LanguageCode"))
     return Result(
         text=text,
         words=words or None,
@@ -224,4 +272,6 @@ def parse_transcript(
         raw_response=body,
         model_id=provider.model_id,
         provider_version=None,
+        speakers=speakers if provider.diarize and words and any(speakers) else None,
+        detected_language=detected,
     )

@@ -12,6 +12,10 @@ Decoding, chosen to reduce Whisper's repetition and hallucination loops on short
 - `word_timestamps=True` for word timings.
 mlx-whisper decodes greedily (it has no beam search); faster-whisper uses its default beam size 5.
 
+Run options: detect_language passes language=None (Whisper's own language identification on the
+first 30 s) and reads the detected language back; keyterms become `initial_prompt` (the same prompt
+string as the hosted Whisper adapters). No diarization.
+
 Weights are downloaded from Hugging Face on first use (about 3 GB for large-v3, 1.6 GB for turbo)
 into the Hugging Face cache, so the first clip is slow. Tests never load them.
 """
@@ -27,7 +31,8 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from clipbench.models import Clip, Result, Word
-from clipbench.providers.base import Provider
+from clipbench.providers.base import Provider, normalize_language_code
+from clipbench.providers.groq import keyterm_prompt
 
 _BACKEND: str | None = None
 _BACKEND_LOCK = threading.Lock()
@@ -76,6 +81,7 @@ class WhisperLocal(Provider):
     timeout_s: ClassVar[float] = 1800.0  # the first call downloads the weights
     paid: ClassVar[bool] = False
     uploads_audio: ClassVar[bool] = False
+    supported_options: ClassVar[frozenset[str]] = frozenset({"detect_language", "keyterms"})
 
     def __init__(self, model_id: str | None = None, *, backend: str | None = None, **options: Any) -> None:
         self._backend = backend
@@ -113,13 +119,21 @@ class WhisperLocal(Provider):
 
     # ------------------------------------------------------------ backends
 
+    def decode_options(self, language: str) -> dict[str, Any]:
+        """language (None asks Whisper to detect it) and initial_prompt for the keyterms."""
+        out: dict[str, Any] = {"language": None if self.detect_language else language}
+        prompt = keyterm_prompt(self.keyterms)
+        if prompt:
+            out["initial_prompt"] = prompt
+        return out
+
     def _run_mlx(self, audio_path: Path, language: str) -> tuple[str, list[Word], Any]:
         import mlx_whisper
 
         out = mlx_whisper.transcribe(
             str(audio_path),
             path_or_hf_repo=self.model_id,
-            language=language,
+            **self.decode_options(language),
             word_timestamps=True,
             temperature=0.0,
             condition_on_previous_text=False,
@@ -146,7 +160,7 @@ class WhisperLocal(Provider):
             _FW_MODELS[self.model_id] = model
         segments, info = model.transcribe(
             str(audio_path),
-            language=language,
+            **self.decode_options(language),
             word_timestamps=True,
             temperature=0.0,
             condition_on_previous_text=False,
@@ -160,7 +174,7 @@ class WhisperLocal(Provider):
                              "avg_logprob": seg.avg_logprob, "no_speech_prob": seg.no_speech_prob})
             for w in seg.words or []:
                 words.append(Word(text=w.word.strip(), start_ms=int(w.start * 1000), end_ms=int(w.end * 1000)))
-        joiner = "" if language in ("ja", "zh", "th") else " "
+        joiner = "" if (info.language if self.detect_language else language) in ("ja", "zh", "th") else " "
         text = joiner.join(t.strip() for t in texts).strip()
         return text, words, {"language": info.language, "segments": raw_segs}
 
@@ -191,6 +205,7 @@ class WhisperLocal(Provider):
             raw_response=raw,
             model_id=self.model_id,
             provider_version=version,
+            detected_language=normalize_language_code((raw or {}).get("language")) if self.detect_language else None,
         )
 
     async def transcribe(self, audio_path: Path, language: str, *, clip: Clip | None = None) -> Result:

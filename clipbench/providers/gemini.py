@@ -2,17 +2,28 @@
 
 Audio is sent inline when it fits under the 20 MB request limit, otherwise through the Files API
 (uploaded, used, then deleted). Cost is computed from usageMetadata in the response.
+
+Run options (checked 2026-10-19, https://ai.google.dev/gemini-api/docs/audio): generateContent has no
+speech parameters, so everything is prompting.
+- diarize: not supported here. The model can write "Speaker 1" labels, but it returns no word timings,
+  so there is nothing to score speaker turns against. (The separate gemini-3.5-transcribe model on the
+  Interactions API has real diarization; it is not wired up yet.)
+- detect_language: the prompt names no language and the reply is structured JSON
+  {"language": ISO-639-1, "transcript": ...} (responseMimeType application/json with a schema).
+- keyterms: listed in the prompt as names and terms that may occur, with an instruction to use these
+  spellings only when they are actually spoken.
 """
 
 from __future__ import annotations
 
 import base64
+import json
 import os
 from pathlib import Path
 from typing import Any, ClassVar
 
 from clipbench.models import Clip, Result
-from clipbench.providers.base import ProviderError, load_pricing
+from clipbench.providers.base import ProviderError, load_pricing, normalize_language_code
 from clipbench.providers.http import HttpProvider, stopwatch, wav_seconds
 
 LANGUAGE_NAMES = {"ja": "Japanese", "es": "Spanish", "ko": "Korean", "en": "English"}
@@ -24,6 +35,27 @@ PROMPT = (
     "Output only the transcript text. If there is no speech, output nothing."
 )
 
+DETECT_PROMPT = (
+    "Transcribe this audio verbatim in the language it is spoken. "
+    "Do not translate. Do not summarize, correct, or add commentary. "
+    "No timestamps, no speaker labels, no sound descriptions, no markdown. "
+    "Reply with JSON: \"language\" is the ISO 639-1 code of the main spoken language and "
+    "\"transcript\" is the transcript text (empty if there is no speech)."
+)
+
+KEYTERM_PROMPT = (
+    " These names and terms may occur in the audio; when one is spoken, spell it exactly like this: {terms}."
+    " Do not add a term that is not spoken."
+)
+
+DETECT_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {"language": {"type": "STRING"}, "transcript": {"type": "STRING"}},
+    "required": ["language", "transcript"],
+}
+
+MAX_KEYTERMS = 200
+
 # base64 inflates by 4/3; keep the whole request comfortably under 20 MB.
 INLINE_MAX_BYTES = 14 * 1024 * 1024
 
@@ -34,6 +66,7 @@ class GeminiFlash(HttpProvider):
     concurrency: ClassVar[int] = 4
     timeout_s: ClassVar[float] = 180.0
     base_url: ClassVar[str] = "https://generativelanguage.googleapis.com"
+    supported_options: ClassVar[frozenset[str]] = frozenset({"detect_language", "keyterms"})
 
     def __init__(self, model_id: str | None = None, **kwargs: Any) -> None:
         kwargs.setdefault("temperature", 0.0)
@@ -46,12 +79,21 @@ class GeminiFlash(HttpProvider):
         return {"x-goog-api-key": os.environ.get("GEMINI_API_KEY", "")}
 
     def prompt(self, language: str) -> str:
-        return PROMPT.format(language=LANGUAGE_NAMES.get(language, language))
+        if self.detect_language:
+            text = DETECT_PROMPT
+        else:
+            text = PROMPT.format(language=LANGUAGE_NAMES.get(language, language))
+        if self.keyterms:
+            text += KEYTERM_PROMPT.format(terms="; ".join(self.keyterms[:MAX_KEYTERMS]))
+        return text
 
     def request_body(self, audio_part: dict[str, Any], language: str) -> dict[str, Any]:
         gen: dict[str, Any] = {"temperature": self.options["temperature"]}
         if self.options.get("thinking_level"):
             gen["thinkingConfig"] = {"thinkingLevel": self.options["thinking_level"]}
+        if self.detect_language:
+            gen["responseMimeType"] = "application/json"
+            gen["responseSchema"] = DETECT_SCHEMA
         return {
             "contents": [{"role": "user", "parts": [{"text": self.prompt(language)}, audio_part]}],
             "generationConfig": gen,
@@ -109,8 +151,12 @@ class GeminiFlash(HttpProvider):
         block = (body.get("promptFeedback") or {}).get("blockReason")
         if block:
             raise ProviderError(f"gemini-flash: prompt blocked: {block}")
+        text = extract_text(body)
+        detected = None
+        if self.detect_language:
+            text, detected = parse_detect_reply(text)
         return Result(
-            text=extract_text(body),
+            text=text,
             words=None,
             latency_ms=latency,
             audio_seconds=seconds,
@@ -118,6 +164,7 @@ class GeminiFlash(HttpProvider):
             raw_response=body,
             model_id=self.model_id,
             provider_version=body.get("modelVersion"),
+            detected_language=detected,
         )
 
     def token_prices(self) -> dict[str, float] | None:
@@ -157,3 +204,14 @@ def extract_text(body: dict[str, Any]) -> str:
             lines = lines[1:]  # drop a language tag such as ```text
         text = "\n".join(lines).strip()
     return text
+
+
+def parse_detect_reply(text: str) -> tuple[str, str | None]:
+    """(transcript, language) from the structured reply; falls back to the raw text, language unknown."""
+    try:
+        data = json.loads(text) if text else {}
+    except ValueError:
+        return text, None
+    if not isinstance(data, dict):
+        return text, None
+    return str(data.get("transcript") or "").strip(), normalize_language_code(data.get("language"))

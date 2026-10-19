@@ -13,6 +13,15 @@ Request shapes differ per model (from each model's schema-input.json, checked 20
 - `@cf/deepgram/nova-3`: raw audio bytes with a content-type, options as query parameters, Deepgram
   shaped output `results.channels[0].alternatives[0].words`.
 
+Run options (checked 2026-10-19 on each model's schema):
+- whisper-large-v3-turbo: detect_language (omit `language`, read `transcription_info.language`) and
+  keyterms (`initial_prompt` with the terms). No diarization.
+- whisper and whisper-tiny-en: no options. They never take a language (always auto detect) but report
+  no detected language, so detect_language is recorded as unsupported.
+- deepgram/nova-3: `diarize`, `detect_language` and `keyterm` as Deepgram query parameters. The output
+  schema does not list `speaker` or `detected_language`; they are read from the Deepgram shape when
+  present (needs a live check).
+
 Billing is in neurons (USD 0.011 per 1,000, first 10,000 per day free). No model documents a request
 size or duration limit, so long files are split into WAV chunks of `chunk_seconds` (Whisper models)
 and any single request body above `max_request_bytes` fails with a clear ProviderError.
@@ -29,7 +38,9 @@ from typing import Any, ClassVar
 import soundfile
 
 from clipbench.models import Clip, Result, Word
-from clipbench.providers.base import ProviderError, ProviderSkip, load_pricing
+from clipbench.providers.base import ProviderError, ProviderSkip, load_pricing, normalize_language_code
+from clipbench.providers.deepgram import MAX_KEYTERMS, parse_alternative
+from clipbench.providers.groq import keyterm_prompt
 from clipbench.providers.http import HttpProvider, stopwatch, wav_seconds
 
 ALL_LANGUAGES = frozenset({"en", "ja", "ko", "es", "hi"})
@@ -89,6 +100,10 @@ class WorkersAIProvider(HttpProvider):
     def version(self, result: dict[str, Any]) -> str | None:
         return None
 
+    def extras(self, result: dict[str, Any]) -> tuple[list[str | None] | None, str | None]:
+        """(speakers parallel to parse()'s words, detected language). Default: neither."""
+        return None, None
+
     # ---------------------------------------------------------------- audio
 
     def _chunks(self, audio_path: Path, seconds: float) -> list[tuple[float, bytes]]:
@@ -123,6 +138,9 @@ class WorkersAIProvider(HttpProvider):
         words: list[Word] = []
         bodies: list[dict[str, Any]] = []
         neurons: float | None = 0.0
+        speakers: list[str | None] = []
+        any_speakers = False
+        detected: str | None = None
         async with self.slot(), stopwatch() as watch:
             for offset, blob in chunks:
                 resp = await self.http.request("POST", self.run_path(), **self.build_request(blob, language))
@@ -135,6 +153,13 @@ class WorkersAIProvider(HttpProvider):
                 bodies.append(body)
                 text, chunk_words = self.parse(body["result"])
                 texts.append(text)
+                chunk_speakers, chunk_lang = self.extras(body["result"])
+                if chunk_speakers is not None and len(chunk_speakers) == len(chunk_words):
+                    speakers.extend(chunk_speakers)
+                    any_speakers = True
+                else:
+                    speakers.extend([None] * len(chunk_words))
+                detected = detected or chunk_lang
                 shift = round(offset * 1000)
                 words.extend(
                     Word(text=w.text, start_ms=w.start_ms + shift, end_ms=w.end_ms + shift)
@@ -153,6 +178,8 @@ class WorkersAIProvider(HttpProvider):
             raw_response=bodies[0] if len(bodies) == 1 else bodies,
             model_id=self.model_id,
             provider_version=self.version(bodies[0]["result"]),
+            speakers=speakers if any_speakers and words else None,
+            detected_language=detected if self.detect_language else None,
         )
 
 
@@ -168,15 +195,20 @@ class CfWhisperLargeV3Turbo(WorkersAIProvider):
     """@cf/openai/whisper-large-v3-turbo: base64 JSON, takes a language, words inside segments."""
 
     id: ClassVar[str] = "cf-whisper-large-v3-turbo"
+    supported_options: ClassVar[frozenset[str]] = frozenset({"detect_language", "keyterms"})
 
     def build_request(self, audio: bytes, language: str) -> dict[str, Any]:
-        return {
-            "json": {
-                "audio": base64.b64encode(audio).decode("ascii"),
-                "language": language,
-                "task": "transcribe",
-            }
-        }
+        body: dict[str, Any] = {"audio": base64.b64encode(audio).decode("ascii"), "task": "transcribe"}
+        if not self.detect_language:
+            body["language"] = language
+        prompt = keyterm_prompt(self.keyterms)
+        if prompt:
+            body["initial_prompt"] = prompt
+        return {"json": body}
+
+    def extras(self, result: dict[str, Any]) -> tuple[list[str | None] | None, str | None]:
+        info = result.get("transcription_info") or {}
+        return None, normalize_language_code(info.get("language"))
 
     def parse(self, result: dict[str, Any]) -> tuple[str, list[Word]]:
         words = [
@@ -214,6 +246,7 @@ class CfDeepgramNova3(WorkersAIProvider):
 
     id: ClassVar[str] = "cf-deepgram-nova-3"
     default_chunk_seconds: ClassVar[float | None] = None  # Deepgram handles long files itself
+    supported_options: ClassVar[frozenset[str]] = frozenset({"diarize", "detect_language", "keyterms"})
 
     def __init__(self, model_id: str | None = None, **kwargs: Any) -> None:
         kwargs.setdefault("smart_format", True)
@@ -221,12 +254,22 @@ class CfDeepgramNova3(WorkersAIProvider):
         super().__init__(model_id, **kwargs)
 
     def build_request(self, audio: bytes, language: str) -> dict[str, Any]:
-        params = {
-            "language": language,  # BCP-47; en, ja, ko, es, hi are all Nova-3 batch languages
-            "smart_format": str(bool(self.options["smart_format"])).lower(),
-            "punctuate": str(bool(self.options["punctuate"])).lower(),
-            "mip_opt_out": "true",  # out of Deepgram's Model Improvement Program
-        }
+        params: dict[str, Any] = {}
+        if self.detect_language:
+            params["detect_language"] = "true"
+        else:
+            params["language"] = language  # BCP-47; en, ja, ko, es, hi are all Nova-3 batch languages
+        params.update(
+            {
+                "smart_format": str(bool(self.options["smart_format"])).lower(),
+                "punctuate": str(bool(self.options["punctuate"])).lower(),
+                "mip_opt_out": "true",  # out of Deepgram's Model Improvement Program
+            }
+        )
+        if self.diarize:
+            params["diarize"] = "true"  # the Workers AI schema takes a boolean, not diarize_model
+        if self.keyterms:
+            params["keyterm"] = self.keyterms[:MAX_KEYTERMS]
         return {"params": params, "content": audio, "headers": {"content-type": "audio/wav"}}
 
     def parse(self, result: dict[str, Any]) -> tuple[str, list[Word]]:
@@ -236,6 +279,15 @@ class CfDeepgramNova3(WorkersAIProvider):
             raise ProviderError(f"{self.id}: unexpected response shape: {str(result)[:300]}") from e
         words = [_word(w, "punctuated_word") for w in alt.get("words") or []]
         return (alt.get("transcript") or "").strip(), [w for w in words if w.text]
+
+    def extras(self, result: dict[str, Any]) -> tuple[list[str | None] | None, str | None]:
+        try:
+            _, words, speakers, detected = parse_alternative(result)
+        except (KeyError, IndexError, TypeError):
+            return None, None
+        if speakers is not None:
+            speakers = [sp for w, sp in zip(words, speakers, strict=True) if w.text.strip()]
+        return speakers, detected
 
     def version(self, result: dict[str, Any]) -> str | None:
         infos = list(((result.get("metadata") or {}).get("model_info") or {}).values())

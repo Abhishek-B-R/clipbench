@@ -30,12 +30,45 @@ def _ok(x) -> bool:
     return x is not None and not (isinstance(x, float) and math.isnan(x))
 
 
+FDR_Q = 0.05
+
+
+def adjust_paired(paired: pd.DataFrame | None, q: float = FDR_Q) -> pd.DataFrame | None:
+    """Benjamini-Hochberg over every paired test of a tier in the run.
+
+    A run makes many paired comparisons (each pair of models on each slice and metric), so at alpha 0.05
+    some "beats" would be false positives. A verdict survives only when it also clears the false discovery
+    rate `q` within its tier; otherwise it becomes no_difference. Adds p_adjusted and keeps the raw verdict
+    as verdict_raw.
+    """
+    if paired is None or paired.empty or "p_value" not in paired.columns:
+        return paired
+    if "verdict_raw" in paired.columns:
+        return paired  # already adjusted
+    out = paired.copy()
+    out["verdict_raw"] = out["verdict"]
+    out["p_adjusted"] = float("nan")
+    for _, idx in out.groupby("tier").groups.items():
+        pv = pd.to_numeric(out.loc[idx, "p_value"], errors="coerce")
+        ok = pv.dropna().sort_values()
+        m = len(ok)
+        if not m:
+            continue
+        ranks = pd.Series(range(1, m + 1), index=ok.index, dtype=float)
+        adj = (ok * m / ranks).iloc[::-1].cummin().iloc[::-1].clip(upper=1.0)
+        out.loc[adj.index, "p_adjusted"] = adj
+    survives = out["p_adjusted"] <= q
+    out.loc[~survives & out["verdict"].isin(["a_better", "b_better"]), "verdict"] = "no_difference"
+    return out
+
+
 def paired_verdict(
     paired: pd.DataFrame | None, tier: str, metric: str, slice_kind: str, slice_: str, a: str, b: str
 ) -> tuple[str | None, pd.Series | None]:
     """Verdict oriented as 'a_better' / 'b_better' / 'no_difference' for providers a and b, or None."""
     if paired is None or paired.empty:
         return None, None
+    paired = adjust_paired(paired)
     m = paired[
         (paired["tier"] == tier) & (paired["metric"] == metric)
         & (paired["slice_kind"] == slice_kind) & (paired["slice"] == slice_)
@@ -305,6 +338,7 @@ def structured_findings(
 
     # 1. Model comparisons that survive the paired test, overall and per category / audio condition.
     if paired is not None and not paired.empty:
+        paired = adjust_paired(paired)
         p = paired[(paired["tier"] == tier) & (paired["metric"] == metric)]
         p = p[p["verdict"].isin(["a_better", "b_better"]) & (p["n_clips"] >= min_clips)]
         p = p[p["slice_kind"].isin(["all", "category", "audio_condition", "tag"])]
@@ -316,9 +350,14 @@ def structured_findings(
             er = {str(x.provider): _f(x.error_rate) for x in ea.itertuples(index=False)}
             where = _slice_words(r.slice_kind, r.slice)
             diff = abs(_f(r.diff) or 0.0)
+            # Quote only numbers measured on the clips both models scored: the paired difference and its
+            # interval. Each model's slice-wide rate can cover different clips, so it stays out of the claim.
+            lo, hi = sorted((abs(_f(r.ci_low) or 0.0), abs(_f(r.ci_high) or 0.0)))
+            p_adj = _f(getattr(r, "p_adjusted", None))
+            p_txt = f"adjusted p={p_adj:.3g}" if p_adj is not None else f"p={float(r.p_value):.3g}"
             text = (
-                f"{win} beats {lose} on {metric} on {where}: {_pct(er.get(win))} vs {_pct(er.get(lose))}, "
-                f"a paired difference of {diff * 100:.1f} points over {int(r.n_clips)} clips (p={float(r.p_value):.3g})."
+                f"{win} beats {lose} on {metric} on {where}: {diff * 100:.1f} points fewer errors "
+                f"(95% CI {lo * 100:.1f} to {hi * 100:.1f}) on the {int(r.n_clips)} clips both scored ({p_txt})."
             )
             slug = _slug(
                 metric,
@@ -344,8 +383,9 @@ def structured_findings(
                         "provider_b": r.provider_b,
                     },
                     {
-                        "winner_error_rate": er.get(win),
-                        "loser_error_rate": er.get(lose),
+                        "winner_error_rate_slice": er.get(win),
+                        "loser_error_rate_slice": er.get(lose),
+                        "p_adjusted": _f(getattr(r, "p_adjusted", None)),
                         "diff": diff,
                         "ci_low": _f(r.ci_low),
                         "ci_high": _f(r.ci_high),

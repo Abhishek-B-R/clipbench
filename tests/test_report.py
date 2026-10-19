@@ -293,3 +293,53 @@ def test_limitations_name_providers_skipped_on_clips(tmp_settings):
     md = md_path.read_text()
     assert "youtube-auto scored 0 of 3 clips (3 skipped: no auto track)" in md
     assert "alpha scored" not in md
+
+
+def test_fdr_correction_demotes_weak_wins_across_many_tests():
+    import pandas as pd
+
+    from clipbench.report.findings import adjust_paired
+
+    rows = [
+        {"tier": "verified", "metric": "cer", "slice_kind": "tag", "slice": f"s{i}", "provider_a": "a",
+         "provider_b": "b", "n_clips": 40, "diff": -0.02, "ci_low": -0.04, "ci_high": -0.001,
+         "p_value": 0.04, "verdict": "a_better"}
+        for i in range(20)
+    ] + [
+        {"tier": "verified", "metric": "cer", "slice_kind": "all", "slice": "all", "provider_a": "a",
+         "provider_b": "b", "n_clips": 150, "diff": -0.08, "ci_low": -0.11, "ci_high": -0.05,
+         "p_value": 0.0005, "verdict": "a_better"},
+    ] + [
+        {"tier": "verified", "metric": "cer", "slice_kind": "category", "slice": f"c{i}", "provider_a": "a",
+         "provider_b": "b", "n_clips": 40, "diff": 0.0, "ci_low": -0.03, "ci_high": 0.03,
+         "p_value": 0.5, "verdict": "no_difference"}
+        for i in range(30)
+    ]  # fmt: skip
+    out = adjust_paired(pd.DataFrame(rows))
+    strong = out[out["slice_kind"] == "all"].iloc[0]
+    assert strong["verdict"] == "a_better" and strong["p_adjusted"] <= 0.05
+    weak = out[out["slice_kind"] == "tag"]
+    assert (weak["verdict"] == "no_difference").all()  # 20 of 51 tests at p=0.04: none survive BH at q=0.05
+    assert (weak["verdict_raw"] == "a_better").all()
+    assert adjust_paired(out) is out  # idempotent
+
+
+def test_comparison_finding_quotes_only_common_clip_numbers():
+    import pandas as pd
+
+    from clipbench.report.findings import structured_findings
+
+    agg = pd.DataFrame([
+        {"provider": "a", "tier": "verified", "metric": "cer", "slice_kind": "all", "slice": "all",
+         "n_clips": 150, "error_rate": 0.10},
+        {"provider": "b", "tier": "verified", "metric": "cer", "slice_kind": "all", "slice": "all",
+         "n_clips": 120, "error_rate": 0.30},
+    ])  # fmt: skip
+    paired = pd.DataFrame([
+        {"tier": "verified", "metric": "cer", "slice_kind": "all", "slice": "all", "provider_a": "a",
+         "provider_b": "b", "n_clips": 120, "diff": -0.08, "ci_low": -0.11, "ci_high": -0.05,
+         "p_value": 0.0005, "verdict": "a_better"},
+    ])  # fmt: skip
+    f = [x for x in structured_findings(agg, paired, "cer") if "beats" in x["text"]][0]
+    assert "8.0 points fewer errors" in f["text"] and "120 clips both scored" in f["text"]
+    assert "10.0%" not in f["text"] and "30.0%" not in f["text"]  # slice-wide rates cover different clips

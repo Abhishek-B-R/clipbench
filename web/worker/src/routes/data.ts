@@ -68,15 +68,15 @@ function passThrough(res: Response): Response {
 }
 
 data.get("/runs", async (c) => {
-  // Real runs first; before the first real export, the synthetic demo index (marked "demo": true).
-  const res = (await asset(c, "/data/index.json")) ?? (await asset(c, "/data/sample/index.json"));
+  // Only real exports are served; there is no demo fallback.
+  const res = await asset(c, "/data/index.json");
   if (!res) throw new ApiError(404, "not_found", "No runs published yet.");
   return passThrough(res);
 });
 
 data.get("/runs/:runId", async (c) => {
   const id = parse(runId, c.req.param("runId"));
-  const res = (await asset(c, `/data/runs/${id}.json`)) ?? (await asset(c, `/data/sample/runs/${id}.json`));
+  const res = await asset(c, `/data/runs/${id}.json`);
   if (!res) throw new ApiError(404, "not_found", `Run ${id} not found.`);
   return passThrough(res);
 });

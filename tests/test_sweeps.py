@@ -96,7 +96,7 @@ def test_committed_manifest_is_all_permissive():
 
 def test_manifest_has_no_dashes():
     text = (Path(__file__).resolve().parent.parent / "datasets" / "beds" / "beds.json").read_text()
-    assert not re.search("[–—]", text)
+    assert not re.search("[\\u2013\\u2014]", text)
 
 
 def test_synthetic_bed_is_deterministic_and_coloured():

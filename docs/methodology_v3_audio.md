@@ -157,3 +157,68 @@ minute), `longform_aggregates.parquet` (`slice_kind` `all` and `minute`). Number
 `clipbench.longform.export_section(run_id, settings)` returns `{"longform": {track, run_id, language,
 created_at, reference, n_videos, min_minutes, max_minutes, aggregates, minutes}}` for the newest scored
 long-form run in the run's language, else null.
+
+## Speed and compute (A9)
+
+Code: `clipbench/compute.py`. Commands: `clipbench compute machine | bench | table`.
+
+### Local open models (`whisper-local`, `whisper-local-turbo`)
+
+`clipbench compute bench --lang L --limit N` times each model on the machine it runs on and appends one
+row per model to `results/compute/bench.parquet`:
+
+- Each model runs in its own fresh Python subprocess, so memory numbers belong to that model only.
+- The first clip is a **warm up**: it loads the weights, and its time is reported separately as
+  `warmup_s`. The next N clips are transcribed one after another.
+- `rtfx` = total audio seconds / total wall seconds over the N clips (Hugging Face Open ASR style; 10 means
+  ten seconds of audio per second). `rtfx_median` is the median of the per clip ratios.
+- `peak_rss_bytes`: the subprocess's peak resident memory from `os.wait4` (`ru_maxrss`; bytes on macOS,
+  KiB converted to bytes on Linux). psutil is not a dependency, so this is the only process measure.
+- `peak_gpu_bytes`: with the mlx backend, MLX's own peak allocation (`mlx.core.get_peak_memory`). On
+  Apple silicon GPU memory is the same unified memory, but Metal buffers are not always counted in RSS, so
+  both are reported.
+- `model_size_bytes`: size on disk of the model's Hugging Face cache repo (its blobs, each file once).
+- The declared machine: `chip` (sysctl `machdep.cpu.brand_string` on macOS, `/proc/cpuinfo` on Linux),
+  `cores_total`, `cores_performance`, `cores_efficiency`, `ram_bytes`, `os`, `python`, `backend` (mlx on
+  the Apple GPU or faster-whisper int8 on CPU), and `machine_id`, a hash of chip, cores, RAM and
+  architecture so numbers from one machine group together.
+- Metal is not available in a sandboxed shell; there mlx-whisper cannot import and the backend falls back
+  to faster-whisper on CPU. The `backend` column says which one ran.
+
+### Every provider in a run
+
+`clipbench compute table <run_id>` writes `results/<run_id>/compute.parquet` (one row per provider):
+
+- `speed_factor_median` (headline): median over non cached ok rows of audio seconds / latency seconds,
+  robust to a cold start such as the first call downloading weights; `speed_factor`: total audio over total
+  latency on the same rows. For APIs latency includes upload, queueing and polling, which is what a caption
+  app waits for.
+- APIs: `usd_per_1000_min` = list price per minute from `pricing.toml` x 1000 (Artificial Analysis style),
+  and `effective_usd_per_1000_min` = sum of `cost_usd` over audio minutes x 1000, which includes minimum
+  billed lengths on short clips.
+- Local models: the newest bench row for the same provider and backend (`rtfx`, memory, size, machine).
+  Their price is null (free to run; hardware cost is not priced).
+
+### Export
+
+`clipbench.compute.export_section(run_id, settings)` returns `{"compute": {"rows": [...], "machines":
+[...]}}` from `compute.parquet` (or built from the run's rows when the file is missing), null when the run
+has no rows.
+
+## Decisions
+
+- One runner run per sweep with clip ids `<clip_id>#<condition>`, not one run per SNR: one resume state,
+  one budget estimate, and conditions of a clip pair directly for the doubling SNR CI.
+- Sweep and long-form runs are written to their own folders through a Settings subclass that moves
+  `runs_dir`, so they never appear as leaderboard runs or as `latest`.
+- Clean clips exclude noise as well as music, so the clean baseline is clean.
+- 2 s pads of bed-only audio around each clip: known non-speech on every clip, so hallucination over music
+  and noise is measured per SNR even without reference word timings.
+- Bed applied dry after reverb: background music in a Short comes from the edit, not the room.
+- Doubling threshold uses the clean rate floored at 1%: a near perfect clean score would otherwise make
+  any single error a "doubling".
+- Beds from Wikimedia Commons (stable URLs, license and sha1 in the file metadata) plus two synthetic
+  noises; MUSAN was not used because it only ships as one 11 GB archive with per file licenses.
+- Long-form timing anchors are creator caption line starts (creator tracks have no word timings).
+- Long-form calls get a per instance timeout of the longest video plus 10 minutes.
+- Compute runs each local model in a subprocess so peak memory is per model.

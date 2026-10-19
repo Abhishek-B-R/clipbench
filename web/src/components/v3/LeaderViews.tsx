@@ -322,7 +322,7 @@ function StyleView({ run, tier, kind, slice, n }: ViewProps) {
           <Empty />
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[640px] border-separate border-spacing-0 text-[13px]">
             <caption className="sr-only">Style properties per model, share of items kept</caption>
             <thead>
@@ -399,7 +399,7 @@ function SweepView({ run, tier, n }: ViewProps) {
   const reverb = sw.points.filter((p) => p.bed === "reverb" && p.error_rate != null);
   const levels = [...new Set(reverb.map((p) => p.level ?? ""))];
   return (
-    <div className="grid gap-8">
+    <div className="grid grid-cols-1 gap-8">
       <Figure
         n={n}
         title={`Error rate as the ${bed} gets louder`}
@@ -479,7 +479,7 @@ function LongformView({ run, tier, n }: ViewProps) {
   ];
   const totalMin = maxOf(rows.map((r) => r.minutes ?? 0), 0);
   return (
-    <div className="grid gap-8">
+    <div className="grid grid-cols-1 gap-8">
       <Figure n={n} title="Long-form: full videos" caption={`Whole videos instead of short clips${totalMin ? `, ${int(totalMin)} minutes of audio` : ""}. Accuracy, whether the provider copes with the length, and errors where it stitches chunks together.`} source={`source: longform, run=${run.run_id}, tier=${tier}`} bodyClassName="p-0 sm:p-0">
         {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.provider} caption="Long-form" /> : <div className="p-4 sm:p-5"><Empty /></div>}
       </Figure>

@@ -100,7 +100,7 @@ export function LineChart({
 
   return (
     <div className={cn("grid gap-3", className)}>
-      <div ref={ref} className="w-full">
+      <div ref={ref} className="w-full min-w-0 overflow-hidden">
         <svg width={w} height={height} role="img" aria-label={label} className="block overflow-visible">
           {ticks.map((t) => (
             <g key={t}>
@@ -179,7 +179,9 @@ export function LineChart({
             ))}
         </ul>
       )}
-      <table className="sr-only">
+      {/* Tables ignore width, so the sr-only box wraps the table rather than sitting on it (no page overflow). */}
+      <div className="sr-only">
+      <table>
         <caption>{tableCaption ?? label}</caption>
         <thead>
           <tr>
@@ -203,6 +205,7 @@ export function LineChart({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

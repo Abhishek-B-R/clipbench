@@ -39,6 +39,7 @@ import { buttonClass } from "@/components/ui/Button";
 import { EmptyState, ErrorState } from "@/components/ui/State";
 import { TierControl, TierNote } from "@/components/ui/TierControl";
 import { Gated } from "@/components/ui/Gate";
+import { BadgeEmbed, CanaryHistory, ComputeSpec, EveryMeasure, FeatureRow, ReliabilitySpec, SettingsSpec, StrengthsFailures, priceSpeed, providerSections } from "@/components/v3/ProviderSections";
 
 // Only with accounts on; it carries the Better Auth client, so the public build never loads it.
 const WatchButton = ACCOUNTS ? lazy(() => import("@/components/accounts/WatchButton")) : null;
@@ -171,6 +172,8 @@ function Body({ run, id, tier, metric, history }: { run: Run; id: string; tier: 
   const p = providerById(run, id)!;
   const color = providerColor(run, id);
   const rank = rows.indexOf(me) + 1;
+  const ps = priceSpeed(run, id, tier, metric);
+  const has = providerSections(run, id, tier, metric);
   let n = 0;
   const fig = () => ++n;
   return (
@@ -189,17 +192,27 @@ function Body({ run, id, tier, metric, history }: { run: Run; id: string; tier: 
             ),
             note: hist.length > 1 ? `Across ${hist.length} runs: ${hist.map((h) => h.rank).join(", ")}.` : "First run with this model.",
           },
-          { label: "Price per hour", value: usdPerHour(p.usd_per_hour), note: p.paid ? `List price, checked ${date(p.pricing_checked_on)}.` : "Runs locally. No per-hour charge." },
-          { label: "Median latency", value: ms(me.latency_p50), note: `p95 ${ms(me.latency_p95)}, real-time factor ${me.rtf?.toFixed(2) ?? "n/a"}.` },
+          { label: "Per 1,000 min", value: p.paid ? usdPerHour(ps.per1k) : "$0", note: p.paid ? `${usdPerHour(p.usd_per_hour)} per hour at list price, checked ${date(p.pricing_checked_on)}.` : "Runs locally. No per-minute charge." },
+          {
+            label: "Speed factor",
+            value: ps.speed.value == null ? "n/a" : `${ps.speed.value >= 10 ? ps.speed.value.toFixed(0) : ps.speed.value.toFixed(1)}x`,
+            note: `${ps.speed.source === "compute" ? "Measured on the declared machine. " : "Audio seconds per second of waiting. "}Median latency ${ms(me.latency_p50)}, p95 ${ms(me.latency_p95)}.`,
+          },
         ]}
       />
 
       <RankHistory n={fig()} run={run} id={id} points={hist} color={color} tier={tier} metric={metric} loading={!history} />
+      {has.canary && <CanaryHistory n={fig()} run={run} id={id} tier={tier} metric={metric} />}
+      {has.features && <FeatureRow n={fig()} run={run} id={id} />}
+      {has.strengths && <StrengthsFailures n={fig()} run={run} id={id} tier={tier} metric={metric} />}
       <ByType n={fig()} run={run} id={id} tier={tier} metric={metric} />
+      {has.measures && <EveryMeasure n={fig()} run={run} id={id} tier={tier} metric={metric} />}
       {hasCaptionMetrics(run) && <CaptionQuality n={fig()} id={id} rows={rows} tier={tier} metric={metric} />}
       <Paired n={fig()} run={run} id={id} tier={tier} metric={metric} />
       <Breaks n={fig()} run={run} id={id} tier={tier} />
       <div className="grid gap-8 lg:grid-cols-2">
+        {has.reliability && <ReliabilitySpec n={fig()} run={run} id={id} />}
+        {has.compute && <ComputeSpec n={fig()} run={run} id={id} />}
         <Spec
           n={fig()}
           title="Cost and speed"
@@ -208,6 +221,7 @@ function Body({ run, id, tier, metric, history }: { run: Run; id: string; tier: 
             ["List price", p.paid ? `${usdPerHour(p.usd_per_hour)} per hour of audio` : "Free, runs on your machine"],
             ["Cost of this run", `$${me.cost_usd_total.toFixed(2)} for ${me.audio_hours.toFixed(2)} h of audio`],
             ["1,000 hours at list price", p.paid ? `$${Math.round(p.usd_per_hour * 1000).toLocaleString("en-US")}` : "$0"],
+            ["Per 1,000 minutes", p.paid ? usdPerHour(ps.per1k) : "$0"],
             ["Latency p50 / p95", `${ms(me.latency_p50)} / ${ms(me.latency_p95)}`],
             ["Real-time factor", me.rtf != null ? `${me.rtf.toFixed(2)} (lower is faster)` : "n/a"],
             ...stabilityRows(run, id),
@@ -234,6 +248,8 @@ function Body({ run, id, tier, metric, history }: { run: Run; id: string; tier: 
             )
           }
         />
+        <SettingsSpec n={fig()} run={run} id={id} />
+        <BadgeEmbed n={fig()} run={run} id={id} />
       </div>
     </div>
   );
@@ -347,7 +363,7 @@ function niceStep(max: number) {
 
 function ByType({ n, run, id, tier, metric }: { n: number; run: Run; id: string; tier: Tier; metric: string }) {
   type K = Exclude<SliceKind, "all">;
-  const kinds = (["audio_condition", "category", "tag", "duration"] as K[]).filter((k) => tagProfile(run, id, tier, metric, k).length > 0);
+  const kinds = (["condition", "category", "audio_condition", "tag", "duration"] as K[]).filter((k) => tagProfile(run, id, tier, metric, k).length > 0);
   const [kind, setKind] = useState<K>(() => kinds[0] ?? "duration");
   const rows = tagProfile(run, id, tier, metric, kind);
   const max = Math.max(0.01, ...rows.flatMap((r) => r.rows.map((a) => a.ci_high))) * 1.04;

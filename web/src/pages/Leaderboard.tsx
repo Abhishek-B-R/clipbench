@@ -100,20 +100,20 @@ export default function Leaderboard() {
         {state.status === "ready" ? (
           <Gated run={run} lang={lang ?? undefined}>
             {run && (
-              <div className="grid gap-8">
+              <div className="grid grid-cols-1 gap-8">
                 {views.length > 1 && (
-                  <div className="-mt-2 border-b border-line">
+                  <div className="-mt-2 min-w-0 border-b border-line">
                     <Tabs label="Measure" value={view} onChange={(v) => set("view", v === "accuracy" ? null : v)} tabs={views.map((v) => ({ value: v, label: VIEW_LABEL[v] }))} />
                   </div>
                 )}
                 {view !== "accuracy" ? (
-                  <div {...tabPanelProps(view)} className="grid gap-8 focus:outline-none">
+                  <div {...tabPanelProps(view)} className="grid min-w-0 grid-cols-1 gap-8 focus:outline-none">
                     <Suspense fallback={<Skeleton className="h-96 w-full" />}>
                       <LeaderViewPanel view={view} run={run} tier={tier} metric={metric} kind={kind} slice={slice} n={1} />
                     </Suspense>
                   </div>
                 ) : (
-                <div {...tabPanelProps("accuracy")} className="grid gap-8 focus:outline-none">
+                <div {...tabPanelProps("accuracy")} className="grid min-w-0 grid-cols-1 gap-8 focus:outline-none">
                 <Board run={run} tier={tier} metric={metric} kind={kind} slice={slice} history={history} highlight={params.get("provider")} lattice={lattice} />
                 {hasCaptionMetrics(run) && (
                   <Figure

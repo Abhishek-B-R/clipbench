@@ -77,7 +77,7 @@ export default function Features() {
             source={`source: features (pricing.toml)${f.checked_on ? `, checked ${f.checked_on}` : ""}, run=${run.run_id}`}
             bodyClassName="p-0 sm:p-0"
           >
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full min-w-[1180px] border-separate border-spacing-0 text-[13px]">
                 <caption className="sr-only">Feature support per provider, with documentation links and the date each was checked</caption>
                 <thead>

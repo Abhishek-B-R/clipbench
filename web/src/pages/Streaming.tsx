@@ -72,7 +72,7 @@ export default function Streaming() {
               <EmptyState title="No streaming results in this run yet." body="The streaming track runs separately from batch runs. This board fills in once a streaming run is exported for this language." />
             ) : (
               run && st && (
-                <div className="grid gap-8">
+                <div className="grid grid-cols-1 gap-8">
                   <TierNote tier={tier} />
                   <Board run={run} st={st} tier={tier} kind={kind} slice={slice} />
                   <Timeline run={run} rows={inSlice(st.rows, tier, kind, slice)} kind={kind} slice={slice} />

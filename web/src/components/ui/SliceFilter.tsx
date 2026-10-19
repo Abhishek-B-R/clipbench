@@ -26,7 +26,7 @@ export function SliceFilter({
   if (kinds.length <= 1) return null;
   return (
     <>
-      <Segmented label={label} value={kind} onChange={(v) => onChange(v, null)} options={kinds.map((k) => ({ value: k, label: SLICE_KIND_LABEL[k] }))} />
+      <Segmented className="scrollbar-none max-w-full overflow-x-auto" label={label} value={kind} onChange={(v) => onChange(v, null)} options={kinds.map((k) => ({ value: k, label: SLICE_KIND_LABEL[k] }))} />
       {kind !== "all" && values.length > 0 && (
         <label className="relative inline-flex">
           <span className="sr-only">{SLICE_KIND_LABEL[kind]}</span>

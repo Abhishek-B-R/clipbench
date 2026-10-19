@@ -52,3 +52,29 @@ export const CONDITION_LABEL: Record<string, string> = {
 export const POSITIONING = {
   question: "Which speech-to-text should your video app use?",
 };
+
+/**
+ * Public data API paths (A12). Served by the Worker (web/worker/src/routes/data.ts, ops module); the site only
+ * documents them and builds the badge snippet. Keep this list in step with the Worker.
+ */
+export const API_V1 = {
+  runs: "/api/v1/runs",
+  run: (id: string) => `/api/v1/runs/${encodeURIComponent(id)}`,
+  leaderboard: (lang: string) => `/api/v1/leaderboard/${encodeURIComponent(lang)}`,
+  provider: (id: string) => `/api/v1/providers/${encodeURIComponent(id)}`,
+  history: (id: string) => `/api/v1/providers/${encodeURIComponent(id)}/history`,
+  badge: (id: string, lang: string) => `/api/v1/badges/${encodeURIComponent(id)}.svg?lang=${encodeURIComponent(lang)}`,
+};
+
+/** Embed snippets for a provider's badge: Markdown and HTML, linking back to its model page. */
+export function badgeSnippets(origin: string, id: string, lang: string, label: string) {
+  const img = `${origin}${API_V1.badge(id, lang)}`;
+  const page = `${origin}/providers/${encodeURIComponent(id)}`;
+  const alt = `clipbench: ${label}, ${lang}`;
+  return {
+    markdown: `[![${alt}](${img})](${page})`,
+    html: `<a href="${page}"><img src="${img}" alt="${alt}" height="20"></a>`,
+    img,
+    page,
+  };
+}

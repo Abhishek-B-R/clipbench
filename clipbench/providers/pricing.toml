@@ -18,6 +18,42 @@ opt_out = "not needed"
 # policy fields from data_policy above; a missing key means unknown (exported as null)
 opt_out_status = "not_needed"   # applied | not_offered | not_needed
 
+[whisper-local.features]   # B20 feature matrix; a missing value means unknown or not stated
+languages = ["en", "ja", "ko", "es", "hi"]
+languages_url = "https://github.com/openai/whisper"
+languages_checked_on = "2026-10-19"
+languages_note = "99 languages"
+batch = true
+batch_url = "https://github.com/openai/whisper"
+batch_checked_on = "2026-10-19"
+streaming = false
+streaming_url = "https://github.com/openai/whisper"
+streaming_checked_on = "2026-10-19"
+word_timestamps = true
+word_timestamps_url = "https://github.com/openai/whisper"
+word_timestamps_checked_on = "2026-10-19"
+word_timestamps_note = "word_timestamps=True"
+diarization = false
+diarization_url = "https://github.com/openai/whisper"
+diarization_checked_on = "2026-10-19"
+language_id = true
+language_id_url = "https://github.com/openai/whisper"
+language_id_checked_on = "2026-10-19"
+language_id_note = "language=None detects from the first 30 s"
+custom_vocabulary = true
+custom_vocabulary_url = "https://github.com/openai/whisper"
+custom_vocabulary_checked_on = "2026-10-19"
+custom_vocabulary_note = "initial_prompt"
+max_file_minutes_url = "https://github.com/openai/whisper"
+max_file_minutes_checked_on = "2026-10-19"
+max_file_minutes_note = "no limit, runs locally"
+retention = "runs locally; audio never leaves the machine"
+retention_url = "https://github.com/openai/whisper"
+retention_checked_on = "2026-10-19"
+training_opt_out = "not applicable, runs locally"
+training_opt_out_url = "https://github.com/openai/whisper"
+training_opt_out_checked_on = "2026-10-19"
+
 [whisper-local-turbo]
 model_id = "mlx-community/whisper-large-v3-turbo"
 usd_per_minute = 0.0
@@ -27,6 +63,42 @@ data_policy = "runs locally, audio never leaves the machine"
 opt_out = "not needed"
 # policy fields from data_policy above; a missing key means unknown (exported as null)
 opt_out_status = "not_needed"   # applied | not_offered | not_needed
+
+[whisper-local-turbo.features]   # B20 feature matrix; a missing value means unknown or not stated
+languages = ["en", "ja", "ko", "es", "hi"]
+languages_url = "https://github.com/openai/whisper"
+languages_checked_on = "2026-10-19"
+languages_note = "99 languages"
+batch = true
+batch_url = "https://github.com/openai/whisper"
+batch_checked_on = "2026-10-19"
+streaming = false
+streaming_url = "https://github.com/openai/whisper"
+streaming_checked_on = "2026-10-19"
+word_timestamps = true
+word_timestamps_url = "https://github.com/openai/whisper"
+word_timestamps_checked_on = "2026-10-19"
+word_timestamps_note = "word_timestamps=True"
+diarization = false
+diarization_url = "https://github.com/openai/whisper"
+diarization_checked_on = "2026-10-19"
+language_id = true
+language_id_url = "https://github.com/openai/whisper"
+language_id_checked_on = "2026-10-19"
+language_id_note = "language=None detects from the first 30 s"
+custom_vocabulary = true
+custom_vocabulary_url = "https://github.com/openai/whisper"
+custom_vocabulary_checked_on = "2026-10-19"
+custom_vocabulary_note = "initial_prompt"
+max_file_minutes_url = "https://github.com/openai/whisper"
+max_file_minutes_checked_on = "2026-10-19"
+max_file_minutes_note = "no limit, runs locally"
+retention = "runs locally; audio never leaves the machine"
+retention_url = "https://github.com/openai/whisper"
+retention_checked_on = "2026-10-19"
+training_opt_out = "not applicable, runs locally"
+training_opt_out_url = "https://github.com/openai/whisper"
+training_opt_out_checked_on = "2026-10-19"
 
 [youtube-auto]
 model_id = "youtube-asr"
@@ -67,6 +139,43 @@ notes = "whisper-large-v3 chosen over turbo for accuracy on ja/ko. Rate limits o
 "whisper-large-v3" = 0.00185
 "whisper-large-v3-turbo" = 0.000667   # 0.04 USD per hour
 
+[groq-whisper.features]   # B20 feature matrix; a missing value means unknown or not stated
+languages = ["en", "ja", "ko", "es", "hi"]
+languages_url = "https://console.groq.com/docs/model/whisper-large-v3"
+languages_checked_on = "2026-10-19"
+languages_note = "Whisper large-v3, 99+ languages; no per language list"
+batch = true
+batch_url = "https://console.groq.com/docs/speech-to-text"
+batch_checked_on = "2026-10-19"
+streaming = false
+streaming_url = "https://console.groq.com/docs/speech-to-text"
+streaming_checked_on = "2026-10-19"
+streaming_note = "no realtime endpoint documented"
+word_timestamps = true
+word_timestamps_url = "https://console.groq.com/docs/api-reference"
+word_timestamps_checked_on = "2026-10-19"
+word_timestamps_note = "timestamp_granularities[]=word with verbose_json"
+diarization = false
+diarization_url = "https://console.groq.com/docs/speech-to-text"
+diarization_checked_on = "2026-10-19"
+language_id = true
+language_id_url = "https://console.groq.com/docs/api-reference"
+language_id_checked_on = "2026-10-19"
+language_id_note = "language is optional; detection when omitted is not stated explicitly"
+custom_vocabulary = true
+custom_vocabulary_url = "https://console.groq.com/docs/speech-to-text"
+custom_vocabulary_checked_on = "2026-10-19"
+custom_vocabulary_note = "prompt, 224 tokens"
+max_file_minutes_url = "https://console.groq.com/docs/speech-to-text"
+max_file_minutes_checked_on = "2026-10-19"
+max_file_minutes_note = "size limit only: 25 MB free tier, 100 MB dev tier"
+retention = "not retained by default; may be logged up to 30 days for reliability and abuse"
+retention_url = "https://console.groq.com/docs/your-data"
+retention_checked_on = "2026-10-19"
+training_opt_out = "Zero Data Retention in console Data Controls; training use not stated"
+training_opt_out_url = "https://console.groq.com/docs/your-data"
+training_opt_out_checked_on = "2026-10-19"
+
 [deepgram]
 model_id = "nova-3"
 usd_per_minute = 0.0043           # Nova-3 monolingual pre-recorded (we always pass a language)
@@ -84,6 +193,42 @@ notes = "Nova-3 multilingual (language=multi) is 0.0052/min; not used."
 "nova-3" = 0.0043
 "nova-3-general" = 0.0043
 
+[deepgram.features]   # B20 feature matrix; a missing value means unknown or not stated
+languages = ["en", "ja", "ko", "es", "hi"]
+languages_url = "https://developers.deepgram.com/docs/models-languages-overview"
+languages_checked_on = "2026-10-19"
+languages_note = "Nova-3: 63 language codes"
+batch = true
+batch_url = "https://developers.deepgram.com/reference/speech-to-text/listen-pre-recorded"
+batch_checked_on = "2026-10-19"
+streaming = true
+streaming_url = "https://developers.deepgram.com/reference/speech-to-text/listen-streaming"
+streaming_checked_on = "2026-10-19"
+word_timestamps = true
+word_timestamps_url = "https://developers.deepgram.com/docs/pre-recorded-audio"
+word_timestamps_checked_on = "2026-10-19"
+diarization = true
+diarization_url = "https://developers.deepgram.com/docs/diarization"
+diarization_checked_on = "2026-10-19"
+diarization_note = "diarize_model=v2 for batch"
+language_id = true
+language_id_url = "https://developers.deepgram.com/docs/language-detection"
+language_id_checked_on = "2026-10-19"
+language_id_note = "detect_language=true, pre-recorded only"
+custom_vocabulary = true
+custom_vocabulary_url = "https://developers.deepgram.com/docs/keyterm"
+custom_vocabulary_checked_on = "2026-10-19"
+custom_vocabulary_note = "keyterm, up to 100 terms and 500 tokens"
+max_file_minutes_url = "https://developers.deepgram.com/docs/pre-recorded-audio"
+max_file_minutes_checked_on = "2026-10-19"
+max_file_minutes_note = "2 GB; processing times out after 10 minutes"
+retention = "with mip_opt_out, kept only as long as needed to process; default retention not stated"
+retention_url = "https://developers.deepgram.com/docs/the-deepgram-model-improvement-partnership-program"
+retention_checked_on = "2026-10-19"
+training_opt_out = "mip_opt_out=true per request (sent by clipbench)"
+training_opt_out_url = "https://developers.deepgram.com/docs/the-deepgram-model-improvement-partnership-program"
+training_opt_out_checked_on = "2026-10-19"
+
 [assemblyai]
 model_id = "universal-3-5-pro"
 usd_per_minute = 0.0035           # 0.21 USD per hour
@@ -100,6 +245,44 @@ notes = "speech_models = [universal-3-5-pro, universal-2]. Universal-3.5 Pro cov
 "universal-3-5-pro" = 0.0035
 "universal-2" = 0.0025            # 0.15 USD per hour
 
+[assemblyai.features]   # B20 feature matrix; a missing value means unknown or not stated
+languages = ["en", "ja", "ko", "es", "hi"]
+languages_url = "https://www.assemblyai.com/docs/speech-to-text/pre-recorded-audio/supported-languages"
+languages_checked_on = "2026-10-19"
+languages_note = "Universal-3.5 Pro: 18 languages without ko; Universal-2: 99 with ko"
+batch = true
+batch_url = "https://www.assemblyai.com/docs/api-reference/transcripts/submit"
+batch_checked_on = "2026-10-19"
+streaming = true
+streaming_url = "https://www.assemblyai.com/llms/models.md"
+streaming_checked_on = "2026-10-19"
+streaming_note = "wss://streaming.assemblyai.com/v3/ws"
+word_timestamps = true
+word_timestamps_url = "https://www.assemblyai.com/docs/api-reference/transcripts/submit"
+word_timestamps_checked_on = "2026-10-19"
+diarization = true
+diarization_url = "https://www.assemblyai.com/docs/api-reference/transcripts/submit"
+diarization_checked_on = "2026-10-19"
+diarization_note = "speaker_labels; support varies by language"
+language_id = true
+language_id_url = "https://www.assemblyai.com/docs/api-reference/transcripts/submit"
+language_id_checked_on = "2026-10-19"
+language_id_note = "language_detection when language_code is omitted"
+custom_vocabulary = true
+custom_vocabulary_url = "https://www.assemblyai.com/docs/api-reference/transcripts/submit"
+custom_vocabulary_checked_on = "2026-10-19"
+custom_vocabulary_note = "keyterms_prompt: 1000 terms on Universal-3.5 Pro, 200 on Universal-2"
+max_file_minutes = 600
+max_file_minutes_url = "https://www.assemblyai.com/docs/faq/are-there-any-limits-on-file-size-or-file-duration-for-files-submitted-to-the-api"
+max_file_minutes_checked_on = "2026-10-19"
+max_file_minutes_note = "5 GB and 10 h; 2.2 GB through /v2/upload"
+retention = "uploaded audio deleted after 24 to 48 h; transcripts from 30 days; TTL settable in Data Controls (adapter deletes each transcript)"
+retention_url = "https://www.assemblyai.com/docs/faq/how-long-does-aai-retain-data"
+retention_checked_on = "2026-10-19"
+training_opt_out = "dashboard toggle for new requests; not available on free accounts; no request flag"
+training_opt_out_url = "https://www.assemblyai.com/docs/faq/how-long-does-aai-retain-data"
+training_opt_out_checked_on = "2026-10-19"
+
 [elevenlabs-scribe]
 model_id = "scribe_v2"
 usd_per_minute = 0.003667         # 0.22 USD per hour
@@ -114,6 +297,44 @@ opt_out_status = "not_offered"   # applied | not_offered | not_needed
 notes = "tag_audio_events=false so (laughter) style tags do not count as insertions."
 [elevenlabs-scribe.models]
 "scribe_v2" = 0.003667
+
+[elevenlabs-scribe.features]   # B20 feature matrix; a missing value means unknown or not stated
+languages = ["en", "ja", "ko", "es", "hi"]
+languages_url = "https://elevenlabs.io/docs/overview/capabilities/speech-to-text"
+languages_checked_on = "2026-10-19"
+languages_note = "90+ languages"
+batch = true
+batch_url = "https://elevenlabs.io/docs/api-reference/speech-to-text/convert"
+batch_checked_on = "2026-10-19"
+streaming = true
+streaming_url = "https://elevenlabs.io/docs/developers/guides/cookbooks/speech-to-text/streaming"
+streaming_checked_on = "2026-10-19"
+streaming_note = "scribe_v2_realtime"
+word_timestamps = true
+word_timestamps_url = "https://elevenlabs.io/docs/api-reference/speech-to-text/convert"
+word_timestamps_checked_on = "2026-10-19"
+diarization = true
+diarization_url = "https://elevenlabs.io/docs/api-reference/speech-to-text/convert"
+diarization_checked_on = "2026-10-19"
+diarization_note = "diarize, up to 32 speakers"
+language_id = true
+language_id_url = "https://elevenlabs.io/docs/api-reference/speech-to-text/convert"
+language_id_checked_on = "2026-10-19"
+language_id_note = "omit language_code; language_code and language_probability returned"
+custom_vocabulary = true
+custom_vocabulary_url = "https://elevenlabs.io/docs/api-reference/speech-to-text/convert"
+custom_vocabulary_checked_on = "2026-10-19"
+custom_vocabulary_note = "keyterms, up to 1000; 20 percent surcharge"
+max_file_minutes = 600
+max_file_minutes_url = "https://elevenlabs.io/docs/overview/capabilities/speech-to-text"
+max_file_minutes_checked_on = "2026-10-19"
+max_file_minutes_note = "docs conflict: 3 GB and 10 h here, 5 GB in the API reference"
+retention = "retained by default; zero retention (enable_logging=false) is Enterprise only"
+retention_url = "https://elevenlabs.io/docs/api-reference/speech-to-text/convert"
+retention_checked_on = "2026-10-19"
+training_opt_out = "account toggle under Data use; Enterprise data not used by default"
+training_opt_out_url = "https://elevenlabs.io/docs/help-center/legal/is-my-data-used-to-improve-eleven-labs-ai-models"
+training_opt_out_checked_on = "2026-10-19"
 
 [gemini-flash]
 model_id = "gemini-3.8-flash"
@@ -140,6 +361,45 @@ input = 0.30
 audio_input = 1.00
 output = 2.50
 
+[gemini-flash.features]   # B20 feature matrix; a missing value means unknown or not stated
+languages = ["en", "ja", "ko", "es", "hi"]
+languages_url = "https://ai.google.dev/gemini-api/docs/audio"
+languages_checked_on = "2026-10-19"
+languages_note = "no language list for generateContent audio"
+batch = true
+batch_url = "https://ai.google.dev/gemini-api/docs/audio"
+batch_checked_on = "2026-10-19"
+streaming = true
+streaming_url = "https://ai.google.dev/gemini-api/docs/live-api/capabilities"
+streaming_checked_on = "2026-10-19"
+streaming_note = "Live API, different models"
+word_timestamps = false
+word_timestamps_url = "https://ai.google.dev/gemini-api/docs/audio"
+word_timestamps_checked_on = "2026-10-19"
+word_timestamps_note = "MM:SS references only"
+diarization = false
+diarization_url = "https://ai.google.dev/gemini-api/docs/audio"
+diarization_checked_on = "2026-10-19"
+diarization_note = "prompt only, without word timings; gemini-3.5-transcribe has real diarization"
+language_id = true
+language_id_url = "https://ai.google.dev/gemini-api/docs/audio"
+language_id_checked_on = "2026-10-19"
+language_id_note = "by prompt, structured JSON reply"
+custom_vocabulary = true
+custom_vocabulary_url = "https://ai.google.dev/gemini-api/docs/audio"
+custom_vocabulary_checked_on = "2026-10-19"
+custom_vocabulary_note = "by prompt"
+max_file_minutes = 570
+max_file_minutes_url = "https://ai.google.dev/gemini-api/docs/audio"
+max_file_minutes_checked_on = "2026-10-19"
+max_file_minutes_note = "9.5 h of audio per prompt; 20 MB inline request"
+retention = "paid tier: logged for a limited period for abuse monitoring"
+retention_url = "https://ai.google.dev/gemini-api/terms"
+retention_checked_on = "2026-10-19"
+training_opt_out = "paid tier is not used for training; free tier is"
+training_opt_out_url = "https://ai.google.dev/gemini-api/terms"
+training_opt_out_checked_on = "2026-10-19"
+
 [aws-transcribe]
 model_id = "aws-transcribe-standard"
 usd_per_minute = 0.024            # UNVERIFIED tier 1 rate, see notes
@@ -153,6 +413,42 @@ trains_by_default = true
 opt_out_status = "not_offered"   # applied | not_offered | not_needed
 policy_url = "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_ai-opt-out.html"
 notes = "The pricing tier table did not render when checked. Third-party sources give 0.024/min tier 1 (US East); the official page's batch example uses 0.006/min. 0.024 kept as the conservative figure for the budget guard. Verify before publishing cost results."
+
+[aws-transcribe.features]   # B20 feature matrix; a missing value means unknown or not stated
+languages = ["en", "ja", "ko", "es", "hi"]
+languages_url = "https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html"
+languages_checked_on = "2026-10-19"
+batch = true
+batch_url = "https://docs.aws.amazon.com/transcribe/latest/APIReference/API_StartTranscriptionJob.html"
+batch_checked_on = "2026-10-19"
+streaming = true
+streaming_url = "https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html"
+streaming_checked_on = "2026-10-19"
+word_timestamps = true
+word_timestamps_url = "https://docs.aws.amazon.com/transcribe/latest/dg/input.html"
+word_timestamps_checked_on = "2026-10-19"
+diarization = true
+diarization_url = "https://docs.aws.amazon.com/transcribe/latest/dg/diarization.html"
+diarization_checked_on = "2026-10-19"
+diarization_note = "ShowSpeakerLabels, up to 30 speakers"
+language_id = true
+language_id_url = "https://docs.aws.amazon.com/transcribe/latest/dg/lang-id-batch.html"
+language_id_checked_on = "2026-10-19"
+language_id_note = "IdentifyLanguage with LanguageOptions"
+custom_vocabulary = true
+custom_vocabulary_url = "https://docs.aws.amazon.com/transcribe/latest/dg/custom-vocabulary.html"
+custom_vocabulary_checked_on = "2026-10-19"
+custom_vocabulary_note = "needs a CreateVocabulary account resource; not used by clipbench"
+max_file_minutes = 480
+max_file_minutes_url = "https://docs.aws.amazon.com/general/latest/gr/transcribe.html"
+max_file_minutes_checked_on = "2026-10-19"
+max_file_minutes_note = "28,800 s and 2 GB"
+retention = "service managed bucket transcripts deleted after 90 days; clipbench uses its own bucket and deletes"
+retention_url = "https://docs.aws.amazon.com/transcribe/latest/dg/input.html"
+retention_checked_on = "2026-10-19"
+training_opt_out = "AWS Organizations AI services opt-out policy; no request flag"
+training_opt_out_url = "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_ai-opt-out.html"
+training_opt_out_checked_on = "2026-10-19"
 
 # ------------------------------------------------------------------ Cloudflare Workers AI
 # Billed in neurons: 0.011 USD per 1,000 neurons, first 10,000 neurons per day free (resets 00:00 UTC).
@@ -179,6 +475,41 @@ opt_out_status = "not_needed"   # applied | not_offered | not_needed
 policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
 notes = "Base64 JSON input with language and task=transcribe; word timings in segments[].words. Model page lists 0.000513 per audio minute. Files longer than chunk_seconds (240) are split into WAV chunks."
 
+[cf-whisper-large-v3-turbo.features]   # B20 feature matrix; a missing value means unknown or not stated
+languages = ["en", "ja", "ko", "es", "hi"]
+languages_url = "https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/"
+languages_checked_on = "2026-10-19"
+languages_note = "Whisper language set; Cloudflare lists none"
+batch = true
+batch_url = "https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/"
+batch_checked_on = "2026-10-19"
+streaming = false
+streaming_url = "https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/"
+streaming_checked_on = "2026-10-19"
+word_timestamps = true
+word_timestamps_url = "https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/schema-output.json"
+word_timestamps_checked_on = "2026-10-19"
+diarization = false
+diarization_url = "https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/"
+diarization_checked_on = "2026-10-19"
+language_id = true
+language_id_url = "https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/schema-output.json"
+language_id_checked_on = "2026-10-19"
+language_id_note = "transcription_info.language"
+custom_vocabulary = true
+custom_vocabulary_url = "https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/schema-input.json"
+custom_vocabulary_checked_on = "2026-10-19"
+custom_vocabulary_note = "initial_prompt"
+max_file_minutes_url = "https://developers.cloudflare.com/workers-ai/platform/limits/"
+max_file_minutes_checked_on = "2026-10-19"
+max_file_minutes_note = "no documented limit; clipbench sends 240 s chunks"
+retention = "not retained after the response"
+retention_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+retention_checked_on = "2026-10-19"
+training_opt_out = "not used for training; nothing to opt out of"
+training_opt_out_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+training_opt_out_checked_on = "2026-10-19"
+
 [cf-whisper]
 model_id = "@cf/openai/whisper"
 usd_per_minute = 0.00045254       # 41.14 neurons per audio minute; 0.0272 USD per hour
@@ -195,6 +526,40 @@ trains_by_default = false
 opt_out_status = "not_needed"   # applied | not_offered | not_needed
 policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
 notes = "Raw bytes input with NO language parameter: the language is auto detected, so non-English clips can come back in the wrong language. Model size is not documented. Word timings in words[]."
+
+[cf-whisper.features]   # B20 feature matrix; a missing value means unknown or not stated
+languages = ["en", "ja", "ko", "es", "hi"]
+languages_url = "https://developers.cloudflare.com/workers-ai/models/whisper/"
+languages_checked_on = "2026-10-19"
+languages_note = "multilingual, no list; no language parameter"
+batch = true
+batch_url = "https://developers.cloudflare.com/workers-ai/models/whisper/"
+batch_checked_on = "2026-10-19"
+streaming = false
+streaming_url = "https://developers.cloudflare.com/workers-ai/models/whisper/"
+streaming_checked_on = "2026-10-19"
+word_timestamps = true
+word_timestamps_url = "https://developers.cloudflare.com/workers-ai/models/whisper/schema-output.json"
+word_timestamps_checked_on = "2026-10-19"
+diarization = false
+diarization_url = "https://developers.cloudflare.com/workers-ai/models/whisper/"
+diarization_checked_on = "2026-10-19"
+language_id = false
+language_id_url = "https://developers.cloudflare.com/workers-ai/models/whisper/schema-output.json"
+language_id_checked_on = "2026-10-19"
+language_id_note = "always auto detects but does not report the language"
+custom_vocabulary = false
+custom_vocabulary_url = "https://developers.cloudflare.com/workers-ai/models/whisper/schema-input.json"
+custom_vocabulary_checked_on = "2026-10-19"
+max_file_minutes_url = "https://developers.cloudflare.com/workers-ai/platform/limits/"
+max_file_minutes_checked_on = "2026-10-19"
+max_file_minutes_note = "no documented limit; clipbench sends 240 s chunks"
+retention = "not retained after the response"
+retention_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+retention_checked_on = "2026-10-19"
+training_opt_out = "not used for training; nothing to opt out of"
+training_opt_out_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+training_opt_out_checked_on = "2026-10-19"
 
 [cf-whisper-tiny-en]
 model_id = "@cf/openai/whisper-tiny-en"
@@ -213,6 +578,39 @@ opt_out_status = "not_needed"   # applied | not_offered | not_needed
 policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
 notes = "Beta, English only (other languages are skipped). Price not listed anywhere when checked; budget guard uses the whisper rate."
 
+[cf-whisper-tiny-en.features]   # B20 feature matrix; a missing value means unknown or not stated
+languages = ["en"]
+languages_url = "https://developers.cloudflare.com/workers-ai/models/whisper-tiny-en/"
+languages_checked_on = "2026-10-19"
+languages_note = "English only, beta"
+batch = true
+batch_url = "https://developers.cloudflare.com/workers-ai/models/whisper-tiny-en/"
+batch_checked_on = "2026-10-19"
+streaming = false
+streaming_url = "https://developers.cloudflare.com/workers-ai/models/whisper-tiny-en/"
+streaming_checked_on = "2026-10-19"
+word_timestamps = true
+word_timestamps_url = "https://developers.cloudflare.com/workers-ai/models/whisper-tiny-en/schema-output.json"
+word_timestamps_checked_on = "2026-10-19"
+diarization = false
+diarization_url = "https://developers.cloudflare.com/workers-ai/models/whisper-tiny-en/"
+diarization_checked_on = "2026-10-19"
+language_id = false
+language_id_url = "https://developers.cloudflare.com/workers-ai/models/whisper-tiny-en/"
+language_id_checked_on = "2026-10-19"
+custom_vocabulary = false
+custom_vocabulary_url = "https://developers.cloudflare.com/workers-ai/models/whisper-tiny-en/"
+custom_vocabulary_checked_on = "2026-10-19"
+max_file_minutes_url = "https://developers.cloudflare.com/workers-ai/platform/limits/"
+max_file_minutes_checked_on = "2026-10-19"
+max_file_minutes_note = "no documented limit; clipbench sends 240 s chunks"
+retention = "not retained after the response"
+retention_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+retention_checked_on = "2026-10-19"
+training_opt_out = "not used for training; nothing to opt out of"
+training_opt_out_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+training_opt_out_checked_on = "2026-10-19"
+
 [cf-deepgram-nova-3]
 model_id = "@cf/deepgram/nova-3"
 usd_per_minute = 0.0052           # 472.73 neurons per audio minute over HTTP; 0.312 USD per hour
@@ -229,3 +627,41 @@ trains_by_default = false
 opt_out_status = "applied"   # applied | not_offered | not_needed
 policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
 notes = "Raw bytes with options as query parameters (language, punctuate, smart_format, mip_opt_out). Nova-3 batch covers en, ja, ko, es, hi. Costs more through Workers AI (0.0052) than direct Deepgram monolingual (0.0043). @cf/deepgram/flux is skipped: WebSocket only, English only, no word timings."
+
+[cf-deepgram-nova-3.features]   # B20 feature matrix; a missing value means unknown or not stated
+languages = ["en", "ja", "ko", "es", "hi"]
+languages_url = "https://developers.cloudflare.com/workers-ai/models/nova-3/"
+languages_checked_on = "2026-10-19"
+languages_note = "Cloudflare lists none; Deepgram Nova-3 covers all five"
+batch = true
+batch_url = "https://developers.cloudflare.com/workers-ai/models/nova-3/"
+batch_checked_on = "2026-10-19"
+streaming = true
+streaming_url = "https://developers.cloudflare.com/workers-ai/models/nova-3/"
+streaming_checked_on = "2026-10-19"
+streaming_note = "WebSocket"
+word_timestamps = true
+word_timestamps_url = "https://developers.cloudflare.com/workers-ai/models/nova-3/schema-output.json"
+word_timestamps_checked_on = "2026-10-19"
+diarization = true
+diarization_url = "https://developers.cloudflare.com/workers-ai/models/nova-3/schema-input.json"
+diarization_checked_on = "2026-10-19"
+diarization_note = "diarize; speaker field not in the output schema, needs a live check"
+language_id = true
+language_id_url = "https://developers.cloudflare.com/workers-ai/models/nova-3/schema-input.json"
+language_id_checked_on = "2026-10-19"
+language_id_note = "detect_language; output field not in the schema, needs a live check"
+custom_vocabulary = true
+custom_vocabulary_url = "https://developers.cloudflare.com/workers-ai/models/nova-3/schema-input.json"
+custom_vocabulary_checked_on = "2026-10-19"
+custom_vocabulary_note = "keyterm"
+max_file_minutes_url = "https://developers.cloudflare.com/workers-ai/platform/limits/"
+max_file_minutes_checked_on = "2026-10-19"
+max_file_minutes_note = "no documented limit"
+retention = "not retained after the response"
+retention_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+retention_checked_on = "2026-10-19"
+training_opt_out = "not used for training; mip_opt_out=true also sent"
+training_opt_out_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+training_opt_out_checked_on = "2026-10-19"
+

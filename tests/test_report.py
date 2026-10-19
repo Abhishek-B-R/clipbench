@@ -18,18 +18,21 @@ PROVIDERS = {
 def _agg_rows():
     rows = []
     for tier, shift in (("verified", 0.0), ("creator", 0.05)):
-        for pid, (model, er, cost, lat) in PROVIDERS.items():
+        for (pid, (model, er, cost, lat)), (metric, moff) in (
+            (item, m) for item in PROVIDERS.items() for m in (("cer", 0.0), ("cer_reading", -0.02))
+        ):
             base = {
-                "provider": pid, "model_id": model, "tier": tier, "metric": "cer",
+                "provider": pid, "model_id": model, "tier": tier, "metric": metric,
                 "hallucination_rate": 0.01 if pid != "gamma" else 0.08, "long_output_rate": 0.02,
                 "cost_usd_total": cost * 0.5, "audio_hours": 0.5, "cost_per_hour": cost,
                 "latency_p50": lat, "latency_p95": lat * 2, "rtf": lat / 30000,
             }  # fmt: skip
             slices = [("all", "all", 60, False), ("tag", "background_music", 20, False),
-                      ("tag", "noisy", 4, True), ("duration", "<15s", 25, False),
+                      ("tag", "noisy", 4, True), ("tag", "fast_speech", 18, False), ("duration", "<15s", 25, False),
                       ("duration", "15-30s", 30, False), ("duration", "30-60s", 5, True)]  # fmt: skip
             for kind, sl, n, small in slices:
-                e = er + shift + (0.05 if sl == "background_music" and pid == "alpha" else 0.0)
+                e = er + shift + moff + (0.05 if sl == "background_music" and pid == "alpha" else 0.0)
+                e += 0.06 if sl == "fast_speech" and pid == "beta" else 0.0
                 rows.append(
                     {
                         **base,
@@ -137,6 +140,12 @@ def test_report_renders(tmp_settings):
         assert f"charts/{name}.png" in md
     assert "cdn.jsdelivr.net/npm/vega-embed@6.26.0" in page
     assert 'id="chart-specs"' in page and "prefers-color-scheme: dark" in page
+    # Site layout: hero, leaderboard per tier, heatmap, unverified label, draft findings.
+    assert 'class="hero' in page and 'class="lb sortable"' in page and 'class="hm"' in page
+    assert 'data-tier="verified"' in page and 'data-tier="creator"' in page
+    assert "unverified reference" in page and "too small to conclude" in page
+    assert page.count("DRAFT: verify.") >= len(lines) // 2
+    assert "alpha beats gamma" in page
 
     for text in (md, page):
         assert not re.search("[" + chr(0x2013) + chr(0x2014) + "]", text), "no en or em dashes"

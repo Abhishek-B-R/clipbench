@@ -3,7 +3,7 @@ PROVIDERS ?= all
 TIER ?= verified
 RUN ?= latest
 
-.PHONY: setup build-data sample fetch-audio review dry-run run score errors report publish-check test lint
+.PHONY: setup build-data sample fetch-audio review dry-run run score errors report publish-check test lint check-data align
 
 setup:
 	uv sync --all-extras
@@ -45,3 +45,11 @@ lint:
 
 test:
 	uv run pytest -q
+
+LANG_CODE ?= en
+
+check-data:
+	uv run clipbench data check --lang $(LANG_CODE)
+
+align:
+	uv run clipbench align --lang $(LANG_CODE)

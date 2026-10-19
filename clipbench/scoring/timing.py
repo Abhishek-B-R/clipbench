@@ -1,7 +1,7 @@
 """Word timing metrics: caption timing error and hallucination over non-speech.
 
 Both work on word timings (`Word.start_ms`, `Word.end_ms`). Reference timings come from the creator
-track or from `clipbench align`; hypothesis timings from the provider. See docs/methodology_v2_metrics.md.
+track or from `clipbench align`; hypothesis timings from the provider. See METHODOLOGY.md.
 """
 
 from __future__ import annotations

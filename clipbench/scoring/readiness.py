@@ -1,7 +1,7 @@
 """Caption readiness: punctuation F1 and casing accuracy on un-normalised text.
 
 Scored only on clips whose verified text the reviewer marked `punctuated`, and separately from CER/WER,
-so a provider is not punished twice for the same mistake. See docs/methodology_v2_metrics.md.
+so a provider is not punished twice for the same mistake. See METHODOLOGY.md.
 """
 
 from __future__ import annotations

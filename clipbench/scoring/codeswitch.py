@@ -1,7 +1,7 @@
 """Code-switch accuracy: error rate on the reference tokens inside tagged code-switch spans.
 
 Spans are character offsets into the verified (corrected) reference text. See
-docs/methodology_v2_metrics.md.
+METHODOLOGY.md.
 """
 
 from __future__ import annotations

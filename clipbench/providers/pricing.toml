@@ -665,3 +665,110 @@ training_opt_out = "not used for training; mip_opt_out=true also sent"
 training_opt_out_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
 training_opt_out_checked_on = "2026-10-19"
 
+
+# ------------------------------------------------------------------ streaming track (A1)
+# Realtime WebSocket adapters in clipbench/streaming/. Priced per streaming minute; a streaming run never
+# shares rows, tables or leaderboards with batch runs. `billing`: "audio" = per audio minute sent,
+# "session" = per minute the socket is open (estimate adds session_overhead_s per clip).
+
+[deepgram-stream]
+model_id = "nova-3"
+usd_per_minute = 0.0077           # list price; the pricing page shows 0.0048 as a limited-time promotion
+promo_usd_per_minute = 0.0048
+billing = "audio"
+min_billed_seconds = 0
+languages = ["en", "ja", "ko", "es", "hi"]
+endpoint = "wss://api.deepgram.com/v1/listen"
+checked_url = "https://deepgram.com/pricing"
+docs_url = "https://developers.deepgram.com/reference/speech-to-text/listen-streaming"
+languages_url = "https://developers.deepgram.com/docs/models-languages-overview"
+checked_on = "2026-10-19"
+partials = "Results with is_final=false (interim_results=true)"
+finals = "Results with is_final=true; CloseStream flushes, Metadata is the last message"
+word_timestamps = true
+data_policy = "Model Improvement Program may use request data unless opted out"
+opt_out = "mip_opt_out=true on every session"
+opt_out_status = "applied"
+policy_url = "https://developers.deepgram.com/docs/the-deepgram-model-improvement-partnership-program"
+notes = "Nova-3 monolingual streaming. The budget guard uses the 0.0077 list price so it never under estimates when the 0.0048 promotion ends. Flux (flux-general-multi) lacks ko and is not adapted."
+
+[assemblyai-stream]
+model_id = "universal-3-6-pro"
+usd_per_minute = 0.0075           # 0.45 USD per hour
+billing = "session"
+session_overhead_s = 3
+min_billed_seconds = 0
+languages = ["en", "ja", "ko", "es", "hi"]
+endpoint = "wss://streaming.assemblyai.com/v3/ws"
+checked_url = "https://www.assemblyai.com/pricing"
+docs_url = "https://www.assemblyai.com/docs/streaming/api-spec/streaming-websocket"
+checked_on = "2026-10-19"
+partials = "Turn with end_of_turn=false (words[] incl. word_is_final=false)"
+finals = "Turn with end_of_turn=true; Terminate, then Termination with session_duration_seconds"
+word_timestamps = true
+data_policy = "No per request training opt-out documented for streaming; US and EU residency endpoints exist"
+opt_out = "none per request"
+opt_out_status = "not_offered"
+policy_url = "https://www.assemblyai.com/docs/faq/are-files-submitted-to-the-api-used-for-model-training"
+notes = "Billed on session duration (socket open time), not audio. Universal-3.6 Pro covers ko; 3.5 Pro does not. Universal-Streaming English and Multilingual (0.15 USD per hour) cover en plus five European languages only. language_codes query format UNVERIFIED (sent as a single code)."
+
+[elevenlabs-stream]
+model_id = "scribe_v2_realtime"
+usd_per_minute = 0.0065           # 0.39 USD per hour, pay as you go
+billing = "audio"
+min_billed_seconds = 0
+languages = ["en", "ja", "ko", "es", "hi"]
+endpoint = "wss://api.elevenlabs.io/v1/speech-to-text/realtime"
+checked_url = "https://elevenlabs.io/pricing/api"
+docs_url = "https://elevenlabs.io/docs/api-reference/speech-to-text/v-1-speech-to-text-realtime"
+checked_on = "2026-10-19"
+partials = "partial_transcript"
+finals = "committed_transcript_with_timestamps (include_timestamps=true), commit_strategy=vad; no terminal message"
+word_timestamps = true
+data_policy = "Logs and transcripts stored by default; non-enterprise audio may be used for training unless opted out in account settings"
+opt_out = "enable_logging=false (zero retention) is Enterprise only; set CLIPBENCH_ELEVENLABS_ZERO_RETENTION=1 if the plan allows it"
+trains_by_default = true
+opt_out_status = "not_offered"
+notes = "Billing basis (audio or session) not stated; audio assumed. 90+ languages."
+
+[gemini-stream]
+model_id = "gemini-3.5-transcribe-live"
+usd_per_minute = 0.009            # pricing page blended estimate: 0.005 audio input + 0.004 text output per minute
+billing = "audio"
+min_billed_seconds = 0
+languages = ["en", "ja", "ko", "es", "hi"]
+endpoint = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
+checked_url = "https://ai.google.dev/gemini-api/docs/pricing"
+docs_url = "https://ai.google.dev/gemini-api/docs/live-api/live-transcribe"
+checked_on = "2026-10-19"
+partials = "serverContent.interimInputTranscription.text"
+finals = "serverContent.inputTranscription.text; no terminal message"
+word_timestamps = false
+data_policy = "Paid tier: prompts and responses not used to improve products; logged for a limited time for abuse monitoring"
+opt_out = "none per request; use a billing-enabled (paid tier) key"
+trains_by_default = false
+opt_out_status = "not_needed"
+policy_url = "https://ai.google.dev/gemini-api/terms"
+notes = "Token priced: 3.50 per 1M audio input tokens, 21.00 per 1M text output tokens (thinking included). Sessions up to 10 minutes. Languages as BCP-47 (es-419 for Spanish). API key sent as x-goog-api-key header, UNVERIFIED for the WebSocket (docs show ?key=). The general Live models (gemini-3.8-live) also transcribe input but answer with audio, so the dedicated transcribe model is used."
+
+[cf-nova-3-stream]
+model_id = "@cf/deepgram/nova-3"
+usd_per_minute = 0.0092           # 836.36 neurons per audio minute over WebSocket
+neurons_per_minute = 836.36
+usd_per_1k_neurons = 0.011
+billing = "audio"
+min_billed_seconds = 0
+languages = ["en", "ja", "ko", "es", "hi"]
+endpoint = "wss://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/deepgram/nova-3"
+checked_url = "https://developers.cloudflare.com/workers-ai/models/nova-3/"
+checked_on = "2026-10-19"
+partials = "Deepgram Results is_final=false (assumed)"
+finals = "Deepgram Results is_final=true, Metadata last (assumed)"
+word_timestamps = true
+data_policy = "Cloudflare does not train on Workers AI inputs and does not retain them after the request"
+opt_out = "not needed; mip_opt_out=true also sent"
+retention_days = 0
+trains_by_default = false
+opt_out_status = "not_needed"
+policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+notes = "Model page lists Real-time: Yes and the WebSocket price. The REST WebSocket URL and message shape are UNVERIFIED (docs show a Worker binding with websocket: true). @cf/deepgram/flux (0.0077 per minute, WebSocket only) is English only and not adapted."

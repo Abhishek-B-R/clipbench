@@ -24,6 +24,7 @@ dependencies = [
   "rich>=13.7",
   "tenacity>=8.3",
   "soundfile>=0.12",
+  "websockets>=17.2",
 ]
 
 [project.optional-dependencies]

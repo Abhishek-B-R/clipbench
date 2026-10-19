@@ -122,6 +122,38 @@ def candidates(settings: Settings, language: str, *, fetch_all: bool, max_estima
     return out
 
 
+def probed_creator_candidates(settings: Settings, language: str, *, per_channel: int | None) -> list[Candidate]:
+    """Videos with no info.json whose Vako track Vako's own probe saw as a creator track.
+
+    Only for targeting: `.vr/probed-<lang>.json` (`manualSubs`) says which videos are worth one
+    info.json request. Classification still comes from the info.json fetched here. Ordered round
+    robin by the probed channel so `per_channel` keeps requests low and channels spread.
+    """
+    probed = read_json(settings.vako_root / ".vr" / f"probed-{language}.json", {})
+    src = settings.vako_root / ".vr" / "src" / language
+    by_channel: dict[str, list[str]] = {}
+    for video_id, files in scan_tracks(src).items():
+        if find_info(video_id, settings, language) is not None:
+            continue
+        rec = probed.get(video_id) or {}
+        manual = rec.get("manualSubs") or []
+        if not rec.get("ok") or not any(key in manual for key in files):
+            continue
+        by_channel.setdefault(str(rec.get("channelId") or "?"), []).append(video_id)
+    out: list[Candidate] = []
+    depth = 0
+    while True:
+        added = False
+        for ch in sorted(by_channel):
+            ids = sorted(by_channel[ch])
+            if depth < len(ids) and (per_channel is None or depth < per_channel):
+                out.append(Candidate(ids[depth], None))
+                added = True
+        if not added:
+            return out
+        depth += 1
+
+
 @dataclass
 class FetchOutcome:
     ok: bool
@@ -185,6 +217,8 @@ def fetch_info(
     cookies_from_browser: str | None = None,
     limit: int | None = None,
     gap_s: float = 5.0,
+    probed_creator: bool = False,
+    per_channel: int | None = None,
     runner: Callable[..., FetchOutcome] = run_ytdlp_info,
     log: Callable[[str], None] = print,
     sleep: Callable[[float], None] = time.sleep,
@@ -196,7 +230,10 @@ def fetch_info(
     failed_path = info_dir / "failed.json"
     failed: dict[str, Any] = read_json(failed_path, {})
 
-    todo = candidates(settings, lang, fetch_all=fetch_all, max_estimate_s=max_estimate_s)
+    if probed_creator:
+        todo = probed_creator_candidates(settings, lang, per_channel=per_channel)
+    else:
+        todo = candidates(settings, lang, fetch_all=fetch_all, max_estimate_s=max_estimate_s)
     summary = FetchSummary(candidates=len(todo))
     if not retry_failed:
         before = len(todo)

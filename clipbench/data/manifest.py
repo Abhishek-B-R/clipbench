@@ -1,4 +1,15 @@
-"""data/manifest.parquet: one row per video found in Vako `.vr/src/<lang>/`. See docs/INTERFACES.md."""
+"""data/manifest.parquet. See docs/INTERFACES.md and docs/data_rules.md.
+
+One row per video found in Vako `.vr/src/<lang>/` or `data/tracks/` (`clip_source` "short" for
+videos of 90 s or less, "long" above), plus one "window" row per long video with a creator track
+where a clean 20-60 s window exists (see windows.py).
+
+`video_id` is the clip key used everywhere (references, audio files, verified files, caches). For
+"short" and "long" rows it is the YouTube id; for "window" rows it is `clip_id`,
+`<youtubeId>@<start>-<end>` (whole seconds). `youtube_id` always holds the YouTube id. A window row's
+track paths point at sliced, rebased copies in `data/tracks/windows/`, so anything that reads a track
+from the manifest gets the window's captions only.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +20,10 @@ from pathlib import Path
 import pandas as pd
 
 from clipbench.config import Settings, get_settings
-from clipbench.data.vako import VideoScan, scan_language
+from clipbench.data.vako import VideoScan, scan_language, tracks_dir
+from clipbench.data.windows import choose_window_from_track, clip_id_for, slice_json3
+
+SHORT_MAX_S = 90.0
 
 COLUMNS = [
     "video_id",
@@ -25,6 +39,11 @@ COLUMNS = [
     "auto_track_path",
     "info_path",
     "info_source",
+    "clip_id",
+    "youtube_id",
+    "clip_source",
+    "window_start_s",
+    "window_end_s",
 ]
 
 
@@ -39,6 +58,7 @@ def row_for(scan: VideoScan) -> dict:
     auto = sorted(auto, key=lambda k: (not k.lower().endswith("-orig"), k))  # -orig is the recogniser's own
     paths = {t.key: t.path for t in scan.tracks}
     info = scan.info
+    duration = info.duration_s if info else None
     return {
         "video_id": scan.video_id,
         "language": scan.language,
@@ -53,7 +73,51 @@ def row_for(scan: VideoScan) -> dict:
         "auto_track_path": paths[auto[0]] if auto else None,
         "info_path": str(scan.info_path) if scan.info_path else None,
         "info_source": scan.info_source,
+        "clip_id": scan.video_id,
+        "youtube_id": scan.video_id,
+        "clip_source": "long" if duration is not None and duration > SHORT_MAX_S else "short",
+        "window_start_s": None,
+        "window_end_s": None,
     }
+
+
+def window_row(row: dict, settings: Settings) -> dict | None:
+    """The window row for a long video with a creator track, or None when no clean window exists."""
+    if row["clip_source"] != "long" or not row["has_creator_track"]:
+        return None
+    try:
+        creator_text = Path(row["creator_track_path"]).read_text(encoding="utf-8")
+        win = choose_window_from_track(creator_text, row["language"], row["duration_s"])
+    except (OSError, ValueError):
+        return None
+    if win is None:
+        return None
+    cid = clip_id_for(row["youtube_id"], win.start_s, win.end_s)
+    out_dir = tracks_dir(settings) / "windows"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    new = dict(row)
+    for kind in ("creator", "auto"):
+        key, path = row[f"{kind}_track_key"], row[f"{kind}_track_path"]
+        if not key or not path:
+            continue
+        try:
+            sliced = slice_json3(Path(path).read_text(encoding="utf-8"), win.start_s, win.end_s)
+        except (OSError, ValueError):
+            new[f"{kind}_track_key"] = new[f"{kind}_track_path"] = None
+            new[f"has_{kind}_track"] = False
+            continue
+        dst = out_dir / f"{cid}.{key}.json3"
+        dst.write_text(sliced, encoding="utf-8")
+        new[f"{kind}_track_path"] = str(dst)
+    new.update(
+        video_id=cid,
+        clip_id=cid,
+        clip_source="window",
+        duration_s=float(win.duration_s),
+        window_start_s=float(win.start_s),
+        window_end_s=float(win.end_s),
+    )
+    return new
 
 
 def build_manifest(language: str | None = None, settings: Settings | None = None) -> tuple[pd.DataFrame, Path]:
@@ -61,8 +125,11 @@ def build_manifest(language: str | None = None, settings: Settings | None = None
     settings = settings or get_settings()
     lang = language or settings.language
     scans = scan_language(lang, settings)
-    df = pd.DataFrame([row_for(s) for s in scans], columns=COLUMNS)
-    df["duration_s"] = df["duration_s"].astype("float64")
+    rows = [row_for(s) for s in scans]
+    rows += [w for w in (window_row(r, settings) for r in rows) if w is not None]
+    df = pd.DataFrame(rows, columns=COLUMNS)
+    for col in ("duration_s", "window_start_s", "window_end_s"):
+        df[col] = df[col].astype("float64")
     df.attrs["track_kinds"] = dict(Counter(t.kind for s in scans for t in s.tracks))
 
     path = settings.manifest_path
@@ -71,7 +138,7 @@ def build_manifest(language: str | None = None, settings: Settings | None = None
         old = old[old["language"] != lang]
         if len(old):
             kinds = df.attrs["track_kinds"]
-            df = pd.concat([old[COLUMNS], df], ignore_index=True)
+            df = pd.concat([old.reindex(columns=COLUMNS), df], ignore_index=True)
             df.attrs["track_kinds"] = kinds
     df = df.sort_values(["language", "video_id"]).reset_index(drop=True)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -105,7 +172,10 @@ def summarize(df: pd.DataFrame, language: str | None = None) -> str:
     if language:
         df = df[df["language"] == language]
     lines = []
-    for lang, g in df.groupby("language"):
+    for lang, g_all in df.groupby("language"):
+        source = g_all["clip_source"] if "clip_source" in g_all else pd.Series("short", index=g_all.index)
+        g = g_all[source != "window"]
+        win = g_all[source == "window"]
         has_info = g["info_source"].notna()
         unknown = has_info.eq(False) | (~g["has_creator_track"] & ~g["has_auto_track"])
         lines.append(f"[{lang}] videos: {len(g)}")
@@ -134,6 +204,11 @@ def summarize(df: pd.DataFrame, language: str | None = None) -> str:
             )
         else:
             lines.append(f"  duration: unknown for all {len(d)}")
+        long_creator = g[g["has_creator_track"] & (source.loc[g.index] == "long")]
+        lines.append(
+            f"  long videos with a creator track: {len(long_creator)}; windows: {len(win)} "
+            f"({win['channel_id'].nunique()} channels, {int(win['has_auto_track'].sum())} with an auto track)"
+        )
     kinds = df.attrs.get("track_kinds")
     if kinds:
         lines.append("  track kinds (this scan): " + ", ".join(f"{k} {v}" for k, v in sorted(kinds.items())))

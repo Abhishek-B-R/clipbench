@@ -78,3 +78,48 @@ def test_write_sample(tmp_settings):
     assert "SHORT" in res.message
     back = pd.read_parquet(res.path)
     assert "sample_rank" in back.columns and len(back) == len(res.df)
+
+
+def window_row(i: int, channel: str) -> dict:
+    r = row(i, channel, duration=40.0)
+    yt = r["video_id"]
+    r.update(
+        video_id=f"{yt}@100-140",
+        clip_id=f"{yt}@100-140",
+        youtube_id=yt,
+        clip_source="window",
+        window_start_s=100.0,
+        window_end_s=140.0,
+    )
+    return r
+
+
+def test_shorts_first_then_windows_with_shared_cap():
+    rows = [dict(row(i, f"UCs{i % 3}"), clip_source="short") for i in range(9)]
+    rows += [window_row(100 + i, f"UCs{i % 3}") for i in range(30)]
+    rows += [window_row(200 + i, f"UCw{i % 20}") for i in range(40)]
+    rows.append(dict(row(999, "UCs0", duration=300.0), clip_source="long"))
+    m = pd.DataFrame(rows)
+    s = stratified_sample(m, n=60, seed=7)
+    assert len(s) == 58  # 3 channels x cap 6 + 20 channels x 2 windows
+    assert set(s.head(9)["clip_source"]) == {"short"}  # every Short, first
+    assert (s["clip_source"] == "short").sum() == 9
+    assert s["channel_id"].value_counts().max() <= 6  # cap counts Shorts and windows together
+    assert "long" not in set(s["clip_source"])
+    only = stratified_sample(m, n=60, seed=7, shorts_only=True)
+    assert len(only) == 9 and set(only["clip_source"]) == {"short"}
+
+
+def test_clip_meta(tmp_settings):
+    from clipbench.data.sample import clip_meta
+
+    tmp_settings.data_dir.mkdir(parents=True)
+    m = pd.DataFrame([dict(row(1, "UCa"), clip_source="short", youtube_id="v0000000001"), window_row(2, "UCb")])
+    m["sample_rank"] = range(2)
+    m.to_parquet(tmp_settings.sample_path, index=False)
+    meta = clip_meta(tmp_settings)
+    assert meta["v0000000001"]["kind"] == "short"
+    assert meta["v0000000001"]["youtube_url"] == "https://www.youtube.com/shorts/v0000000001"
+    w = meta["v0000000002@100-140"]
+    assert w["kind"] == "window" and w["start_s"] == 100.0 and w["youtube_id"] == "v0000000002"
+    assert w["youtube_url"] == "https://www.youtube.com/watch?v=v0000000002&t=100s"

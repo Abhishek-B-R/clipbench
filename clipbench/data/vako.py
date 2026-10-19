@@ -147,12 +147,30 @@ class VideoScan:
     info_source: str | None
 
 
+def tracks_dir(settings: Settings) -> Path:
+    """json3 tracks clipbench downloaded itself (discover, fetch-tracks). Flat: `<id>.<key>.json3`."""
+    return settings.data_dir / "tracks"
+
+
+def merged_tracks(settings: Settings, language: str) -> dict[str, dict[str, Path]]:
+    """Vako's `.vr/src/<lang>/` merged with `data/tracks/` (keys of this language only).
+
+    Where both have the same key, Vako's file is kept.
+    """
+    merged = scan_tracks(settings.vako_root / ".vr" / "src" / language)
+    for video_id, files in scan_tracks(tracks_dir(settings)).items():
+        for key, path in files.items():
+            if base_of(key) != language.lower():
+                continue
+            merged.setdefault(video_id, {}).setdefault(key, path)
+    return dict(sorted(merged.items()))
+
+
 def scan_language(language: str | None = None, settings: Settings | None = None) -> list[VideoScan]:
     settings = settings or get_settings()
     lang = language or settings.language
-    src = settings.vako_root / ".vr" / "src" / lang
     out: list[VideoScan] = []
-    for video_id, files in scan_tracks(src).items():
+    for video_id, files in merged_tracks(settings, lang).items():
         found = find_info(video_id, settings, lang)
         info = load_info(found[0]) if found else None
         if found and info is None:

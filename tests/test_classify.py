@@ -71,3 +71,58 @@ def test_scan_reads_ids_starting_with_dash_and_finds_info(tmp_settings, tmp_path
     assert scans["-BBBBBBBBBB"].tracks[0].kind == "auto"
     assert scans["CCCCCCCCCCC"].info_source is None
     assert scans["CCCCCCCCCCC"].tracks[0].kind == "unknown"
+
+
+def test_discover_keep_rule():
+    from clipbench.data.discover import keep_reason
+
+    a = json.loads((INFO / "AAAAAAAAAAA.info.json").read_text())
+    assert keep_reason(a, "ja", set()) is None
+    assert keep_reason(a, "ja", {"UCsynthetic000000000001"}) == "blocked channel"
+    assert keep_reason(dict(a, duration=300), "ja", set()).startswith("duration")
+    b = json.loads((INFO / "BBBBBBBBBBB.info.json").read_text())
+    assert keep_reason(b, "ja", set()) == "no creator track"
+    en_spoken = dict(a, language="en", automatic_captions={"en-orig": [{}]})
+    assert keep_reason(en_spoken, "ja", set()).startswith("not spoken")
+
+
+def test_discover_loop_with_fakes(tmp_settings, tmp_path):
+    from clipbench.data.discover import discover
+    from clipbench.data.info import FetchOutcome
+
+    vr = tmp_path / "vako" / ".vr"
+    (vr / "src" / "ja").mkdir(parents=True)
+    (vr / "vouched-channels.json").write_text(json.dumps(["UCgood", "UCbad"]))
+    settings = dataclasses.replace(tmp_settings, vako_root=tmp_path / "vako")
+    a = json.loads((INFO / "AAAAAAAAAAA.info.json").read_text())
+    b = json.loads((INFO / "BBBBBBBBBBB.info.json").read_text())
+    listings = {"UCgood": [f"G{i:010d}" for i in range(5)], "UCbad": [f"B{i:010d}" for i in range(20)]}
+    calls = []
+
+    def info_runner(vid, cookies):
+        calls.append(vid)
+        return FetchOutcome(ok=True, data=dict(a if vid.startswith("G") else b, id=vid))
+
+    def downloader(vid, out_dir, langs, **kw):
+        (out_dir / f"{vid}.ja.json3").parent.mkdir(parents=True, exist_ok=True)
+        (out_dir / f"{vid}.ja.json3").write_text("{}")
+        return True, False, ""
+
+    s = discover(
+        settings,
+        "ja",
+        miss_limit=3,
+        lister=lambda cid, cookies: (listings[cid], False, ""),
+        info_runner=info_runner,
+        downloader=downloader,
+        log=lambda m: None,
+        sleep=lambda s: None,
+    )
+    assert s.kept == 5
+    assert len([c for c in calls if c.startswith("B")]) == 3  # dropped after the miss limit
+    assert (settings.info_dir / "G0000000000.info.json").exists()
+    # resumable: a second run makes no requests
+    calls.clear()
+    s2 = discover(settings, "ja", lister=lambda *a: (_ for _ in ()).throw(AssertionError()),
+                  info_runner=info_runner, downloader=downloader, log=lambda m: None, sleep=lambda s: None)
+    assert s2.requests == 0 and calls == []

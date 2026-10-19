@@ -40,8 +40,19 @@ def find_original(audio_dir: Path, video_id: str) -> Path | None:
     return None
 
 
-def download(video_id: str, audio_dir: Path, cookies_from_browser: str | None = None) -> tuple[bool, bool, str]:
-    """Returns (ok, blocked, error)."""
+def download(
+    video_id: str,
+    audio_dir: Path,
+    cookies_from_browser: str | None = None,
+    *,
+    youtube_id: str | None = None,
+    section: tuple[float, float] | None = None,
+) -> tuple[bool, bool, str]:
+    """Download to `<audio_dir>/<video_id>.<ext>`. Returns (ok, blocked, error).
+
+    `video_id` is the clip key (a window's clip_id); `youtube_id` the video to fetch (defaults to
+    `video_id`). `section` (start_s, end_s) downloads only that part (`--download-sections`).
+    """
     args = [
         "yt-dlp",
         "-f",
@@ -54,11 +65,13 @@ def download(video_id: str, audio_dir: Path, cookies_from_browser: str | None = 
         "--retries",
         "3",
         "-o",
-        str(audio_dir / "%(id)s.%(ext)s"),
+        str(audio_dir / f"{video_id}.%(ext)s"),
     ]
+    if section is not None:
+        args += ["--download-sections", f"*{section[0]:g}-{section[1]:g}"]
     if cookies_from_browser:
         args += ["--cookies-from-browser", cookies_from_browser]
-    args += ["--", watch_url(video_id)]
+    args += ["--", watch_url(youtube_id or video_id)]
     try:
         proc = subprocess.run(args, capture_output=True, text=True, timeout=600)
     except subprocess.TimeoutExpired:
@@ -72,9 +85,12 @@ def download(video_id: str, audio_dir: Path, cookies_from_browser: str | None = 
     return True, False, ""
 
 
-def to_wav(src: Path, dst: Path) -> tuple[bool, str]:
+def to_wav(src: Path, dst: Path, duration_s: float | None = None) -> tuple[bool, str]:
+    """16 kHz mono PCM. `duration_s` trims to exactly that length (window clips)."""
     tmp = dst.with_name(dst.stem + ".tmp.wav")
     args = ["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", str(src)]
+    if duration_s is not None:
+        args += ["-t", f"{duration_s:g}"]
     args += ["-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(tmp)]
     try:
         proc = subprocess.run(args, capture_output=True, text=True, timeout=300)
@@ -115,9 +131,14 @@ def fetch_audio(
     hashes: dict = read_json(hashes_path, {})
     failed: dict = read_json(failed_path, {})
 
-    ids = list(load_sample(settings)["video_id"])
+    sample = load_sample(settings)
     if limit is not None:
-        ids = ids[:limit]
+        sample = sample.head(limit)
+    ids = list(sample["video_id"])
+    windows: dict[str, tuple[str, float, float]] = {}
+    if "clip_source" in sample:
+        for _, r in sample[sample["clip_source"] == "window"].iterrows():
+            windows[r["video_id"]] = (r["youtube_id"], float(r["window_start_s"]), float(r["window_end_s"]))
     summary = AudioSummary()
     last_download: float | None = None
 
@@ -142,7 +163,11 @@ def fetch_audio(
                 wait = gap_s - (time.monotonic() - last_download)
                 if wait > 0:
                     sleep(wait + random.uniform(0, 3))
-            ok, blocked, err = downloader(vid, audio_dir, cookies_from_browser)
+            if vid in windows:
+                yt, ws, we = windows[vid]
+                ok, blocked, err = downloader(vid, audio_dir, cookies_from_browser, youtube_id=yt, section=(ws, we))
+            else:
+                ok, blocked, err = downloader(vid, audio_dir, cookies_from_browser)
             last_download = time.monotonic()
             if blocked:
                 summary.stopped = err
@@ -155,7 +180,8 @@ def fetch_audio(
             summary.downloaded += 1
 
         if not wav.exists():
-            ok, err = to_wav(original, wav)
+            win = windows.get(vid)
+            ok, err = to_wav(original, wav, (win[2] - win[1]) if win else None)
             if not ok:
                 fail(vid, f"ffmpeg: {err}")
                 continue

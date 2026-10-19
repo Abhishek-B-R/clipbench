@@ -279,6 +279,12 @@ export interface Calibration {
   /** What "agree" means, as written by the exporter (for example "within 0.2 of the human score"). */
   agreement_rule: string | null;
   labelled_on: string | null;
+  /** METHODOLOGY.md gate: Spearman rank correlation and mean absolute error between judge and human scores. */
+  spearman: number | null;
+  mae: number | null;
+  min_pairs: number | null;
+  min_spearman: number | null;
+  max_mae: number | null;
 }
 
 export interface Semantic {
@@ -290,8 +296,14 @@ export interface Semantic {
   rows: SemanticRow[];
 }
 
-function parseCalibration(v: unknown): Calibration | null {
-  if (!isObj(v)) return null;
+function parseCalibration(raw: unknown, lang?: string): Calibration | null {
+  if (!isObj(raw)) return null;
+  // Per-language files ({ja: {...}}) or a list of rows with lang: take this run's language.
+  let v: Obj = raw;
+  if (lang && isObj(raw[lang])) v = raw[lang] as Obj;
+  else if (lang && isObj(raw.languages) && isObj((raw.languages as Obj)[lang])) v = (raw.languages as Obj)[lang] as Obj;
+  else if (lang && Array.isArray(raw.languages)) v = rowsOf(raw.languages).find((o) => s(o, "lang", "language") === lang) ?? raw;
+  const th = isObj(v.thresholds) ? v.thresholds : isObj(raw.thresholds) ? raw.thresholds : v;
   const ci = interval(v);
   const c: Calibration = {
     n_pairs: n(v, "n_pairs", "n", "pairs", "n_labelled"),
@@ -301,12 +313,27 @@ function parseCalibration(v: unknown): Calibration | null {
     threshold: share(n(v, "threshold", "min_agreement", "publish_threshold")),
     kappa: n(v, "kappa", "cohen_kappa"),
     agreement_rule: s(v, "agreement_rule", "rule", "definition"),
-    labelled_on: s(v, "labelled_on", "checked_on", "date"),
+    labelled_on: s(v, "labelled_on", "checked_on", "date", "calibrated_on"),
+    spearman: n(v, "spearman", "spearman_rho", "rho"),
+    mae: n(v, "mae", "mean_absolute_error"),
+    min_pairs: n(th, "min_pairs", "min_n_pairs"),
+    min_spearman: n(th, "min_spearman"),
+    max_mae: n(th, "max_mae"),
   };
-  return c.agreement == null && c.n_pairs == null ? null : c;
+  return c.agreement == null && c.n_pairs == null && c.spearman == null ? null : c;
 }
 
-function parseSemantic(section: unknown): Semantic | null {
+/** The METHODOLOGY.md gate, when the thresholds are known: enough pairs, Spearman high enough, error low enough. */
+export function calibrationPasses(c: Calibration | null): boolean | null {
+  if (!c) return null;
+  if (c.spearman != null && c.min_spearman != null && c.mae != null && c.max_mae != null) {
+    return c.spearman >= c.min_spearman && c.mae <= c.max_mae && (c.min_pairs == null || (c.n_pairs ?? 0) >= c.min_pairs);
+  }
+  if (c.agreement != null && c.threshold != null) return c.agreement >= c.threshold;
+  return null;
+}
+
+function parseSemantic(section: unknown, lang?: string): Semantic | null {
   if (section == null) return null;
   const m = meta(section);
   const rows = baseRows(section, (o) => {
@@ -324,15 +351,15 @@ function parseSemantic(section: unknown): Semantic | null {
       ci_high: onScore ? (lo == null ? null : 1 - lo) : hi,
     };
   });
-  const calibration = parseCalibration(m.calibration ?? m.judge_calibration);
+  const calibration = parseCalibration(m.calibration ?? m.judge_calibration, lang);
   const judge = isObj(m.judge) ? m.judge : {};
-  const gate = calibration?.agreement != null && calibration.threshold != null ? calibration.agreement >= calibration.threshold : null;
+  const gate = calibrationPasses(calibration);
   const published = (b(m, "published", "publish") ?? gate ?? false) && rows.length > 0;
   if (!rows.length && !calibration && !s(m, "reason", "note")) return null;
   return {
     published,
     reason: published ? null : s(m, "reason", "note", "not_published_reason"),
-    judge: { model: s(judge, "model", "model_id") ?? s(m, "judge_model"), prompt: s(judge, "prompt", "prompt_id", "prompt_sha", "prompt_version") ?? s(m, "prompt_sha", "prompt_version"), provider: s(judge, "provider") },
+    judge: { model: s(judge, "model", "model_id") ?? s(m, "judge_model", "model"), prompt: s(judge, "prompt", "prompt_id", "prompt_sha", "prompt_version") ?? s(m, "prompt_sha", "prompt_version"), provider: s(judge, "provider") },
     calibration,
     rows,
   };
@@ -1185,7 +1212,7 @@ export function v3(run: Run): V3 {
   if (hit) return hit;
   const out: V3 = {
     streaming: safe(parseStreaming, run.streaming),
-    semantic: safe(parseSemantic, run.semantic),
+    semantic: safe((x) => parseSemantic(x, run.language), run.semantic),
     drift: safe(parseDrift, run.drift),
     history: safe(parseHistory, run.history),
     sweeps: safe(parseSweeps, run.sweeps),

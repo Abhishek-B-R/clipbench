@@ -572,7 +572,7 @@ function v3Sections({ createdAt, providers, rows, clips, aggregates, seed }: V3I
 
   return {
     streaming: { pace: "real-time", run_id: `stream-${day}`, created_at: createdAt, aggregates: streamRows, paired: streamPaired },
-    semantic: { published: true, judge: { model: "demo-judge-v1", prompt: "semantic-v1", provider: "demo" }, calibration: { n_pairs: 50, agreement: 0.86, ci_low: 0.76, ci_high: 0.94, threshold: 0.8, kappa: 0.71, agreement_rule: "judge score within 0.2 of the human score", labelled_on: "2026-10-10" }, aggregates: semRows },
+    semantic: { published: true, judge: { model: "demo-judge-v1", prompt: "semantic-v1", provider: "demo" }, calibration: { ja: { n_pairs: 64, spearman: 0.81, mae: 0.13, calibrated_on: "2026-10-10" }, thresholds: { min_pairs: 50, min_spearman: 0.7, max_mae: 0.2 } }, aggregates: semRows },
     drift: { events: drift },
     history,
     sweeps: { sweep_id: `sweep-${day}`, points: sweepPts },

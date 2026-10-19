@@ -15,6 +15,7 @@ import { Rule } from "@/components/layout/Section";
 import { Figure } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { JudgeCalibration } from "@/components/v3/JudgeCalibration";
 
 /**
  * Long-form methodology, rendered from the repository's METHODOLOGY.md (one source of truth) with a sticky
@@ -29,6 +30,9 @@ export default function Methodology() {
   const active = useActiveHeading(toc.map((t) => t.id));
   useEffect(() => {
     document.title = "Methodology | clipbench";
+    // The page is lazy-loaded, so the browser's own jump to #anchor happens before the target exists.
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (id) requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView());
   }, []);
 
   let h2 = 0;
@@ -68,7 +72,18 @@ const FIGURES_BEFORE: Record<string, ReactNode> = {
   "korean-ko": <NormFigure />,
   hallucination: <ScoreFigure />,
   "which-rows-are-scored": <BootFigure />,
+  "commands-and-published-data": <SemanticFigure />,
 };
+
+/** A2: the semantic judge's calibration against human labels, from the latest export. */
+function SemanticFigure() {
+  const { data } = useRun();
+  return (
+    <div id="semantic-judge" className="my-8 scroll-mt-24">
+      <JudgeCalibration run={data?.run} n={4} />
+    </div>
+  );
+}
 
 function Toc({ toc, active }: { toc: Extract<Block, { type: "h" }>[]; active: string | null }) {
   const [open, setOpen] = useState(false);

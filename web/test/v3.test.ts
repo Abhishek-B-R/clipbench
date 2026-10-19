@@ -59,6 +59,15 @@ describe("v3 sections", () => {
     expect(v3(bare({ semantic: { published: true, calibration: { agreement: 0.9, threshold: 0.8 } } })).semantic!.published).toBe(false);
   });
 
+  it("applies the METHODOLOGY.md gate (pairs, Spearman, mean absolute error) per language", () => {
+    const cal = (spearman: number, n_pairs: number) => ({ calibration: { ja: { n_pairs, spearman, mae: 0.1 }, thresholds: { min_pairs: 50, min_spearman: 0.7, max_mae: 0.2 } }, aggregates: [{ provider: "p", semantic_error: 0.1 }] });
+    expect(v3(bare({ language: "ja", semantic: cal(0.8, 60) })).semantic!.published).toBe(true);
+    expect(v3(bare({ language: "ja", semantic: cal(0.6, 60) })).semantic!.published).toBe(false);
+    expect(v3(bare({ language: "ja", semantic: cal(0.8, 12) })).semantic!.published).toBe(false);
+    // An explicit published: false from the exporter always wins.
+    expect(v3(bare({ language: "ja", semantic: { ...cal(0.8, 60), published: false, reason: "12 labelled pairs, needs 50" } })).semantic!.reason).toBe("12 labelled pairs, needs 50");
+  });
+
   it("reads drift with an interval object and infers direction", () => {
     const d = v3(bare({ drift: [{ provider: "p", date: "2026-09-07", before: 0.1, after: 0.14, ci: { low: 0.09, high: 0.11 } }] })).drift!;
     expect(d[0]).toMatchObject({ direction: "worse", ci_low: 0.09, ci_high: 0.11 });

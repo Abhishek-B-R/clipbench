@@ -10,6 +10,7 @@ import { Badge, SeriesDot } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { buttonClass } from "@/components/ui/Button";
 import { EmptyState, ErrorState } from "@/components/ui/State";
+import { DriftPanel } from "@/components/v3/DriftPanel";
 
 /** Every published run, newest first: what changed in the line-up, who leads, and how each model moved. */
 export default function Changelog() {
@@ -36,6 +37,7 @@ export default function Changelog() {
             ))}
           </div>
         )}
+        {state.status === "ready" && changes[0] && isPublished(changes[0].run) && <DriftPanel run={changes[0].run} />}
         {state.status === "ready" && changes.length === 0 && <EmptyState title="No runs published yet." body="The first run shows up here as soon as it is exported." />}
         <ol className="relative">
           {changes.map((c, i) => (

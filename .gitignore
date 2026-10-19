@@ -18,3 +18,5 @@ web/.wrangler/
 web/worker/node_modules/
 web/worker/.wrangler/
 web/worker/worker-configuration.d.ts
+.wrangler/
+/site/

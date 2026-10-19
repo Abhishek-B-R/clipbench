@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { sha256Hex } from "../crypto";
 import { ApiError, now, parse, runId, type AppEnv } from "../http";
 import { allow, LIMITS } from "../ratelimit";
+import { results } from "./results";
 
 /**
  * Public data API (/api/v1). Serves the JSON written by `clipbench export` from the static assets.
@@ -15,6 +16,9 @@ data.use("*", cors({ origin: "*", allowMethods: ["GET", "HEAD", "OPTIONS"], allo
 
 const limit: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (c.req.method === "OPTIONS") return next();
+  // Badges are embedded in READMEs and fetched through shared image proxies (GitHub's camo), so a per-IP
+  // limit would break them for everyone; they are small, computed from two cached assets, and cached for an hour.
+  if (c.req.path.startsWith("/api/v1/badge/")) return next();
   const auth = c.req.header("authorization");
   let ok: boolean;
   let tier: "anon" | "key";
@@ -88,3 +92,6 @@ data.get("/runs/:runId", async (c) => {
   if (!res) throw new ApiError(404, "not_found", `Run ${id} not found.`);
   return passThrough(c, res);
 });
+
+// Leaderboards, per-model metrics, history, drift, reliability and badges (A12).
+data.route("/", results);

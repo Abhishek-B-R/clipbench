@@ -130,3 +130,35 @@ requests (GitHub hosted, no secrets, read-only token): exactly the three files, 
 canary set and `canary_sha256` matches, the summary is recomputed from the rows, and the adapter passes
 the contract offline. "Reruns the canary set before merging" (brief A11) is a maintainer step with keys
 (`clipbench canary run` after adding the adapter, or the canary workflow's dispatch), never PR CI.
+
+## A12 Public results API and badges
+
+Worker routes under `/api/v1` (web/worker/src/routes/results.ts), all read-only, computed on request
+from the exported JSON under `/data` (index.json and runs/<run_id>.json). For each language the run is
+the newest one with a verified tier, else the newest. A language that is not published (docs/V2.md) gets
+`{language, run_id, published: false, status, message}` and no numbers from every route.
+
+| route | returns |
+|---|---|
+| `GET /leaderboard/:lang?metric=&tier=verified&slice_kind=all&slice=all` | rows ranked by error rate with CI, n_clips, too_small; the run's metrics and available slices |
+| `GET /models/:provider` | per language: provider meta, every aggregate of that provider, canary history, drift events, reliability across runs |
+| `GET /history/:lang?provider=` | the run's `history` section |
+| `GET /drift/:lang` | the run's `drift` events |
+| `GET /reliability/:lang` | the run's `reliability` section (`run`, `all_runs`) |
+| `GET /badge/:provider/:lang.svg?metric=` | SVG "clipbench, 6.2% CER ja" from the verified whole-set aggregate (primary metric by default); "not published ja" (200) for an unpublished language; "no data ja" (404) when the provider or metric has no number |
+
+Caching: JSON is `Cache-Control: public, max-age=300`, badges `public, max-age=3600`; every response has a
+content ETag and a matching `If-None-Match` gets an empty 304. CORS is open (GET only). Rate limits are the
+existing ones (30 per minute per IP anonymous, 600 per API key), except badges. Decision: badges skip the
+per-IP limit, because READMEs fetch them through shared image proxies (GitHub's camo), where one IP stands
+for many viewers; they read two cached assets and are themselves cached for an hour. ACCOUNTS off is
+unchanged: these routes live under `/api/v1`, which never builds Better Auth.
+
+## Export contract (for clipbench/report/export.py)
+
+Two hooks, both already in `V3_HOOKS`, both `export_section(run_id, settings) -> dict | None`:
+
+- `clipbench.canary`: `history` and `drift` for the run's language (language read from
+  `results/runs/<run_id>/run_meta.json`), shapes in A3 above. None when there is no canary history.
+- `clipbench.scoring.reliability`: `reliability: {run, all_runs}`, shapes in B19 above. Refreshes the
+  reliability parquet files as a side effect. None when there are no runs.

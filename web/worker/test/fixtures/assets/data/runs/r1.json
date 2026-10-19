@@ -9,6 +9,11 @@
    "name": "cer",
    "primary": true,
    "label": "Character error rate"
+  },
+  {
+   "name": "cer_reading",
+   "primary": false,
+   "label": "Reading-normalised CER"
   }
  ],
  "providers": [
@@ -39,7 +44,11 @@
    "slice_kind": "all",
    "slice": "all",
    "n_clips": 3,
-   "error_rate": 0.1
+   "error_rate": 0.1,
+   "model_id": "a-1",
+   "ci_low": 0.08,
+   "ci_high": 0.12000000000000001,
+   "too_small": true
   },
   {
    "provider": "model-b",
@@ -48,7 +57,50 @@
    "slice_kind": "all",
    "slice": "all",
    "n_clips": 3,
-   "error_rate": 0.2
+   "error_rate": 0.2,
+   "model_id": "b-1",
+   "ci_low": 0.18000000000000002,
+   "ci_high": 0.22,
+   "too_small": true
+  },
+  {
+   "provider": "model-a",
+   "model_id": "a-1",
+   "tier": "verified",
+   "metric": "cer",
+   "slice_kind": "audio_condition",
+   "slice": "music",
+   "n_clips": 2,
+   "error_rate": 0.3,
+   "ci_low": 0.2,
+   "ci_high": 0.4,
+   "too_small": true
+  },
+  {
+   "provider": "model-b",
+   "model_id": "b-1",
+   "tier": "verified",
+   "metric": "cer",
+   "slice_kind": "audio_condition",
+   "slice": "music",
+   "n_clips": 2,
+   "error_rate": 0.25,
+   "ci_low": 0.2,
+   "ci_high": 0.3,
+   "too_small": true
+  },
+  {
+   "provider": "model-a",
+   "model_id": "a-1",
+   "tier": "verified",
+   "metric": "cer_reading",
+   "slice_kind": "all",
+   "slice": "all",
+   "n_clips": 3,
+   "error_rate": 0.0623,
+   "ci_low": 0.05,
+   "ci_high": 0.07,
+   "too_small": true
   }
  ],
  "paired": [],
@@ -71,5 +123,150 @@
    "categories": [],
    "largest_channel_share": 0.04
   }
- ]
+ ],
+ "history": {
+  "language": "ja",
+  "canary_clips": 30,
+  "canary_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "cadence_days": 7,
+  "series": {
+   "model-a": [
+    {
+     "date": "2026-10-01",
+     "model_id": "a-1",
+     "provider_version": "v1",
+     "metric": "cer",
+     "error_rate": 0.1,
+     "ci_low": 0.08,
+     "ci_high": 0.12,
+     "n": 30,
+     "run_id": "canary-ja-20261001-0317"
+    },
+    {
+     "date": "2026-10-08",
+     "model_id": "a-1",
+     "provider_version": "v2",
+     "metric": "cer",
+     "error_rate": 0.2,
+     "ci_low": 0.18,
+     "ci_high": 0.22,
+     "n": 30,
+     "run_id": "canary-ja-20261008-0317"
+    }
+   ],
+   "model-b": [
+    {
+     "date": "2026-10-01",
+     "model_id": "b-1",
+     "provider_version": null,
+     "metric": "cer",
+     "error_rate": 0.2,
+     "ci_low": 0.18,
+     "ci_high": 0.22,
+     "n": 30,
+     "run_id": "canary-ja-20261001-0317"
+    }
+   ]
+  }
+ },
+ "drift": [
+  {
+   "language": "ja",
+   "provider": "model-a",
+   "metric": "cer",
+   "date": "2026-10-08",
+   "run_id": "canary-ja-20261008-0317",
+   "before": 0.1,
+   "after": 0.2,
+   "model_id_before": "a-1",
+   "model_id_after": "a-1",
+   "provider_version_before": "v1",
+   "provider_version_after": "v2",
+   "ci": [
+    0.08,
+    0.12
+   ],
+   "kind": "provider_version"
+  },
+  {
+   "language": "ja",
+   "provider": "model-a",
+   "metric": "cer",
+   "date": "2026-10-08",
+   "run_id": "canary-ja-20261008-0317",
+   "before": 0.1,
+   "after": 0.2,
+   "model_id_before": "a-1",
+   "model_id_after": "a-1",
+   "provider_version_before": "v1",
+   "provider_version_after": "v2",
+   "ci": [
+    0.08,
+    0.12
+   ],
+   "kind": "score"
+  }
+ ],
+ "reliability": {
+  "run": [
+   {
+    "provider": "model-a",
+    "model_id": "a-1",
+    "n_runs": 2,
+    "n_requests": 40,
+    "n_errors": 2,
+    "failure_rate": 0.05,
+    "timeout_rate": 0.0,
+    "mean_retries": 0.1,
+    "latency_p50": 800.0,
+    "latency_p95": 1500.0,
+    "latency_p99": 2100.0,
+    "rate_limited_share": 0.025
+   },
+   {
+    "provider": "model-b",
+    "model_id": "b-1",
+    "n_runs": 2,
+    "n_requests": 40,
+    "n_errors": 0,
+    "failure_rate": 0.0,
+    "timeout_rate": 0.0,
+    "mean_retries": 0.1,
+    "latency_p50": 800.0,
+    "latency_p95": 1500.0,
+    "latency_p99": 2100.0,
+    "rate_limited_share": 0.025
+   }
+  ],
+  "all_runs": [
+   {
+    "provider": "model-a",
+    "model_id": "a-1",
+    "n_runs": 2,
+    "n_requests": 40,
+    "n_errors": 2,
+    "failure_rate": 0.05,
+    "timeout_rate": 0.0,
+    "mean_retries": 0.1,
+    "latency_p50": 800.0,
+    "latency_p95": 1500.0,
+    "latency_p99": 2100.0,
+    "rate_limited_share": 0.025
+   },
+   {
+    "provider": "model-b",
+    "model_id": "b-1",
+    "n_runs": 2,
+    "n_requests": 40,
+    "n_errors": 0,
+    "failure_rate": 0.0,
+    "timeout_rate": 0.0,
+    "mean_retries": 0.1,
+    "latency_p50": 800.0,
+    "latency_p95": 1500.0,
+    "latency_p99": 2100.0,
+    "rate_limited_share": 0.025
+   }
+  ]
+ }
 }

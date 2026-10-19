@@ -127,3 +127,10 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - A comparison finding quotes only numbers measured on the clips both models scored (paired difference, its CI, n), never each model's slice-wide rate, which can cover different clips.
 - Each v3 feature exposes export_section(run_id, settings); export.py merges them, keeps every v3 key present (null when absent), and a failing hook is logged and skipped so one broken feature cannot block an export.
 - Run options (diarize, detect_language, keyterms) are provider options and therefore part of the cache key; rows record retries, timeouts, HTTP status and detected language for the reliability board.
+- Dataset: clips.csv is the only list of which clips exist and importers only add rows; category guesses live in the manifest as category_guess, never in clips.csv. The sampler rotates categories and caps each channel at 5%, counting Shorts and windows together.
+- Window audio is re-encoded at the cut (a stream copy starts early) and must be within 0.15 s of the window; windows keep a 1 s margin before the reported video duration because info.json durations run slightly long.
+- Discovery stops on HTTP 429 and forgets that Short so a later run retries it. English discovery is paused on a 429 at 68 Shorts from 11 channels.
+- Streaming runs are their own run kind (run_meta.kind = "stream"): `clipbench score` hands them to the streaming scorer and `latest` never resolves to one, so streaming and batch numbers never mix.
+- Canary scheduler: GitHub Actions cron on a self-hosted runner on the owner's Mac, because canaries need the private references and audio and YouTube often refuses cloud IPs; scheduled runs stay dry until CANARY_LIVE=true, with a separate monthly cap (canary_budget_usd_per_month).
+- Semantic WER is published only after >= 50 human-labelled pairs per language with Spearman >= 0.7 and MAE <= 0.2 against the judge; no labels exist yet and none are invented.
+- Rows record which run options a provider ignored (unsupported_options), so comparisons such as keyterms on/off exclude providers that never applied them.

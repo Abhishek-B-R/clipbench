@@ -71,7 +71,12 @@ ROW_COLUMNS = [
     "hyp_chars",
 ]
 TEXT_COLUMNS = ["provider", "video_id", "repeat", "hyp_text", "words_json"]
-REF_COLUMNS = ["video_id", "tier", "ref_text", "words_json", "tags"]
+REF_COLUMNS = [
+    "video_id", "tier", "ref_text", "words_json", "tags",
+    # v2 (docs/V2.md)
+    "category", "nonspeech_spans_json", "codeswitch_spans_json", "punctuated", "timing_source",
+    "clip_source", "source_id", "start_ms",
+]
 
 KEY_PACKAGES = [
     "pydantic",
@@ -252,6 +257,14 @@ def _refs_frame(clips: list[Clip]) -> pd.DataFrame:
                 if ref.words is None
                 else json.dumps([w.model_dump() for w in ref.words], ensure_ascii=False),
                 "tags": json.dumps(list(ref.tags), ensure_ascii=False),
+                "category": ref.category,
+                "nonspeech_spans_json": json.dumps([s.model_dump() for s in ref.nonspeech_spans]),
+                "codeswitch_spans_json": json.dumps([s.model_dump() for s in ref.codeswitch_spans]),
+                "punctuated": "true" if ref.punctuated else "false",
+                "timing_source": ref.timing_source,
+                "clip_source": ref.clip_source,
+                "source_id": ref.source_id,
+                "start_ms": None if ref.start_ms is None else str(ref.start_ms),
             }
         )
     df = pd.DataFrame(recs, columns=REF_COLUMNS)

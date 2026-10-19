@@ -208,3 +208,19 @@ def test_cli_commands_registered(tmp_settings):
     assert out.exit_code == 1  # no streaming runs yet
     out = runner.invoke(app, ["run-stream", "--providers", "nope", "--dry-run"])
     assert out.exit_code != 0
+
+
+async def test_dry_run_prices_providers_missing_keys(tmp_settings, tmp_path, monkeypatch):
+    from rich.console import Console
+
+    for k in ("DEEPGRAM_API_KEY", "ASSEMBLYAI_API_KEY", "ELEVENLABS_API_KEY", "GEMINI_API_KEY",
+              "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"):  # fmt: skip
+        monkeypatch.delenv(k, raising=False)
+    clip = make_clip(tmp_path, "a").model_copy(update={"duration_s": 60.0})
+    console = Console(record=True, width=200)
+    res = await run_stream(["deepgram-stream", "gemini-stream"], "verified", clips=[clip], settings=tmp_settings,
+                           dry_run=True, console=console)  # fmt: skip
+    assert set(res.skipped_providers) == {"deepgram-stream", "gemini-stream"}
+    out = console.export_text()
+    assert "if you add the missing keys" in out
+    assert f"${0.0077 + 0.009:.4f}" in out

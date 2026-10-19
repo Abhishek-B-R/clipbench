@@ -262,6 +262,32 @@ def print_stream_plan(console: Console, est: Estimate, providers, skipped, spent
     )
 
 
+def _print_locked(console: Console, skipped: dict[str, str], clips: list[Clip], chunk_ms: int, speed: float) -> None:
+    """What the providers that are only missing keys would cost, from pricing.toml."""
+    from rich.table import Table
+
+    from clipbench.streaming import registry
+
+    locked = []
+    for pid in skipped:
+        if pid in registry.STREAM_REGISTRY:
+            p = registry.make(pid)
+            configure(p, chunk_ms, speed)
+            if is_billable(p):
+                locked.append(p)
+    if not locked:
+        return
+    extra = estimate_stream(locked, clips, speed=speed)
+    table = Table(title="if you add the missing keys (streaming estimate from pricing.toml)")
+    for col in ("provider", "model", "billing", "usd/min", "clips", "est cost"):
+        table.add_column(col)
+    for p in locked:
+        e = extra.providers[p.id]
+        table.add_row(p.id, p.model_id, p.billing, f"{p.price_per_minute():.5f}", str(e.n_clips), f"${e.total_usd:.4f}")
+    console.print(table)
+    console.print(f"total with every streaming provider: ${extra.total_usd:.4f}")
+
+
 def transcript_result(p: StreamingProvider, t: StreamTranscript, cost: float) -> Result:
     return Result(
         text=final_text(t.events),
@@ -336,6 +362,7 @@ async def run_stream(
 
     if dry_run:
         allowed = print_stream_plan(console, est, active, skipped, spent_before, cap)
+        _print_locked(console, skipped, clips, chunk_ms, speed)
         return StreamRunResult(run_id, True, est, spent_before, cap, allowed, skipped)
     if not clips:
         raise NoClips(f"no clips to stream (tier {tier}{', language ' + language if language else ''})")

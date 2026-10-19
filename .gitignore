@@ -1,0 +1,13 @@
+# Creator content: audio, captions, references, provider outputs. Never commit.
+data/
+# Raw provider outputs can contain caption text.
+results/runs/*/texts*
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+*.egg-info/
+dist/

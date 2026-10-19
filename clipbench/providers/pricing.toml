@@ -1,0 +1,4 @@
+# Filled in by the provider adapters. See docs/INTERFACES.md.
+[fake]
+model_id = "fake-1"
+usd_per_minute = 0.0

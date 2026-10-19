@@ -1,0 +1,5 @@
+# Project settings. Environment variables override these (CLIPBENCH_LANGUAGE, CLIPBENCH_VAKO_ROOT, CLIPBENCH_BUDGET_USD).
+language = "ja"
+vako_root = "/Users/abhishekmacbook/WebDev/Projects/Vako/Vako"
+budget_usd = 10.0
+sample_seed = 7

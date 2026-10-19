@@ -75,3 +75,10 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - Zero-cost providers are plotted at one third of the cheapest paid cost with a square marker and a "$0/h" label, since a log axis cannot show 0.
 - Charts and tables are made per tier, never mixed.
 - The site loads vega-embed from a pinned jsdelivr version and shows a PNG until it renders, so it works offline and on Cloudflare Pages as is. `clipbench publish` runs the check and prints the wrangler command; it never deploys by itself.
+
+## Web app
+
+- The public frontend is a real web app in web/ (Vite, React 19, TypeScript, Tailwind v4) served by one Cloudflare Worker (Hono API, D1, Better Auth), because the owner asked for a landing page, auth and more than a static report. The static `clipbench report` site stays as a zero-dependency fallback.
+- Signed-in features: provider watchlist, email alerts on new runs, saved and shareable comparisons, a vote board for new providers and languages, and API keys for the public data API. Browsing results never needs an account.
+- The web app reads run results from JSON written by `clipbench export`; the publish check scans that JSON too.
+- Demo data before the first real run uses "Model A".."Model F", never real provider names on fake numbers.

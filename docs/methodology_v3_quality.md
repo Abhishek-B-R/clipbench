@@ -47,3 +47,44 @@ path, with the counts `lattice_ref_len`, `lattice_errors`, `lattice_hits`, `latt
 `lattice_ins`. Aggregates add the corpus `error_rate_lattice` (summed errors over summed closest path
 lengths) with its 95% bootstrap interval `lattice_ci_low`, `lattice_ci_high`. The strict `error_rate`
 columns are unchanged and stay the headline number.
+
+### Punctuation, casing and formatting
+
+Scored on the **un-normalised** text, separately from CER/WER. Results are in
+`results/<run_id>/formatting.parquet` (per provider and clip) and `formatting_aggregates.parquet`.
+
+**Units.** As for caption readiness: characters for ja, whitespace separated words with leading and trailing
+punctuation removed elsewhere, after removing bracket annotations. Each unit carries the class of the mark
+right after it: **period** (`.` `。` `…` `।` `॥`), **question** (`?`), **exclamation** (`!`) or **comma**
+(`,` `、` `;` `:`); full width marks count after NFKC. When several follow one unit the strongest wins, in the
+order question, exclamation, period, comma. Leading marks (Spanish `¿` `¡`) and other symbols are ignored.
+
+**Punctuation error rate** (Picovoice style). Units are aligned on their lowercased text. At every aligned pair
+(hit or substitution): a reference mark the hypothesis lacks is a deletion, a mark only in the hypothesis is
+an insertion, two different classes are a substitution. `punct_error_rate` = (S + D + I) / reference marks at
+aligned positions. Units present on only one side are left to WER, so a dropped word is not punished twice.
+Scored only on clips whose verified text is marked `punctuated`; the rate can exceed 1 when a hypothesis adds
+many marks.
+
+**Casing accuracy** is the caption readiness measure (exact casing of hit units with Latin letters), repeated
+here so the formatting table is complete.
+
+**Inverse text normalisation (ITN).** The reviewer tags `itn_spans` (kinds number, date, time, currency,
+percent, unit). For each span the hypothesis text aligned to it is found: the hypothesis units aligned (hit or
+substitution) to the reference units overlapping the span, plus insertions between them or right after,
+widened to whole whitespace pieces so attached symbols ($, %, 円) come along. Each span gets:
+
+- `found`: some hypothesis text aligns to it (false when every unit was deleted);
+- `form_match` (the ITN accuracy): written exactly as the reference after NFKC, casefolding, collapsing spaces
+  and stripping sentence punctuation from the ends;
+- `style_match`: the same rendering shape, where digit runs become 9 and letter runs a ("$1,000" is `$9,9`,
+  "March 3, 2024" is `a9,9`, "three" is `a`), so digits versus words, date order and separators, and symbol
+  position are compared without the exact value;
+- `value_match`: the same content: equal after the language's metric normaliser, or the same numeric values
+  ("$5" and "$5.00", "3/14" and "3-14").
+
+`itn_form_acc` = form matches / spans. Aggregates: corpus rates (summed counts) with 95% clip bootstrap
+intervals for `punct_error_rate`, `casing_acc` and `itn_form_acc`, plus `itn_style_acc`, `itn_value_acc` and
+`itn_found_rate`; slices `all`, `condition`, `category`, and `slice_kind = itn_kind` (one row per kind present)
+for the per kind breakdown. A written form is a style choice as much as an error: the table says which
+providers write numbers the way the reference does, not which are wrong.

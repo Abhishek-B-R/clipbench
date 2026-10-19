@@ -25,7 +25,7 @@ from typing import Any, ClassVar
 import httpx
 import soundfile
 
-from clipbench.providers.base import Provider, ProviderError
+from clipbench.providers.base import Provider, ProviderError, call_stats
 
 RETRY_STATUS = {408, 409, 425, 429, 500, 502, 503, 504, 520, 522, 524, 529}
 
@@ -107,7 +107,26 @@ async def stopwatch():
         _current_watch.reset(token)
 
 
+def _note_retry() -> None:
+    stats = call_stats()
+    if stats is not None:
+        stats.retries += 1
+
+
+def _note_status(status: int | None) -> None:
+    stats = call_stats()
+    if stats is not None and status is not None:
+        stats.http_status = int(status)
+
+
+def _retries_so_far() -> int:
+    stats = call_stats()
+    return stats.retries if stats is not None else 0
+
+
 async def _backoff_sleep(policy: RetryPolicy, delay: float) -> None:
+    """Sleep before a retry; counts the retry in the current call's stats."""
+    _note_retry()
     watch = _current_watch.get()
     t0 = time.perf_counter()
     await policy.sleep(delay)
@@ -141,12 +160,17 @@ async def retry_async[T](
         except ProviderError:
             raise
         except Exception as e:  # noqa: BLE001
+            meta = getattr(e, "response", None)
+            if isinstance(meta, dict):  # botocore ClientError
+                _note_status((meta.get("ResponseMetadata") or {}).get("HTTPStatusCode"))
             if not is_retryable(e):
-                raise ProviderError(f"{label}: {type(e).__name__}: {e}") from e
+                raise ProviderError(f"{label}: {type(e).__name__}: {e}", retries=_retries_so_far()) from e
             last = e
             if attempt < policy.max_attempts:
                 await _backoff_sleep(policy, policy.backoff(attempt))
-    raise ProviderError(f"{label}: failed after {policy.max_attempts} attempts: {last}") from last
+    raise ProviderError(
+        f"{label}: failed after {policy.max_attempts} attempts: {last}", retries=_retries_so_far()
+    ) from last
 
 
 class HttpClient:
@@ -163,23 +187,33 @@ class HttpClient:
         Bodies passed as `content=bytes`, `data=` and `files=` with bytes values are safe to resend.
         """
         last_err = ""
+        last_status: int | None = None
         for attempt in range(1, self.policy.max_attempts + 1):
             retry_after: float | None = None
             try:
                 resp = await self.client.request(method, url, **kwargs)
             except httpx.TransportError as e:  # connect/read errors and timeouts
                 last_err = f"{type(e).__name__}: {e}"
+                last_status = None
             else:
+                last_status = resp.status_code
+                _note_status(resp.status_code)
                 if resp.is_success:
                     return resp
                 last_err = f"HTTP {resp.status_code}: {_snippet(resp)}"
                 if resp.status_code not in RETRY_STATUS:
-                    raise ProviderError(f"{self.label}: {method} {url} -> {last_err}")
+                    raise ProviderError(
+                        f"{self.label}: {method} {url} -> {last_err}",
+                        http_status=resp.status_code,
+                        retries=_retries_so_far(),
+                    )
                 retry_after = parse_retry_after(resp.headers.get("retry-after"))
             if attempt < self.policy.max_attempts:
                 await _backoff_sleep(self.policy, self.policy.backoff(attempt, retry_after))
         raise ProviderError(
-            f"{self.label}: {method} {url} failed after {self.policy.max_attempts} attempts: {last_err}"
+            f"{self.label}: {method} {url} failed after {self.policy.max_attempts} attempts: {last_err}",
+            http_status=last_status,
+            retries=_retries_so_far(),
         )
 
     async def json(self, method: str, url: str, **kwargs: Any) -> Any:
@@ -187,7 +221,11 @@ class HttpClient:
         try:
             return resp.json()
         except ValueError as e:
-            raise ProviderError(f"{self.label}: non-JSON response: {_snippet(resp)}") from e
+            raise ProviderError(
+                f"{self.label}: non-JSON response: {_snippet(resp)}",
+                http_status=resp.status_code,
+                retries=_retries_so_far(),
+            ) from e
 
 
 # ---------------------------------------------------------------- provider base

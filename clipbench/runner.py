@@ -69,6 +69,12 @@ ROW_COLUMNS = [
     "channel",
     "tags",
     "hyp_chars",
+    # v3 reliability and run options (docs/V3.md)
+    "retries",
+    "timed_out",
+    "http_status",
+    "detected_language",
+    "options",
 ]
 TEXT_COLUMNS = ["provider", "video_id", "repeat", "hyp_text", "words_json"]
 REF_COLUMNS = [
@@ -266,6 +272,11 @@ def _rows_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
     for col in ("latency_ms", "audio_seconds", "cost_usd", "duration_s"):
         df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
     df["hyp_chars"] = pd.to_numeric(df["hyp_chars"], errors="coerce").astype("Int64")
+    df["retries"] = pd.to_numeric(df["retries"], errors="coerce").fillna(0).astype("int64")
+    df["timed_out"] = df["timed_out"].fillna(False).astype(bool)
+    df["http_status"] = pd.to_numeric(df["http_status"], errors="coerce").astype("Int64")
+    df["detected_language"] = df["detected_language"].astype("string")
+    df["options"] = df["options"].astype("string")
     for col in ("run_id", "provider", "model_id", "provider_version", "video_id", "language", "tier",
                 "status", "error", "channel", "tags"):
         df[col] = df[col].astype("string")
@@ -427,6 +438,7 @@ async def run(
     stability: bool = True,
     progress: bool = True,
     language: str | None = None,
+    options: dict[str, Any] | None = None,
 ) -> RunResult:
     """Run `providers` (ids or Provider instances) over `clips` (default: load_clips(tier)).
 
@@ -457,6 +469,12 @@ async def run(
         clips = clips[:limit]
 
     active, skipped = _resolve_providers(providers)
+    run_options = {k: v for k, v in (options or {}).items() if v not in (None, False, "", [])}
+    if run_options:
+        # Run options (diarize, detect_language, keyterms) are provider options, so they are part of the
+        # cache key; adapters that do not support one record it in raw_response["clipbench_unsupported"].
+        for p in active:
+            p.options.update(run_options)
     for msg in skipped.values():
         console.print(f"[yellow]{msg}[/yellow]")
 
@@ -553,6 +571,11 @@ async def run(
             "channel": c.channel,
             "tags": json.dumps(list(c.tags), ensure_ascii=False),
             "hyp_chars": None,
+            "retries": 0,
+            "timed_out": False,
+            "http_status": None,
+            "detected_language": None,
+            "options": json.dumps(run_options, sort_keys=True),
         }
 
     async def emit(row: dict[str, Any], result: Result | None) -> None:
@@ -587,6 +610,9 @@ async def run(
             cost_usd=float(result.cost_usd),
             cached=cached,
             hyp_chars=len(result.text),
+            retries=int(result.retries or 0),
+            http_status=result.http_status,
+            detected_language=result.detected_language,
         )
         return row
 
@@ -647,6 +673,7 @@ async def run(
                     await guard.record(p.id, c.video_id, reserved, reserved)
                 row.update(
                     status="error",
+                    timed_out=True,
                     error=f"timeout after {job_timeout:.0f}s",
                     latency_ms=(time.perf_counter() - t0) * 1000.0,
                 )
@@ -657,6 +684,8 @@ async def run(
                     await guard.release(reserved)
                 row.update(
                     status="error",
+                    http_status=getattr(exc, "http_status", None) or getattr(exc, "status_code", None),
+                    retries=int(getattr(exc, "retries", 0) or 0),
                     error=f"{type(exc).__name__}: {exc}"[:500],
                     latency_ms=(time.perf_counter() - t0) * 1000.0,
                 )

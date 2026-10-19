@@ -23,6 +23,13 @@ def register(app: typer.Typer) -> None:
         stability: bool = typer.Option(
             True, "--stability/--no-stability", help="Rerun 20 seeded clips 3 times per paid provider."
         ),
+        diarize: bool = typer.Option(False, "--diarize", help="Ask providers for speaker labels."),
+        detect_language: bool = typer.Option(
+            False, "--detect-language", help="Send no language hint; let providers detect it."
+        ),
+        keyterms: str | None = typer.Option(
+            None, "--keyterms", help="File with one term per line for custom vocabulary features."
+        ),
     ) -> None:
         """Run speech-to-text providers over the sample and write results/runs/<run_id>/."""
         from clipbench.budget import BudgetExceeded
@@ -52,6 +59,7 @@ def register(app: typer.Typer) -> None:
                     console=console,
                     stability=stability,
                     language=lang,
+                    options=_run_options(diarize, detect_language, keyterms),
                 )
             )
         except MixedLanguages as exc:
@@ -73,3 +81,20 @@ def register(app: typer.Typer) -> None:
             counts = df.groupby(["provider", "status"]).size().unstack(fill_value=0)
             console.print(counts.to_string())
         typer.echo(result.run_id)
+
+
+def _run_options(diarize: bool, detect_language: bool, keyterms: str | None) -> dict:
+    from pathlib import Path
+
+    opts: dict = {}
+    if diarize:
+        opts["diarize"] = True
+    if detect_language:
+        opts["detect_language"] = True
+    if keyterms:
+        path = Path(keyterms)
+        if not path.exists():
+            raise typer.BadParameter(f"--keyterms file not found: {keyterms}")
+        terms = [t.strip() for t in path.read_text().splitlines() if t.strip() and not t.startswith("#")]
+        opts["keyterms"] = terms
+    return opts

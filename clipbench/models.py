@@ -63,6 +63,44 @@ class CodeSwitchSpan(BaseModel):
     lang: str = "en"
 
 
+CONDITIONS = [
+    "music",
+    "sfx",
+    "multiple_speakers",
+    "fast_speech",
+    "whisper_shout",
+    "outdoor_noise",
+    "code_switching",
+]
+
+ENTITY_TYPES = ["person", "brand", "place", "product", "other"]
+ITN_KINDS = ["number", "date", "time", "currency", "percent", "unit"]
+
+
+class SpeakerTurn(BaseModel):
+    start_ms: int
+    end_ms: int
+    speaker: str
+
+
+class EntitySpan(BaseModel):
+    start: int  # code point offsets into the reference text
+    end: int
+    type: Literal["person", "brand", "place", "product", "other"] = "other"
+
+
+class AlternativeSpan(BaseModel):
+    start: int
+    end: int
+    options: list[str]  # valid spellings; the reference text at [start:end] is always valid too
+
+
+class ItnSpan(BaseModel):
+    start: int
+    end: int
+    kind: Literal["number", "date", "time", "currency", "percent", "unit"] = "number"
+
+
 class Reference(BaseModel):
     video_id: str
     language: str
@@ -81,6 +119,12 @@ class Reference(BaseModel):
     codeswitch_spans: list[CodeSwitchSpan] = Field(default_factory=list)
     punctuated: bool = False
     timing_source: str | None = None  # "creator" | "aligner:<name>" | None
+    # v3 fields, see docs/V3.md
+    conditions: list[str] = Field(default_factory=list)
+    speaker_turns: list[SpeakerTurn] = Field(default_factory=list)
+    entity_spans: list[EntitySpan] = Field(default_factory=list)
+    alternatives: list[AlternativeSpan] = Field(default_factory=list)
+    itn_spans: list[ItnSpan] = Field(default_factory=list)
 
 
 class Clip(BaseModel):
@@ -114,3 +158,8 @@ class Result(BaseModel):
     raw_response: Any = None
     model_id: str
     provider_version: str | None = None
+    # v3, see docs/V3.md
+    speakers: list[str | None] | None = None  # per word speaker label, parallel to words
+    detected_language: str | None = None
+    retries: int = 0
+    http_status: int | None = None

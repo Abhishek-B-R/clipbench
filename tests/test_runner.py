@@ -523,3 +523,21 @@ def test_cli_pipeline_accepts_latest(tmp_settings, fake_references, monkeypatch,
     assert (tmp_settings.results_dir / "cli-latest" / "errors.json").exists()
     assert (tmp_settings.results_dir / "cli-latest" / "report.md").exists()
     assert not (tmp_settings.results_dir / "latest").exists()
+
+
+async def test_run_options_reach_providers_and_change_cache_key(tmp_settings, clips):
+    base = FakeProvider()
+    plain_hash = base.settings_hash()
+    p = FakeProvider()
+    res = await run(
+        [p], "verified", clips=clips[:2], settings=tmp_settings, progress=False, run_id="r-opts",
+        options={"diarize": True, "detect_language": False, "keyterms": ["clipbench"]},
+    )
+    assert p.options["diarize"] is True and p.options["keyterms"] == ["clipbench"]
+    assert "detect_language" not in p.options  # falsy options are not sent
+    assert p.settings_hash() != plain_hash
+    rows = pd.read_parquet(res.rows_path)
+    for col in ("retries", "timed_out", "http_status", "detected_language", "options"):
+        assert col in rows.columns
+    assert json.loads(rows["options"].iloc[0]) == {"diarize": True, "keyterms": ["clipbench"]}
+    assert (rows["retries"] == 0).all() and not rows["timed_out"].any()

@@ -71,6 +71,48 @@ Language codes sent: `ja`, `es`, `ko` everywhere except AWS (`ja-JP`, `es-US`, `
   (Deepgram model version, Gemini `modelVersion`, AssemblyAI `speech_model_used`, Workers AI nova-3
   model info).
 
+## v3 run options: diarization, language detection, keyterms
+
+`clipbench run ... --diarize --detect-language --keyterms datasets/<lang>/keyterms.txt` sets the
+options `diarize`, `detect_language` and `keyterms` on every provider (they are part of the cache key).
+An adapter lists what it implements in `supported_options`; any other requested option is ignored and
+recorded in `raw_response["clipbench_unsupported"]`. With `detect_language` no language hint is sent
+and the provider's answer is normalised to ISO-639-1 in `Result.detected_language` ("ja-JP", "jpn" and
+"japanese" all become "ja"). Per word speaker labels go to `Result.speakers`, parallel to `words`.
+Checked 2026-10-19.
+
+| provider id | diarize | detect_language | keyterms | docs |
+|---|---|---|---|---|
+| `deepgram` | `diarize_model=v2`, `words[].speaker` | `detect_language=true`, `channels[0].detected_language` | repeated `keyterm` (100 terms, 500 tokens) | [diarization](https://developers.deepgram.com/docs/diarization), [language detection](https://developers.deepgram.com/docs/language-detection), [keyterm](https://developers.deepgram.com/docs/keyterm) |
+| `assemblyai` | `speaker_labels`, `words[].speaker` | `language_detection=true`, `language_code` | `keyterms_prompt` (capped at 200 for the Universal-2 fallback, 6 words each) | [submit](https://www.assemblyai.com/docs/api-reference/transcripts/submit) |
+| `elevenlabs-scribe` | `diarize`, `words[].speaker_id` | omit `language_code`, read `language_code` | `keyterms` (1000, under 50 chars, 5 words; adds 20% to price, priced in) | [convert](https://elevenlabs.io/docs/api-reference/speech-to-text/convert) |
+| `groq-whisper` | not offered | omit `language`, read `verbose_json.language` (needs a live check) | Whisper `prompt` (224 tokens; we cap at 400 chars) | [speech-to-text](https://console.groq.com/docs/speech-to-text), [API](https://console.groq.com/docs/api-reference) |
+| `gemini-flash` | not supported (no word timings) | prompt names no language, JSON reply `{language, transcript}` | listed in the prompt | [audio](https://ai.google.dev/gemini-api/docs/audio) |
+| `aws-transcribe` | `ShowSpeakerLabels`, `MaxSpeakerLabels=10`, `speaker_label` | `IdentifyLanguage` with `LanguageOptions` (our five languages) | not supported: needs a CreateVocabulary account resource | [diarization](https://docs.aws.amazon.com/transcribe/latest/dg/diarization.html), [LID](https://docs.aws.amazon.com/transcribe/latest/dg/lang-id-batch.html), [vocabulary](https://docs.aws.amazon.com/transcribe/latest/dg/custom-vocabulary.html) |
+| `cf-whisper-large-v3-turbo` | not offered | omit `language`, read `transcription_info.language` | `initial_prompt` | [input](https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/schema-input.json), [output](https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/schema-output.json) |
+| `cf-whisper`, `cf-whisper-tiny-en` | not offered | not supported (always auto detects, reports nothing) | not offered | [whisper](https://developers.cloudflare.com/workers-ai/models/whisper/) |
+| `cf-deepgram-nova-3` | `diarize=true` | `detect_language=true` | repeated `keyterm` | [schema](https://developers.cloudflare.com/workers-ai/models/nova-3/schema-input.json); output fields not in the schema, needs a live check |
+| `whisper-local`, `whisper-local-turbo` | not offered | `language=None` | `initial_prompt` | [whisper](https://github.com/openai/whisper) |
+| `youtube-auto`, `wayin` | not offered | not offered | not offered | read from disk |
+
+Every result also carries `retries` (retries made across all requests of the transcription) and
+`http_status` (last HTTP status seen). A `ProviderError` carries the same two attributes, and any other
+exception raised inside `transcribe()` gets them attached, so the runner records them on error rows.
+
+## Feature matrix
+
+`[<id>.features]` tables in `pricing.toml` hold the B20 capability matrix: `languages` (which of en,
+ja, ko, es, hi the provider serves), `batch`, `streaming`, `word_timestamps`, `diarization`,
+`language_id`, `custom_vocabulary`, `max_file_minutes`, `retention`, `training_opt_out`. Every key has
+`<key>_url` and `<key>_checked_on`, and optionally `<key>_note`; a missing value means unknown or not
+stated. `clipbench providers features` prints it (`--json` with links, `--urls` for each cell's
+source), and the export carries it under `features`. `youtube-auto` and `wayin` have no table: they read
+existing captions and are not services a builder can buy.
+
+Open questions to settle with a live call before publishing: Groq's `verbose_json.language`, Workers AI
+nova-3 `speaker` and `detected_language` in its output, Deepgram keyterm quality outside English, and
+the newer `gemini-3.5-transcribe` model (Interactions API, real diarization), which has no adapter yet.
+
 ## How to add a provider
 
 1. Look up the provider's current docs: best model for batch ja/es/ko, endpoint, language parameter,
@@ -92,3 +134,5 @@ Language codes sent: `ja`, `es`, `ko` everywhere except AWS (`ja-JP`, `es-US`, `
    opt-out flag), the parsed `Result`, a 429 then success, failure after retries, and availability
    without the key. Never call a real paid API from tests.
 7. Add a row to the table above.
+8. Implement the run options the API offers (set `supported_options`), add a `[<id>.features]` table
+   with a doc URL and date for every cell, and add a row to the run options table.

@@ -24,8 +24,10 @@ const NAV = [
     { id: "list-runs", label: "List runs", method: "GET" },
     { id: "get-run", label: "Get a run", method: "GET" },
     { id: "leaderboard", label: "Leaderboard", method: "GET" },
-    { id: "provider", label: "One model", method: "GET" },
-    { id: "history", label: "Model history", method: "GET" },
+    { id: "model", label: "One model", method: "GET" },
+    { id: "history", label: "Canary history", method: "GET" },
+    { id: "drift", label: "Drift events", method: "GET" },
+    { id: "reliability", label: "Reliability", method: "GET" },
     { id: "badge", label: "Badge", method: "GET" },
   ] },
   { group: "Objects", items: [
@@ -138,42 +140,48 @@ export default function ApiDocs() {
             <p>One run in full. Use the index's <Mono>latest</Mono> for the current numbers, or pin a run id for reproducible work.</p>
             <Fields head={["Parameter", "In", "Description"]} rows={[["runId", "path", "A run id from List runs. Letters, digits, dot, dash and underscore."]]} />
           </Section>
-          <Section id="leaderboard" title="Leaderboard" method="GET" path="/api/v1/leaderboard/:lang" code={<CodeBlock samples={get(`${API_V1.leaderboard(lang)}?tier=verified&slice_kind=condition&slice=music`)} />}>
+          <Section id="leaderboard" title="Leaderboard" method="GET" path="/api/v1/leaderboard/:lang" code={<CodeBlock samples={get(`${API_V1.leaderboard(lang)}?tier=verified&slice_kind=category&slice=gaming`)} />}>
             <p>
-              The ranking for one language from its latest published run: the <Mono>aggregates</Mono> rows for one tier, metric and slice, sorted by error rate, with the paired verdict against the leader. A language below the publication gate returns <Mono>404 not_published</Mono>, never a ranking.
+              The ranking for one language from its latest run: one row per model for a tier, metric and slice, sorted by error rate, plus the metrics and slices you can ask for. A language below the publication gate answers with its status and <Mono>published: false</Mono>, never a ranking.
             </p>
             <Fields
               head={["Parameter", "In", "Description"]}
               rows={[
-                ["lang", "path", "en, ja, ko, es or hi."],
-                ["tier", "query", "verified (default when present) or creator."],
-                ["metric", "query", "Defaults to the run's primary metric."],
-                ["slice_kind, slice", "query", "all (default), condition, category, audio_condition, tag or duration, and a value of it."],
-                ["track", "query", "batch (default) or streaming. Streaming rows come from the streaming section and are never mixed with batch."],
+                ["lang", "path", "Language code: en, ja, ko, es or hi."],
+                ["metric", "query", "Defaults to the run's primary metric; any other name from metrics[] works."],
+                ["tier", "query", "verified (default) or creator."],
+                ["slice_kind, slice", "query", "all (default), or a pair from slices[] in the response, for example category and gaming."],
               ]}
             />
-          </Section>
-          <Section id="provider" title="One model" method="GET" path="/api/v1/providers/:id" code={<CodeBlock samples={get(`${API_V1.provider(pid)}?lang=${lang}`)} />}>
-            <p>Everything measured for one model in a language's latest run: its aggregates on every slice, paired results, and its rows from each measure below (streaming, formatting, speakers, language ID, names, style, caption files, long-form, compute, reliability), plus its feature support and the settings it ran with.</p>
-            <Fields head={["Parameter", "In", "Description"]} rows={[["id", "path", "A provider id from a run's providers[]."], ["lang", "query", "Language; defaults to the newest published one."]]} />
-          </Section>
-          <Section id="history" title="Model history" method="GET" path="/api/v1/providers/:id/history" code={<CodeBlock samples={get(`${API_V1.history(pid)}?lang=${lang}`)} />}>
-            <p>
-              The model's error rate on every scheduled canary rerun and every full run, oldest first, each with its 95% interval and model version, plus its drift events: dates where the score moved beyond its own interval.
-            </p>
             <Fields
               head={["Field", "Type", "Description"]}
               rows={[
-                ["points[]", "object[]", "date, run_id, kind (canary or full), model_id, metric, error_rate, ci_low, ci_high, n_clips."],
-                ["drift[]", "object[]", "date, metric, before, after, ci (the interval it moved beyond), direction."],
+                ["rows[]", "object[]", "provider, model_id, error_rate, ci_low, ci_high, n_clips, too_small."],
+                ["metrics, slices", "string[], object[]", "What else this language's run can be cut by."],
               ]}
             />
           </Section>
-          <Section id="badge" title="Badge" method="GET" path="/api/v1/badges/:id.svg" code={<CodeBlock title="Embed" samples={[{ label: "Markdown", code: badge.markdown }, { label: "HTML", code: badge.html }, { label: "URL", code: badge.img }]} />}>
+          <Section id="model" title="One model" method="GET" path="/api/v1/models/:provider" code={<CodeBlock samples={get(API_V1.model(pid))} />}>
+            <p>One model across every language it was run in: per language, its aggregates on every slice, its canary history and drift events, and its reliability across all runs. Unpublished languages are listed with <Mono>published: false</Mono> and no numbers.</p>
+            <Fields head={["Parameter", "In", "Description"]} rows={[["provider", "path", "A provider id from a run's providers[]."]]} />
+          </Section>
+          <Section id="history" title="Canary history" method="GET" path="/api/v1/history/:lang" code={<CodeBlock samples={get(`${API_V1.history(lang)}?provider=${pid}`)} />}>
+            <p>Every scheduled canary rerun in a language, per model: date, model id, error rate with its 95% interval, and the run it came from.</p>
+            <Fields head={["Parameter", "In", "Description"]} rows={[["lang", "path", "Language code."], ["provider", "query", "Optional: only this model's series."]]} />
+          </Section>
+          <Section id="drift" title="Drift events" method="GET" path="/api/v1/drift/:lang" code={<CodeBlock samples={get(API_V1.drift(lang))} />}>
+            <p>Dates where a model's canary score moved beyond its own previous interval, or where the provider started serving a different model.</p>
+            <Fields head={["Field", "Type", "Description"]} rows={[["drift[]", "object[]", "provider, date, metric, kind (score or a model change), before, after, ci [low, high], model_id_before, model_id_after."]]} />
+          </Section>
+          <Section id="reliability" title="Reliability" method="GET" path="/api/v1/reliability/:lang" code={<CodeBlock samples={get(API_V1.reliability(lang))} />}>
+            <p>Failure, timeout and retry rates and the latency tail per model, for the latest run and across every run on record.</p>
+            <Fields head={["Field", "Type", "Description"]} rows={[["reliability.run[], reliability.all_runs[]", "object[]", "provider, n_requests, failure_rate with its interval, timeout_rate, mean_retries, latency_p50, latency_p95, latency_p99, rate_limited_share."]]} />
+          </Section>
+          <Section id="badge" title="Badge" method="GET" path="/api/v1/badge/:provider/:lang.svg" code={<CodeBlock title="Embed" samples={[{ label: "Markdown", code: badge.markdown }, { label: "HTML", code: badge.html }, { label: "URL", code: badge.img }]} />}>
             <p>
-              A small SVG badge with a model's current error rate in a language, for a README or a pricing page. It is computed from the latest published run when requested, links back to the model page, and is cached like the run documents. For a language that is not published yet the badge says so instead of showing a number.
+              A small SVG badge with a model's current error rate on verified clips in a language, for a README or a pricing page. It is computed from the latest published run when requested and cached for an hour. For a language that is not published yet the badge says so instead of showing a number.
             </p>
-            <Fields head={["Parameter", "In", "Description"]} rows={[["id", "path", "Provider id."], ["lang", "query", "Language code. Required."], ["metric", "query", "Optional; the primary metric by default."]]} />
+            <Fields head={["Parameter", "In", "Description"]} rows={[["provider", "path", "Provider id."], ["lang", "path", "Language code, then .svg."], ["metric", "query", "Optional; the primary metric by default."]]} />
             <p>Every model page has its own snippet ready to copy.</p>
           </Section>
           <Section id="run-object" title="The run object">

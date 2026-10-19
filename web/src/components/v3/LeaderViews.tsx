@@ -414,6 +414,15 @@ function StyleTrack({ v }: { v: StyleRow["fillers_kept"] }) {
 
 // ---------------------------------------------------------------- A5 sweeps
 
+/**
+ * A bootstrap interval on an error rate near the cap can run past 100% when the point itself does not. Show it
+ * capped at 100% (or at the value, when a rate really is above 100% from insertions).
+ */
+function capHi(hi: number | null | undefined, v: number | null | undefined) {
+  if (hi == null) return hi;
+  return Math.min(hi, Math.max(1, v ?? 0));
+}
+
 function SweepView({ run, tier, n }: ViewProps) {
   const sw = v3(run).sweeps!;
   const snrBeds = sw.beds.filter((b) => sw.points.some((p) => p.bed === b && p.snr_db != null));
@@ -425,7 +434,7 @@ function SweepView({ run, tier, n }: ViewProps) {
   const cleanX = top + step;
   const series: LineSeries[] = ids.map((id) => {
     const { clean, pts } = sweepCurve(sw, id, bed, tier);
-    const all = [...(clean?.error_rate != null ? [{ x: cleanX, y: clean.error_rate, lo: clean.ci_low, hi: clean.ci_high }] : []), ...pts.map((p) => ({ x: p.snr_db!, y: p.error_rate!, lo: p.ci_low, hi: p.ci_high }))];
+    const all = [...(clean?.error_rate != null ? [{ x: cleanX, y: clean.error_rate, lo: clean.ci_low, hi: capHi(clean.ci_high, clean.error_rate) }] : []), ...pts.map((p) => ({ x: p.snr_db!, y: p.error_rate!, lo: p.ci_low, hi: capHi(p.ci_high, p.error_rate) }))];
     return { id, label: providerLabel(run, id), color: providerColor(run, id), points: all };
   });
   const falls = ids.map((id) => ({ id, at: fallsApartAt(sw, id, bed, tier), censored: sw.falls_apart.find((f) => f.provider === id && f.bed === bed)?.censored ?? null, ...sweepCurve(sw, id, bed, tier) }));
@@ -479,7 +488,7 @@ function SweepView({ run, tier, n }: ViewProps) {
                 ),
             },
             { key: "clean", header: "Clean", align: "right", cell: (r) => <ValueCell v={r.clean?.error_rate ?? null} fmt={(x) => pct(x)} /> },
-            { key: "worst", header: `At ${db(snrs[snrs.length - 1] ?? 0)}`, align: "right", cell: (r) => <ValueCell v={r.pts[r.pts.length - 1]?.error_rate ?? null} fmt={(x) => pct(x)} lo={r.pts[r.pts.length - 1]?.ci_low} hi={r.pts[r.pts.length - 1]?.ci_high} /> },
+            { key: "worst", header: `At ${db(snrs[snrs.length - 1] ?? 0)}`, align: "right", cell: (r) => <ValueCell v={r.pts[r.pts.length - 1]?.error_rate ?? null} fmt={(x) => pct(x)} lo={r.pts[r.pts.length - 1]?.ci_low} hi={capHi(r.pts[r.pts.length - 1]?.ci_high, r.pts[r.pts.length - 1]?.error_rate)} /> },
           ]}
         />
       </Figure>
@@ -497,7 +506,7 @@ function SweepView({ run, tier, n }: ViewProps) {
                 align: "right",
                 cell: (id) => {
                   const p = reverb.find((q) => q.provider === id && (q.level ?? "") === lv);
-                  return <ValueCell v={p?.error_rate ?? null} fmt={(x) => pct(x)} lo={p?.ci_low} hi={p?.ci_high} />;
+                  return <ValueCell v={p?.error_rate ?? null} fmt={(x) => pct(x)} lo={p?.ci_low} hi={capHi(p?.ci_high, p?.error_rate)} />;
                 },
               })),
             ]}

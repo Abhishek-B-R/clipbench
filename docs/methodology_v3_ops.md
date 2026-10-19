@@ -70,3 +70,31 @@ self-hosted. The history parquet files (numbers only) are uploaded as an artifac
   provider_version, metric, error_rate, ci_low, ci_high, n, run_id}]}}`, or null with no history.
 - `drift`: `[{language, provider, metric, date, run_id, kind, before, after, model_id_before,
   model_id_after, provider_version_before, provider_version_after, ci: [low, high]}]`, or null.
+
+## B19 API reliability
+
+From the numeric rows of every run (`rows.parquet`: `status, timed_out, retries, http_status,
+latency_ms, cached`), per provider. Only requests that went out count: cached rows (served from the
+result cache) and skipped rows (budget stop, nothing for the clip) are left out.
+
+- `failure_rate` = errors / requests, with a 95% Wilson interval (`failure_ci_low`, `failure_ci_high`).
+- `timeout_rate` = rows the runner gave up on after the job timeout / requests.
+- `mean_retries`, `max_retries`: retries the adapter made (after 429, 5xx or network errors).
+- `latency_p50`, `latency_p95`, `latency_p99`: milliseconds over successful requests.
+- `rate_limited_share` = requests whose last HTTP status was 429 / requests. Only the last status is
+  stored, so a request that hit 429 and then succeeded on retry shows up in `mean_retries`, not here.
+
+Files: `results/<run_id>/reliability.parquet` (one row per provider for the run) and
+`results/history/reliability.parquet` (per provider across every run in `results/runs/` and every canary
+run in `results/canary/runs/`). `clipbench reliability [run_id|latest|all]` writes them; the export hook
+and every canary run refresh them too. Columns: `provider, model_id, tier, language, slice_kind, slice,
+n_runs, n_clips, n_requests, n_ok, n_errors, n_timeouts, n_rate_limited, failure_rate, failure_ci_low,
+failure_ci_high, timeout_rate, mean_retries, max_retries, latency_p50, latency_p95, latency_p99,
+rate_limited_share, first_run, last_run` (tier and language are null in the history file).
+
+Decision: canary requests count towards reliability. They are real requests made the same way, and
+weekly canaries are the only steady sample of a provider's uptime between full runs.
+
+**Export.** `clipbench.scoring.reliability.export_section(run_id, settings)` returns
+`reliability: {run: [rows for this run], all_runs: [rows across every run]}`, or null when there are no
+runs. NaN values are null.

@@ -517,6 +517,10 @@ async def run_canary(
     out = score_run(run_id, cs)
     aggregates = pd.read_parquet(out / "aggregates.parquet")
     rows = pd.read_parquet(cs.runs_dir / run_id / "rows.parquet")
+    from clipbench.scoring.reliability import write_history, write_run_reliability
+
+    write_run_reliability(run_id, settings, runs_dir=cs.runs_dir, out_dir=cs.results_dir / run_id)
+    write_history(settings)
     result.history = append_history(lang, history_rows(run_id, stamp[:10], aggregates, rows), settings)
     events = rebuild_drift(settings)
     result.events = events[events["run_id"] == run_id] if len(events) else events

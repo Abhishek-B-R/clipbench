@@ -171,6 +171,8 @@ async def test_run_writes_history_and_drift(canary_env, tmp_path):
     # Kept apart from the benchmark runs, so `latest` never picks a canary.
     assert not (canary_env.runs_dir / res.run_id).exists()
     assert (canary_env.results_dir / "canary" / "runs" / res.run_id / "rows.parquet").exists()
+    assert (canary_env.results_dir / "canary" / res.run_id / "reliability.parquet").exists()
+    assert (canary_env.results_dir / "history" / "reliability.parquet").exists()
     h = load_history("ja", canary_env)
     assert set(h["provider"]) == {"fake"} and (h["n"] == 5).all()
     assert (h["error_rate"] == 0.0).all()

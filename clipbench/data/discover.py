@@ -1,22 +1,23 @@
-"""Find more Shorts with a creator caption track in the language (`clipbench data discover`).
+"""Find Shorts with a creator caption track in the language (`clipbench data discover`).
 
-Seed channels come from Vako's `.vr` files (read only), best bets first:
+Channels come from `datasets/<lang>/channels.csv` (`platform, channel_id, handle, category, note`;
+`channel_id` or `handle` is enough). Without that file, and only when a Vako store is configured, the
+seed list falls back to Vako's `.vr` channel files (best bets first: channels Vako's probe saw with
+creator captions, vouched, beginner, then channels-db). Channels in Vako's `blocked-channels.json` are
+skipped either way.
 
-1. channels where Vako's probe saw creator captions (`probed-<lang>.json`, `manualSubs`), by count;
-2. `vouched-channels.json`;
-3. `beginner-channels.json` entries for the language, by `easy`;
-4. `channels-db.json` entries for the language, by `live` then `easy`.
-
-`blocked-channels.json` channels are skipped. For each channel: one `--flat-playlist` request lists
-its Shorts tab, then one info.json request per Short not already known (in Vako, in data/info, or in
-Vako's probe records). A Short is kept when its info.json has a `subtitles` key in the language (not
-`-orig`), says it is spoken in the language (info `language`, or a `<lang>-orig` ASR track), and lasts
-5-90 s. For kept Shorts the creator track(s) and `<lang>-orig` are downloaded into data/tracks/.
+For each channel: one `--flat-playlist` request lists its Shorts tab (first 100), then one info.json
+request per Short not already known (data/info, clips.csv, Vako's store or probe records). A Short is
+kept when its info.json has a `subtitles` key in the language (not `-orig`), says it is spoken in the
+language (info `language`, or a `<lang>-orig` ASR track), and lasts 5-90 s. For kept Shorts the creator
+track(s) and `<lang>-orig` are downloaded into data/tracks/, and a row (source `discover`) is added to
+`datasets/<lang>/clips.csv`. The channel's curated category is kept as a hint in
+`data/discover/category_hints-<lang>.json` (a guess, never written to clips.csv).
 
 Gentle: one yt-dlp process at a time, `gap_s` + jitter between them, a bot check or 429 stops the run,
 `max_requests` caps yt-dlp invocations per run. A channel is dropped after `miss_limit` Shorts in a
-row without creator captions (while it has none kept), and finished at `per_channel` kept Shorts.
-Everything is resumable: listings, info files and per channel state are on disk.
+row without creator captions (while it has none kept), finished at `per_channel` kept Shorts or after
+3 x `miss_limit` misses in a row. Resumable: listings, info files and per channel state are on disk.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from pathlib import Path
 from typing import Any
 
 from clipbench.config import Settings, get_settings
+from clipbench.data.datasets import ChannelRow, ClipRow, channels_path, merge_clips, read_channels, read_clips
 from clipbench.data.info import (
     FetchOutcome,
     is_blocked,
@@ -72,8 +74,13 @@ def seed_channels(settings: Settings, language: str) -> list[str]:
     return order
 
 
+def vako_seed_channels(settings: Settings, language: str) -> list[ChannelRow]:
+    return [ChannelRow("youtube", cid, "", "", "seed") for cid in seed_channels(settings, language)]
+
+
 def known_ids(settings: Settings, language: str) -> set[str]:
     known = set(scan_tracks(settings.vako_root / ".vr" / "src" / language))
+    known |= {r.video_id for r in read_clips(language, settings)}
     known |= set(read_json(settings.vako_root / ".vr" / f"probed-{language}.json", {}))
     if settings.info_dir.is_dir():
         known |= {p.name[:11] for p in settings.info_dir.glob("*.info.json")}
@@ -81,12 +88,13 @@ def known_ids(settings: Settings, language: str) -> set[str]:
     return known
 
 
-def list_shorts(channel_id: str, cookies_from_browser: str | None = None) -> tuple[list[str] | None, bool, str]:
-    """Returns (ids or None, blocked, error)."""
+def list_shorts(channel: str, cookies_from_browser: str | None = None) -> tuple[list[str] | None, bool, str]:
+    """`channel` is a Shorts tab URL or a UC channel id. Returns (ids or None, blocked, error)."""
+    url = channel if channel.startswith("http") else f"https://www.youtube.com/channel/{channel}/shorts"
     args = ["yt-dlp", "--flat-playlist", "-J", "--no-warnings", "--socket-timeout", "20", "--playlist-end", "100"]
     if cookies_from_browser:
         args += ["--cookies-from-browser", cookies_from_browser]
-    args += ["--", f"https://www.youtube.com/channel/{channel_id}/shorts"]
+    args += ["--", url]
     try:
         proc = subprocess.run(args, capture_output=True, text=True, timeout=300)
     except subprocess.TimeoutExpired:
@@ -133,7 +141,8 @@ def discover(
     language: str | None = None,
     *,
     max_requests: int = 1500,
-    per_channel: int = 15,
+    per_channel: int = 8,
+    channels: list[ChannelRow] | None = None,
     miss_limit: int = 6,
     gap_s: float = 5.0,
     cookies_from_browser: str | None = None,
@@ -165,9 +174,15 @@ def discover(
     def save() -> None:
         write_json_atomic(state_path, state)
 
-    channels = seed_channels(settings, lang)
-    log(f"{len(channels)} seed channels, {len(known)} ids already known, budget {max_requests} requests")
-    for cid in channels:
+    if channels is None:
+        path = channels_path(lang, settings)
+        channels = read_channels(path) if path.exists() else vako_seed_channels(settings, lang)
+    channels = [c for c in channels if c.platform == "youtube" and c.channel_id not in blocked and c.shorts_url()]
+    hints_path = root / f"category_hints-{lang}.json"
+    hints: dict[str, str] = read_json(hints_path, {})
+    log(f"{len(channels)} channels, {len(known)} ids already known, budget {max_requests} requests")
+    for chan in channels:
+        cid = chan.key
         ch = state["channels"].setdefault(cid, {"kept": 0, "inspected": 0, "misses": 0, "done": False})
         if ch.get("done"):
             continue
@@ -178,7 +193,7 @@ def discover(
                 summary.stopped = "max requests"
                 break
             pace()
-            ids, blocked_now, err = lister(cid, cookies_from_browser)
+            ids, blocked_now, err = lister(chan.shorts_url(), cookies_from_browser)
             if blocked_now:
                 summary.stopped = err
                 break
@@ -240,6 +255,11 @@ def discover(
                     cookies_from_browser=cookies_from_browser,
                 )
             if blocked_now:
+                # Forget this Short so the next run asks again: its info.json alone would mark it known.
+                (settings.info_dir / f"{vid}.info.json").unlink(missing_ok=True)
+                known.discard(vid)
+                ch["inspected"] -= 1
+                summary.inspected -= 1
                 summary.stopped = err
                 break
             if not ok:
@@ -249,6 +269,12 @@ def discover(
             ch["kept"] += 1
             ch["misses"] = 0
             summary.kept += 1
+            channel_id = outcome.data.get("channel_id") or ""
+            ch["channel_id"] = channel_id
+            merge_clips(lang, [ClipRow("youtube", vid, channel_id=channel_id, source="discover")], settings)
+            if chan.category:
+                hints[vid] = chan.category
+                write_json_atomic(hints_path, hints)
             log(f"{cid} {vid}: kept ({ch['kept']} in channel, {summary.kept} this run, {summary.requests} requests)")
             save()
         else:

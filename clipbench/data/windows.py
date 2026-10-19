@@ -44,7 +44,8 @@ class Window:
 
 
 def clip_id_for(video_id: str, start_s: int, end_s: int) -> str:
-    return f"{video_id}@{start_s}-{end_s}"
+    """`<video_id>@<start_ms>-<end_ms>` (docs/V2.md); windows here are whole seconds."""
+    return f"{video_id}@{start_s * 1000}-{end_s * 1000}"
 
 
 def _chars(text: str) -> int:
@@ -96,14 +97,14 @@ def _num(v: Any) -> float | None:
     return float(v) if isinstance(v, int | float) and not isinstance(v, bool) else None
 
 
-def slice_json3(text: str, start_s: int, end_s: int) -> str:
-    """The part of a json3 track inside [start, end), rebased to start at 0.
+def slice_json3(text: str, start_ms: int, end_ms: int) -> str:
+    """The part of a json3 track inside [start_ms, end_ms), rebased to start at 0.
 
     Works per segment, so a word timed track keeps the words that start inside the window even when
     their event started before it. `aAppend` events (display scrolling) are dropped.
     """
     data = json.loads(text)
-    s_ms, e_ms = start_s * 1000, end_s * 1000
+    s_ms, e_ms = int(start_ms), int(end_ms)
     out_events: list[dict[str, Any]] = []
     for ev in data.get("events") or []:
         if not isinstance(ev, dict) or ev.get("aAppend") == 1 or not isinstance(ev.get("segs"), list):
@@ -137,5 +138,5 @@ def slice_json3(text: str, start_s: int, end_s: int) -> str:
         out_events.append(new_ev)
     head = {k: v for k, v in data.items() if k != "events"}
     head["events"] = out_events
-    head["clipbenchWindow"] = {"start_s": start_s, "end_s": end_s}
+    head["clipbenchWindow"] = {"start_ms": s_ms, "end_ms": e_ms}
     return json.dumps(head, ensure_ascii=False)

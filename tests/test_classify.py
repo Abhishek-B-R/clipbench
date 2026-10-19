@@ -3,11 +3,19 @@ import json
 import shutil
 from pathlib import Path
 
+import pytest
+
 from clipbench.data.vako import classify_track, load_info, scan_language, scan_tracks
 
 INFO = Path(__file__).parent / "fixtures" / "info"
 JSON3 = Path(__file__).parent / "fixtures" / "json3"
 
+
+
+@pytest.fixture(autouse=True)
+def _datasets_dir(tmp_path, monkeypatch):
+    """Never touch the committed datasets/ from tests."""
+    monkeypatch.setenv("CLIPBENCH_DATASETS_DIR", str(tmp_path / "datasets"))
 
 def info(vid: str):
     summary = load_info(INFO / f"{vid}.info.json")
@@ -112,7 +120,7 @@ def test_discover_loop_with_fakes(tmp_settings, tmp_path):
         settings,
         "ja",
         miss_limit=3,
-        lister=lambda cid, cookies: (listings[cid], False, ""),
+        lister=lambda url, cookies: (listings[url.split("/channel/")[1].split("/")[0]], False, ""),
         info_runner=info_runner,
         downloader=downloader,
         log=lambda m: None,
@@ -126,3 +134,30 @@ def test_discover_loop_with_fakes(tmp_settings, tmp_path):
     s2 = discover(settings, "ja", lister=lambda *a: (_ for _ in ()).throw(AssertionError()),
                   info_runner=info_runner, downloader=downloader, log=lambda m: None, sleep=lambda s: None)
     assert s2.requests == 0 and calls == []
+
+
+def test_discover_forgets_a_short_when_tracks_are_blocked(tmp_settings, tmp_path):
+    from clipbench.data.discover import discover
+    from clipbench.data.info import FetchOutcome
+
+    vr = tmp_path / "vako" / ".vr"
+    (vr / "src" / "ja").mkdir(parents=True)
+    (vr / "vouched-channels.json").write_text(json.dumps(["UCgood"]))
+    settings = dataclasses.replace(tmp_settings, vako_root=tmp_path / "vako")
+    a = json.loads((INFO / "AAAAAAAAAAA.info.json").read_text())
+    common = dict(
+        lister=lambda url, cookies: (["G0000000000"], False, ""),
+        info_runner=lambda vid, cookies: FetchOutcome(ok=True, data=dict(a, id=vid)),
+        log=lambda m: None,
+        sleep=lambda s: None,
+    )
+    s = discover(settings, "ja", downloader=lambda *a, **k: (False, True, "HTTP Error 429"), **common)
+    assert s.stopped and s.kept == 0
+    assert not (settings.info_dir / "G0000000000.info.json").exists()
+
+    def ok(vid, out_dir, langs, **kw):
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / f"{vid}.ja.json3").write_text("{}")
+        return True, False, ""
+
+    assert discover(settings, "ja", downloader=ok, **common).kept == 1

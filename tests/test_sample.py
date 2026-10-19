@@ -1,8 +1,14 @@
 import pandas as pd
+import pytest
 
 from clipbench.data.manifest import COLUMNS
 from clipbench.data.sample import channel_cap, stratified_sample, write_sample
 
+
+@pytest.fixture(autouse=True)
+def _datasets_dir(tmp_path, monkeypatch):
+    """Never touch the committed datasets/ from tests."""
+    monkeypatch.setenv("CLIPBENCH_DATASETS_DIR", str(tmp_path / "datasets"))
 
 def row(i: int, channel: str, duration: float = 30.0, creator: bool = True) -> dict:
     vid = f"v{i:010d}"
@@ -43,12 +49,12 @@ def manifest() -> pd.DataFrame:
 
 
 def test_cap_and_size():
-    s = stratified_sample(manifest(), n=50, seed=7)
-    assert len(s) == 50
-    assert channel_cap(50) == 5
-    assert s["channel_id"].value_counts().max() <= 5
+    s = stratified_sample(manifest(), n=40, seed=7)
+    assert len(s) == 40
+    assert channel_cap(40) == 2 and channel_cap(150) == 7
+    assert s["channel_id"].value_counts().max() <= 2
     assert "UCx" not in set(s["channel_id"])
-    assert list(s["sample_rank"]) == list(range(50))
+    assert list(s["sample_rank"]) == list(range(40))
     assert s["video_id"].is_unique
 
 
@@ -56,9 +62,9 @@ def test_not_enough_takes_what_the_cap_allows():
     m = manifest()
     m = m[m["channel_id"].isin(["UCbig", "UCsmall00", "UCsmall01"])]
     s = stratified_sample(m, n=150, seed=7)
-    # cap 15: big gives 15, the two small channels give 6 each
-    assert len(s) == 27
-    assert s["channel_id"].value_counts()["UCbig"] == 15
+    # cap 7 (5% of 150): big gives 7, the two small channels give 6 each
+    assert len(s) == 19
+    assert s["channel_id"].value_counts()["UCbig"] == 7
 
 
 def test_deterministic_and_seed_matters():
@@ -84,8 +90,8 @@ def window_row(i: int, channel: str) -> dict:
     r = row(i, channel, duration=40.0)
     yt = r["video_id"]
     r.update(
-        video_id=f"{yt}@100-140",
-        clip_id=f"{yt}@100-140",
+        video_id=f"{yt}@100000-140000",
+        clip_id=f"{yt}@100000-140000",
         youtube_id=yt,
         clip_source="window",
         window_start_s=100.0,
@@ -101,10 +107,10 @@ def test_shorts_first_then_windows_with_shared_cap():
     rows.append(dict(row(999, "UCs0", duration=300.0), clip_source="long"))
     m = pd.DataFrame(rows)
     s = stratified_sample(m, n=60, seed=7)
-    assert len(s) == 58  # 3 channels x cap 6 + 20 channels x 2 windows
+    assert len(s) == 49  # cap 3: 3 channels x 3 Shorts + 20 channels x 2 windows
     assert set(s.head(9)["clip_source"]) == {"short"}  # every Short, first
     assert (s["clip_source"] == "short").sum() == 9
-    assert s["channel_id"].value_counts().max() <= 6  # cap counts Shorts and windows together
+    assert s["channel_id"].value_counts().max() <= 3  # cap counts Shorts and windows together
     assert "long" not in set(s["clip_source"])
     only = stratified_sample(m, n=60, seed=7, shorts_only=True)
     assert len(only) == 9 and set(only["clip_source"]) == {"short"}
@@ -120,6 +126,17 @@ def test_clip_meta(tmp_settings):
     meta = clip_meta(tmp_settings)
     assert meta["v0000000001"]["kind"] == "short"
     assert meta["v0000000001"]["youtube_url"] == "https://www.youtube.com/shorts/v0000000001"
-    w = meta["v0000000002@100-140"]
+    w = meta["v0000000002@100000-140000"]
     assert w["kind"] == "window" and w["start_s"] == 100.0 and w["youtube_id"] == "v0000000002"
     assert w["youtube_url"] == "https://www.youtube.com/watch?v=v0000000002&t=100s"
+
+
+def test_categories_balanced():
+    rows = [dict(row(i, f"UCt{i}"), clip_source="short", category="talking_head") for i in range(60)]
+    rows += [dict(row(100 + i, f"UCg{i}"), clip_source="short", category="gaming") for i in range(10)]
+    rows += [dict(row(200 + i, f"UCn{i}"), clip_source="short", category=None) for i in range(5)]
+    s = stratified_sample(pd.DataFrame(rows), n=30, seed=3)
+    counts = s["category"].fillna("").value_counts()
+    assert counts["gaming"] == 10 and counts[""] == 5 and counts["talking_head"] == 15
+    # the first rounds alternate categories
+    assert set(s.head(3)["category"].fillna("")) == {"talking_head", "gaming", ""}

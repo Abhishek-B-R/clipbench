@@ -1,14 +1,68 @@
-# Scoring methodology
+# Methodology
+
+How clipbench builds its test set, runs each system, and turns outputs into the numbers in the report.
+Every rule here is code in this repo with a test; the file named in each section is the source of truth.
+
+## What is measured
+
+Speech-to-text on real short-form social video: YouTube Shorts style clips with music under speech,
+fast talkers, slang, several speakers and code-switching. First language: Japanese (`ja`). Spanish and
+Korean are supported by the same code.
+
+## Ground truth tiers
+
+Kept separate in every table, chart and test.
+
+| tier | what | used for |
+|---|---|---|
+| `verified` | a creator-uploaded caption that a person checked against the audio in the review UI (`clipbench review`) and corrected | headline numbers |
+| `creator` | a creator-uploaded caption nobody has checked | reported separately as "unverified reference" |
+
+YouTube's automatic captions and Wayin output are never references. They are systems under test.
+Creator captions are often not verbatim (shortened, cleaned, translated in places); the review UI has a
+`caption_not_verbatim` tag and every correction is saved with the reviewer, time and audio hash.
+
+## Where the clips come from
+
+Caption tracks and metadata pulled by the Vako caption pipeline (`.vr/src/<lang>/`), read only.
+Track kind (creator, auto, translation, unknown) is decided only from each video's `info.json`
+(`subtitles` vs `automatic_captions`), never from file names. When Vako has no info.json for a
+video, `clipbench data fetch-info` fetches it with yt-dlp, gently. The full rule, with counts, is in
+[docs/data_rules.md](docs/data_rules.md).
+
+Sample: clips with a creator track, 5 to 90 seconds long, stratified by channel so no channel is more
+than 10% of the set, seeded (`clipbench data sample --n 150 --seed 7`). When there are not enough
+Shorts with creator captions, the set is filled with 20 to 60 second windows cut from longer
+creator-captioned videos; every clip records whether it is a `short` or a `window`, and the report
+slices by it.
+
+Audio is fetched audio only, one download at a time, at least 10 seconds apart, and converted to
+16 kHz mono WAV. The sha256 of every file is recorded; a verified reference is only used with the exact
+audio its reviewer heard.
+
+## Systems under test
+
+One adapter per system behind one interface (`clipbench/providers/`). Model ids, endpoints and per
+minute prices were checked against each provider's docs on the date recorded in
+`clipbench/providers/pricing.toml`; see [docs/providers.md](docs/providers.md). Wherever a provider
+offers a training or retention opt-out, it is set. Results are cached by (provider, model, audio hash,
+settings hash), so reruns never bill twice. A budget guard refuses a run whose estimate plus past
+spend exceeds the cap, and stops mid-run before crossing it.
+
+Latency is wall-clock per request from this machine, including upload and polling, excluding our own
+retry backoff. For stability, a seeded 20 clip subset is rerun 3 times per paid provider.
+
+## Scoring
 
 How clipbench turns a hypothesis text and a reference text into numbers. Code: `clipbench/scoring/`.
 Every rule below is one function in `clipbench/scoring/normalize.py` with its own test in
 `tests/test_normalize.py`.
 
-## Normalisation
+### Normalisation
 
 Both the reference and the hypothesis go through exactly the same steps before alignment.
 
-### Rules shared by all languages
+#### Rules shared by all languages
 
 1. **NFKC.** Unicode NFKC normalisation. Full width letters and digits become ASCII (`ＡＢＣ１２３` to
    `ABC123`), half width katakana becomes full width, full width brackets become ASCII brackets.
@@ -28,7 +82,7 @@ Both the reference and the hypothesis go through exactly the same steps before a
 5. **Whitespace.** Collapsed to single spaces and trimmed (Spanish, Korean word metrics) or removed
    entirely (Japanese, Korean character metric).
 
-### Spanish (`es`)
+#### Spanish (`es`)
 
 Order: NFKC, lowercase, bracket tags, numbers to words, punctuation, whitespace.
 
@@ -48,7 +102,7 @@ Order: NFKC, lowercase, bracket tags, numbers to words, punctuation, whitespace.
   caused by any diacritic. Accents are kept in the primary metric because they carry meaning in
   Spanish (`si` vs `sí`).
 
-### Japanese (`ja`)
+#### Japanese (`ja`)
 
 Order for `cer`: NFKC, lowercase, bracket tags, punctuation (deleted), all whitespace removed.
 
@@ -72,7 +126,7 @@ reading conversion, katakana to hiragana, punctuation and whitespace removed.
   can still be wrong when the analyser picks the wrong reading for a homograph; that noise affects all
   providers equally.
 
-### Korean (`ko`)
+#### Korean (`ko`)
 
 Order: NFKC, lowercase, bracket tags, punctuation (to spaces), whitespace collapsed.
 
@@ -83,7 +137,7 @@ Order: NFKC, lowercase, bracket tags, punctuation (to spaces), whitespace collap
 - **Digits.** Left as digits. Korean has two number systems (Sino-Korean and native) and choosing the
   right one depends on the counter, so no conversion is attempted.
 
-## Metrics
+### Metrics
 
 | language | primary | secondary |
 |---|---|---|
@@ -105,7 +159,7 @@ For each clip the normalised reference and hypothesis token lists are aligned wi
 When several minimum edit alignments exist, the split between S, D and I can differ, but the total
 `errors` is always the edit distance.
 
-## Hallucination
+### Hallucination
 
 Two measures per clip, in metric tokens (characters for ja and ko `cer_nospace`, words otherwise).
 
@@ -129,13 +183,13 @@ makes the output long, never hallucination that replaces real speech. Aggregates
 hallucination rate `sum(hallucinated_tokens) / sum(ref_len)` and `long_output_rate`, the share of
 clips flagged long.
 
-## Confidence intervals
+### Confidence intervals
 
 Percentile bootstrap over clips: draw `n` clips with replacement, compute the corpus rate, repeat 1000
 times, take the 2.5th and 97.5th percentiles. Resampling uses a numpy `Generator` seeded from
 `sample_seed` in `clipbench.toml`, so the same inputs give the same intervals.
 
-## Paired comparisons
+### Paired comparisons
 
 For every pair of providers, per tier, metric and slice, over the clips both providers scored:
 
@@ -150,7 +204,7 @@ For every pair of providers, per tier, metric and slice, over the clips both pro
 
 Providers are ordered alphabetically, so `provider_a < provider_b`.
 
-## Which rows are scored
+### Which rows are scored
 
 - Repeat 0 rows with status `ok`. Skipped and errored rows are not scored; a provider is only
   compared on the clips it returned. An `ok` row with no stored text is scored as an empty
@@ -158,7 +212,7 @@ Providers are ordered alphabetically, so `provider_a < provider_b`.
 - Reference tiers (`verified`, `creator`) are never mixed: every aggregate and comparison is within
   one tier. Results on the `creator` tier are labelled "unverified reference".
 
-## Slices
+### Slices
 
 Each aggregate and paired comparison is computed for:
 
@@ -171,7 +225,7 @@ Each aggregate and paired comparison is computed for:
 **Too small.** A slice with fewer than 15 clips is marked `too_small` and should not be used for a
 ranking. It is still reported.
 
-## Cost and speed
+### Cost and speed
 
 - `cost_usd_total` is the sum of `cost_usd` over the slice. `cost_usd` is the provider's list cost for
   the clip, recorded even when the result came from the cache, so cached reruns do not make a provider
@@ -180,9 +234,24 @@ ranking. It is still reported.
 - `latency_p50`, `latency_p95`: percentiles of `latency_ms`.
 - `rtf`: mean over clips of `(latency_ms / 1000) / audio_seconds`.
 
-## Stability
+### Stability
 
 Repeats 1 to 3 of a clip (status `ok`) are compared pairwise with the primary metric tokenizer.
 Pairwise disagreement is `edit_distance(x, y) / max(len(x), len(y), 1)`, which is symmetric because
 neither repeat is the reference. `text_disagreement` is the mean over all pairs. `latency_mean` and
 `latency_std` (sample standard deviation) are over the same repeats.
+
+## What is published
+
+Code, video ids, per-clip scores, aggregate tables, charts, and error examples of at most a few words.
+Audio, caption text and references stay in `data/`, which is gitignored. `clipbench publish --check`
+fails if anything under `site/`, `results/` or the web app's data contains audio or more than 8
+consecutive words of any reference. Anyone can rebuild the set from the video ids.
+
+## Limitations
+
+- Sample size: confidence intervals are wide at 150 clips, and slices under 15 clips are marked too small to conclude.
+- One language per verified set.
+- Creator captions may not be verbatim; only the verified tier is corrected.
+- Providers change models without notice; the model ids and the date each was checked are in every run's `run_meta.json`.
+- Prices are list prices as of the checked date, not what any customer actually pays.

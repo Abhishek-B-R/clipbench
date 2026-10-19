@@ -23,7 +23,7 @@ from clipbench.report import charts, findings
 TIER_TITLES = {"verified": "Verified references", "creator": "Creator captions (unverified reference)"}
 FALLBACK_PRIMARY = {"ja": "cer", "es": "wer", "ko": "cer_nospace"}
 LANGUAGE_NAMES = {"ja": "Japanese", "es": "Spanish", "ko": "Korean"}
-METHODOLOGY_DOC = "docs/methodology_scoring.md"
+METHODOLOGY_DOC = "METHODOLOGY.md"
 
 
 # ---------------------------------------------------------------- blocks

@@ -2,7 +2,7 @@
 
 Every rule is a small function so it can be tested and documented on its own.
 `metrics_for(language)` returns the metric specs (name, primary flag, tokenizer) for a language.
-docs/methodology_scoring.md writes out every rule in plain language.
+METHODOLOGY.md writes out every rule in plain language.
 """
 
 from __future__ import annotations

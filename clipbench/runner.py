@@ -319,6 +319,45 @@ def print_plan(
     return allowed
 
 
+def _print_locked_plan(
+    console: Console,
+    skipped: dict[str, str],
+    clips: list[Clip],
+    est: Estimate,
+    spent: float,
+    cap: float,
+    stability_n: int,
+    stability_repeats: int,
+    seed: int,
+) -> None:
+    """What the providers that are only missing keys would cost, so the owner sees it before adding them."""
+    from clipbench.providers import registry
+
+    locked: list[Provider] = []
+    for pid in skipped:
+        if pid not in registry.REGISTRY:
+            continue
+        try:
+            p = registry.make(pid)
+        except Exception:
+            continue
+        if is_billable(p):
+            locked.append(p)
+    if not locked:
+        return
+    extra = estimate(locked, clips, stability_n=stability_n, stability_repeats=stability_repeats, seed=seed)
+    table = Table(title="if you add the missing keys (estimate from pricing.toml)")
+    for col in ("provider", "model", "usd/min", "clips", "est cost (incl stability)"):
+        table.add_column(col, justify="left" if col in ("provider", "model") else "right")
+    for p in locked:
+        e = extra.providers[p.id]
+        table.add_row(p.id, p.model_id, f"{p.price_per_minute():.5f}", str(e.n_clips), f"${e.total_usd:.4f}")
+    console.print(table)
+    total = est.total_usd + extra.total_usd
+    verdict = "allowed" if total + spent <= cap + 1e-12 else "REFUSED (estimate + spent > cap)"
+    console.print(f"total with every provider: ${total:.4f} (spent ${spent:.4f}, cap ${cap:.2f}): {verdict}")
+
+
 # ---------------------------------------------------------------- run
 
 
@@ -373,6 +412,7 @@ async def run(
 
     if dry_run:
         allowed = print_plan(console, est, active, skipped, spent_before, cap)
+        _print_locked_plan(console, skipped, clips, est, spent_before, cap, stability_n, stability_repeats, seed)
         return RunResult(run_id, True, est, spent_before, cap, allowed, skipped)
 
     check_can_start(est, cap, spent_before)

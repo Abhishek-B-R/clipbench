@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>clipbench review</title>
+<style>
+:root {
+  --bg: #f7f7f5;
+  --panel: #ffffff;
+  --text: #1d1d1f;
+  --muted: #6b6b70;
+  --line: #e3e3e0;
+  --accent: #3b6fd8;
+  --accent-text: #ffffff;
+  --del-bg: #fde5e5;
+  --del-fg: #b3261e;
+  --ins-bg: #ddf4e2;
+  --ins-fg: #1b6e34;
+  --flag-bg: #fff1d6;
+  --flag-fg: #8a5a00;
+  --ok: #1b6e34;
+  --focus: rgba(59, 111, 216, 0.35);
+  --cjk: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic",
+    "Meiryo", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", "Malgun Gothic", system-ui,
+    -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161618;
+    --panel: #1f1f22;
+    --text: #e8e8ea;
+    --muted: #9a9aa2;
+    --line: #313136;
+    --accent: #6f9bff;
+    --accent-text: #0e1220;
+    --del-bg: #4a1f1f;
+    --del-fg: #ffb4ab;
+    --ins-bg: #173a22;
+    --ins-fg: #8fe0a6;
+    --flag-bg: #3d2f12;
+    --flag-fg: #f3c775;
+    --ok: #8fe0a6;
+    --focus: rgba(111, 155, 255, 0.4);
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body { font: 15px/1.5 var(--cjk); }
+.wrap { max-width: 920px; margin: 0 auto; padding: 16px 16px 48px; }
+header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+header h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+.progress { flex: 1; min-width: 200px; display: flex; align-items: center; gap: 10px; }
+.bar { flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar > div { height: 100%; width: 0; background: var(--accent); transition: width 0.25s; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: 13px; }
+.meta a { color: var(--accent); text-decoration: none; }
+.meta a:hover { text-decoration: underline; }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line); }
+.chip.flag { background: var(--flag-bg); color: var(--flag-fg); border-color: transparent; }
+.chip.reviewed { color: var(--ok); }
+.chip.dirty { color: var(--del-fg); }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.player { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+audio { flex: 1; min-width: 260px; height: 36px; }
+button { font: inherit; font-size: 13px; color: var(--text); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 7px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+button:disabled { opacity: 0.45; cursor: default; }
+kbd { font-family: ui-monospace, Menlo, monospace; font-size: 11px; padding: 0 4px; border: 1px solid var(--line);
+  border-bottom-width: 2px; border-radius: 4px; color: var(--muted); }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line);
+  border-radius: 999px; font-size: 13px; cursor: pointer; user-select: none; }
+.tag input { margin: 0; accent-color: var(--accent); }
+.tag.checked { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.tag.unusable.checked { border-color: var(--del-fg); background: var(--del-bg); }
+textarea { width: 100%; min-height: 170px; resize: vertical; font: 22px/1.7 var(--cjk); color: var(--text);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.diff { font: 18px/1.8 var(--cjk); white-space: pre-wrap; word-break: break-word; min-height: 1.8em; }
+.diff del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; border-radius: 3px; }
+.diff ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: none; border-radius: 3px; }
+.diff .ws { padding: 0 2px; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.spacer { flex: 1; }
+.label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; }
+.error { color: var(--del-fg); font-size: 13px; }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
+  padding: 7px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+.toast.show { opacity: 0.92; }
+details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 4px 24px; font-size: 13px; margin-top: 10px; }
+.keys div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dashed var(--line); padding: 2px 0; }
+.done { text-align: center; padding: 40px 16px; }
+.goto { width: 70px; font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px;
+  background: var(--panel); color: var(--text); }
+@media (max-width: 600px) {
+  textarea { font-size: 19px; }
+  .diff { font-size: 16px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>clipbench review</h1>
+    <div class="progress">
+      <div class="bar"><div id="bar"></div></div>
+      <span class="small muted" id="progress-text">loading</span>
+    </div>
+    <span class="small muted">reviewer: <b id="reviewer"></b></span>
+  </header>
+
+  <div id="empty" class="panel done" hidden>
+    <p>The queue is empty. Build the sample first: <span class="mono">clipbench data sample</span>.</p>
+  </div>
+
+  <main id="main" hidden>
+    <div class="panel">
+      <div class="meta">
+        <span><b id="pos"></b></span>
+        <span id="flag" class="chip flag" hidden>flagged for re-review</span>
+        <span id="status" class="chip"></span>
+        <span id="dirty" class="chip dirty" hidden>unsaved edits</span>
+        <span>channel: <b id="channel"></b></span>
+        <span>duration: <b id="duration"></b></span>
+        <span class="mono" id="vid"></span>
+        <a id="yt" href="#" target="_blank" rel="noopener noreferrer">open Short</a>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="player">
+        <audio id="audio" controls preload="auto"></audio>
+        <button data-rate="0.75" title="z">0.75x</button>
+        <button data-rate="1" title="x">1x</button>
+        <button data-rate="1.25" title="c">1.25x</button>
+        <label class="small muted"><input type="checkbox" id="autoplay"> autoplay</label>
+      </div>
+      <div id="audio-error" class="error" hidden>No audio file for this clip.</div>
+    </div>
+
+    <div class="panel">
+      <p class="label">Transcript (edit to match what is said)</p>
+      <textarea id="text" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+      <div id="caption-error" class="error" hidden></div>
+      <div class="row" style="margin-top:10px">
+        <p class="label" style="margin:0">Changes vs creator caption</p>
+        <span class="small muted" id="diff-stats"></span>
+      </div>
+      <div class="diff" id="diff" style="margin-top:6px"></div>
+    </div>
+
+    <div class="panel">
+      <p class="label">Tags</p>
+      <div class="tags" id="tags"></div>
+    </div>
+
+    <div class="row" style="margin-bottom:12px">
+      <button id="prev">Prev <kbd>[</kbd></button>
+      <button id="next">Next <kbd>]</kbd></button>
+      <input class="goto" id="goto" type="number" min="1" placeholder="go to #" title="Jump to a clip number">
+      <span class="spacer"></span>
+      <button id="reset">Reset to original</button>
+      <button id="skip">Skip <kbd>alt+S</kbd></button>
+      <button id="save" class="primary">Save and next <kbd style="color:inherit">ctrl+enter</kbd></button>
+    </div>
+  </main>
+
+  <details class="panel">
+    <summary>Keyboard shortcuts</summary>
+    <div class="keys">
+      <div><span>Save and next (works while typing)</span><span><kbd>ctrl+enter</kbd> / <kbd>cmd+enter</kbd></span></div>
+      <div><span>Play / pause</span><span><kbd>space</kbd> (not typing), <kbd>alt+space</kbd> anywhere</span></div>
+      <div><span>Seek 2 s back / forward</span><span><kbd>left</kbd> <kbd>right</kbd>, <kbd>alt+left</kbd> <kbd>alt+right</kbd> anywhere</span></div>
+      <div><span>Toggle tag 1 to 8</span><span><kbd>1</kbd>..<kbd>8</kbd>, <kbd>alt+1</kbd>..<kbd>alt+8</kbd> anywhere</span></div>
+      <div><span>Skip clip</span><span><kbd>s</kbd>, <kbd>alt+s</kbd> anywhere</span></div>
+      <div><span>Prev / next clip (keeps unsaved draft)</span><span><kbd>[</kbd> <kbd>]</kbd>, <kbd>alt+[</kbd> <kbd>alt+]</kbd> anywhere</span></div>
+      <div><span>Speed 0.75x / 1x / 1.25x</span><span><kbd>z</kbd> <kbd>x</kbd> <kbd>c</kbd></span></div>
+      <div><span>Reset text to the creator caption</span><span><kbd>alt+r</kbd> (undo with ctrl+z)</span></div>
+      <div><span>Edit text</span><span><kbd>enter</kbd> or <kbd>e</kbd></span></div>
+      <div><span>Stop typing (then space plays)</span><span><kbd>esc</kbd></span></div>
+    </div>
+    <p class="small muted">Space inside the text box types a space. Press <kbd>esc</kbd> first, or use <kbd>alt+space</kbd>.
+      Skipped clips are saved with <span class="mono">"skipped": true</span> and left out of the verified set.
+      Tag <b>unusable</b> drops the clip from scoring.</p>
+  </details>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const state = {
+  queue: null,      // /api/queue payload
+  index: -1,        // position in queue.items
+  clip: null,       // /api/clip payload
+  baseText: "",     // text loaded for this clip (saved or original)
+  baseTags: [],
+  drafts: new Map(),// video_id -> {text, tags} unsaved edits kept across navigation
+  rate: 1,
+  busy: false,
+};
+
+function storeGet(key, fallback) {
+  try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch { return fallback; }
+}
+function storeSet(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode */ }
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    let msg = res.status + " " + res.statusText;
+    try { const j = await res.json(); if (j.detail) msg = String(j.detail); } catch { /* not json */ }
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+let toastTimer = 0;
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 1400);
+}
+
+/* ---------- diff ---------- */
+function tokenize(s, lang) {
+  if (lang === "es") return s.match(/\s+|[^\s]+/g) || [];
+  return Array.from(s); // code points: ja and ko diff by character
+}
+
+// LCS diff on tokens after trimming the common prefix and suffix. Returns [[op, text]], op in "=", "-", "+".
+function diffTokens(a, b) {
+  let pre = 0;
+  while (pre < a.length && pre < b.length && a[pre] === b[pre]) pre++;
+  let suf = 0;
+  while (suf < a.length - pre && suf < b.length - pre && a[a.length - 1 - suf] === b[b.length - 1 - suf]) suf++;
+  const A = a.slice(pre, a.length - suf), B = b.slice(pre, b.length - suf);
+  const ops = [];
+  for (let i = 0; i < pre; i++) ops.push(["=", a[i]]);
+  const n = A.length, m = B.length;
+  if (n * m > 4e6) {
+    for (const t of A) ops.push(["-", t]);
+    for (const t of B) ops.push(["+", t]);
+  } else if (n || m) {
+    const w = m + 1, dp = new Int32Array((n + 1) * w);
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = m - 1; j >= 0; j--) {
+        dp[i * w + j] = A[i] === B[j] ? dp[(i + 1) * w + j + 1] + 1 : Math.max(dp[(i + 1) * w + j], dp[i * w + j + 1]);
+      }
+    }
+    let i = 0, j = 0;
+    while (i < n && j < m) {
+      if (A[i] === B[j]) { ops.push(["=", A[i]]); i++; j++; }
+      else if (dp[(i + 1) * w + j] >= dp[i * w + j + 1]) { ops.push(["-", A[i]]); i++; }
+      else { ops.push(["+", B[j]]); j++; }
+    }
+    while (i < n) ops.push(["-", A[i++]]);
+    while (j < m) ops.push(["+", B[j++]]);
+  }
+  for (let i = a.length - suf; i < a.length; i++) ops.push(["=", a[i]]);
+  // Merge runs; inside each changed stretch show deletions before insertions.
+  const out = [];
+  let k = 0;
+  while (k < ops.length) {
+    if (ops[k][0] === "=") {
+      let s = "";
+      while (k < ops.length && ops[k][0] === "=") s += ops[k++][1];
+      out.push(["=", s]);
+    } else {
+      let d = "", ins = "", dn = 0, inn = 0;
+      while (k < ops.length && ops[k][0] !== "=") {
+        if (ops[k][0] === "-") { d += ops[k][1]; dn++; } else { ins += ops[k][1]; inn++; }
+        k++;
+      }
+      if (d) out.push(["-", d, dn]);
+      if (ins) out.push(["+", ins, inn]);
+    }
+  }
+  return out;
+}
+
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function showWs(s) {
+  // Make changed whitespace visible.
+  return esc(s).replace(/ /g, "\u00b7").replace(/\n/g, "\u21b5\n");
+}
+
+let diffPending = false;
+function scheduleDiff() {
+  if (diffPending) return;
+  diffPending = true;
+  requestAnimationFrame(() => { diffPending = false; renderDiff(); });
+}
+function renderDiff() {
+  if (!state.clip) return;
+  const lang = state.clip.language;
+  const ops = diffTokens(tokenize(state.clip.original_text, lang), tokenize($("text").value, lang));
+  let html = "", dels = 0, ins = 0;
+  for (const [op, s, count] of ops) {
+    if (op === "=") html += esc(s);
+    else if (op === "-") { dels += lang === "es" ? countWords(s) : count; html += "<del>" + showWs(s) + "</del>"; }
+    else { ins += lang === "es" ? countWords(s) : count; html += "<ins>" + showWs(s) + "</ins>"; }
+  }
+  $("diff").innerHTML = html || '<span class="muted">(empty)</span>';
+  const unit = lang === "es" ? "words" : "chars";
+  $("diff-stats").textContent = dels || ins ? `-${dels} +${ins} ${unit}` : "no changes";
+  updateDirty();
+}
+function countWords(s) { return (s.match(/[^\s]+/g) || []).length || 1; }
+
+/* ---------- tags ---------- */
+function buildTags(tags) {
+  const box = $("tags");
+  box.innerHTML = "";
+  tags.forEach((tag, i) => {
+    const label = document.createElement("label");
+    label.className = "tag " + tag;
+    label.innerHTML = `<input type="checkbox" value="${tag}" tabindex="-1"><kbd>${i + 1}</kbd> ${tag.replace(/_/g, " ")}`;
+    label.querySelector("input").addEventListener("change", () => { syncTagStyles(); updateDirty(); });
+    box.appendChild(label);
+  });
+}
+function tagInputs() { return Array.from($("tags").querySelectorAll("input")); }
+function currentTags() { return tagInputs().filter((x) => x.checked).map((x) => x.value); }
+function setTags(tags) { for (const x of tagInputs()) x.checked = tags.includes(x.value); syncTagStyles(); }
+function syncTagStyles() { for (const x of tagInputs()) x.parentElement.classList.toggle("checked", x.checked); }
+function toggleTag(i) {
+  const x = tagInputs()[i];
+  if (!x) return;
+  x.checked = !x.checked;
+  syncTagStyles();
+  updateDirty();
+}
+
+/* ---------- state ---------- */
+function isDirty() {
+  if (!state.clip) return false;
+  const t = currentTags();
+  return $("text").value !== state.baseText || t.length !== state.baseTags.length || t.some((x) => !state.baseTags.includes(x));
+}
+function updateDirty() {
+  const d = isDirty();
+  $("dirty").hidden = !d;
+  if (!state.clip) return;
+  if (d) state.drafts.set(state.clip.video_id, { text: $("text").value, tags: currentTags() });
+  else state.drafts.delete(state.clip.video_id);
+}
+
+function renderProgress() {
+  const q = state.queue;
+  const pct = q.total ? (100 * q.done) / q.total : 0;
+  $("bar").style.width = pct.toFixed(1) + "%";
+  $("progress-text").textContent = `${q.done} / ${q.total} done (${q.reviewed} reviewed, ${q.skipped} skipped)`;
+}
+
+const STATUS_TEXT = { todo: "not reviewed", reviewed: "reviewed", skipped: "skipped", rereview: "needs re-review" };
+
+function fmtDuration(s) {
+  if (s === null || s === undefined) return "?";
+  return s < 60 ? s.toFixed(1) + " s" : Math.floor(s / 60) + ":" + String(Math.round(s % 60)).padStart(2, "0");
+}
+
+async function loadClip(index, { play = false } = {}) {
+  const q = state.queue;
+  if (index < 0 || index >= q.items.length) return;
+  if (state.clip) updateDirty();
+  const id = q.items[index].video_id;
+  let clip;
+  try { clip = await api("/api/clip/" + encodeURIComponent(id)); } catch (e) { toast("Load failed: " + e.message); return; }
+  state.index = index;
+  state.clip = clip;
+  q.items[index].status = clip.status;
+  history.replaceState(null, "", "#" + id);
+
+  $("pos").textContent = `#${index + 1} of ${q.total}`;
+  $("flag").hidden = !clip.flagged;
+  $("status").textContent = STATUS_TEXT[clip.status] || clip.status;
+  $("status").className = "chip " + clip.status;
+  $("channel").textContent = clip.channel || "?";
+  $("duration").textContent = fmtDuration(clip.duration_s);
+  $("vid").textContent = id;
+  $("yt").href = clip.youtube_url;
+  $("caption-error").hidden = !clip.error;
+  $("caption-error").textContent = clip.error || "";
+
+  state.baseText = clip.text;
+  state.baseTags = clip.tags.slice();
+  const draft = state.drafts.get(id);
+  const ta = $("text");
+  ta.lang = clip.language;
+  $("diff").lang = clip.language;
+  ta.value = draft ? draft.text : clip.text;
+  setTags(draft ? draft.tags : clip.tags);
+
+  const audio = $("audio");
+  $("audio-error").hidden = clip.audio_available;
+  if (clip.audio_available) {
+    audio.src = "/audio/" + encodeURIComponent(id);
+    audio.defaultPlaybackRate = state.rate;
+    audio.playbackRate = state.rate;
+    if (play && $("autoplay").checked) audio.play().catch(() => {});
+  } else {
+    audio.removeAttribute("src");
+    audio.load();
+  }
+  $("prev").disabled = index === 0;
+  $("next").disabled = index === q.items.length - 1;
+  renderDiff();
+}
+
+function nextOpenIndex(from) {
+  const items = state.queue.items;
+  for (let i = from + 1; i < items.length; i++) if (items[i].status === "todo" || items[i].status === "rereview") return i;
+  for (let i = 0; i < from; i++) if (items[i].status === "todo" || items[i].status === "rereview") return i;
+  return -1;
+}
+
+async function submit(skip) {
+  if (!state.clip || state.busy) return;
+  state.busy = true;
+  const id = state.clip.video_id;
+  try {
+    const opts = skip
+      ? { method: "POST" }
+      : { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: $("text").value, tags: currentTags() }) };
+    const res = await api("/api/clip/" + encodeURIComponent(id) + (skip ? "/skip" : ""), opts);
+    state.drafts.delete(id);
+    state.queue = res.queue;
+    renderProgress();
+    toast(skip ? "Skipped" : "Saved");
+    const nxt = nextOpenIndex(state.index);
+    if (nxt === -1) {
+      await loadClip(state.index);
+      toast("All clips done. Nice work.");
+    } else {
+      await loadClip(nxt, { play: true });
+    }
+  } catch (e) {
+    toast("Save failed: " + e.message);
+  } finally {
+    state.busy = false;
+  }
+}
+
+function resetToOriginal() {
+  if (!state.clip) return;
+  const ta = $("text");
+  ta.focus();
+  ta.select();
+  // execCommand keeps the change on the undo stack; fall back to plain assignment.
+  if (!document.execCommand("insertText", false, state.clip.original_text)) ta.value = state.clip.original_text;
+  scheduleDiff();
+}
+
+function setRate(r) {
+  state.rate = r;
+  storeSet("clipbench.rate", r);
+  const audio = $("audio");
+  audio.defaultPlaybackRate = r;
+  audio.playbackRate = r;
+  for (const b of document.querySelectorAll("[data-rate]")) b.classList.toggle("on", Number(b.dataset.rate) === r);
+}
+function togglePlay() {
+  const a = $("audio");
+  if (!a.src) return;
+  if (a.paused) a.play().catch(() => {}); else a.pause();
+}
+function seek(delta) {
+  const a = $("audio");
+  if (!a.src) return;
+  a.currentTime = Math.max(0, Math.min((a.duration || 1e9), a.currentTime + delta));
+}
+function go(delta) {
+  const i = state.index + delta;
+  if (state.queue && i >= 0 && i < state.queue.items.length) loadClip(i);
+}
+
+/* ---------- keyboard ---------- */
+function isTyping(el) {
+  return el && (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && el.type !== "checkbox"));
+}
+document.addEventListener("keydown", (e) => {
+  if (!state.clip) return;
+  const typing = isTyping(document.activeElement);
+  const mod = e.ctrlKey || e.metaKey;
+
+  if (mod && e.key === "Enter") { e.preventDefault(); submit(false); return; }
+  if (e.key === "Escape") { if (typing) document.activeElement.blur(); return; }
+
+  if (e.altKey && !mod) {
+    const digit = /^Digit([1-9])$/.exec(e.code);
+    const handled = {
+      Space: togglePlay, ArrowLeft: () => seek(-2), ArrowRight: () => seek(2),
+      KeyS: () => submit(true), KeyR: resetToOriginal, BracketLeft: () => go(-1), BracketRight: () => go(1),
+    }[e.code];
+    if (handled) { e.preventDefault(); handled(); return; }
+    if (digit) { e.preventDefault(); toggleTag(Number(digit[1]) - 1); return; }
+    return;
+  }
+  if (typing || mod) return;
+
+  const digit = /^Digit([1-9])$/.exec(e.code);
+  if (digit) { e.preventDefault(); toggleTag(Number(digit[1]) - 1); return; }
+  switch (e.key) {
+    case " ": e.preventDefault(); togglePlay(); break;
+    case "ArrowLeft": e.preventDefault(); seek(-2); break;
+    case "ArrowRight": e.preventDefault(); seek(2); break;
+    case "s": case "S": e.preventDefault(); submit(true); break;
+    case "[": case "p": e.preventDefault(); go(-1); break;
+    case "]": case "n": e.preventDefault(); go(1); break;
+    case "z": setRate(0.75); break;
+    case "x": setRate(1); break;
+    case "c": setRate(1.25); break;
+    case "Enter": case "e": e.preventDefault(); $("text").focus(); break;
+  }
+});
+
+/* ---------- wiring ---------- */
+$("text").addEventListener("input", scheduleDiff);
+$("save").addEventListener("click", () => submit(false));
+$("skip").addEventListener("click", () => submit(true));
+$("reset").addEventListener("click", resetToOriginal);
+$("prev").addEventListener("click", () => go(-1));
+$("next").addEventListener("click", () => go(1));
+$("goto").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const n = Number(e.target.value);
+  if (n >= 1 && n <= state.queue.items.length) { loadClip(n - 1); e.target.value = ""; e.target.blur(); }
+});
+for (const b of document.querySelectorAll("[data-rate]")) b.addEventListener("click", () => setRate(Number(b.dataset.rate)));
+// Clicking a button should not leave focus on it, so space keeps meaning play/pause.
+for (const b of document.querySelectorAll("button")) b.addEventListener("mouseup", () => b.blur());
+$("audio").addEventListener("play", () => { if (document.activeElement === $("audio")) $("audio").blur(); });
+$("autoplay").checked = storeGet("clipbench.autoplay", true);
+$("autoplay").addEventListener("change", (e) => storeSet("clipbench.autoplay", e.target.checked));
+window.addEventListener("beforeunload", (e) => { if (state.drafts.size) { e.preventDefault(); e.returnValue = ""; } });
+
+async function init() {
+  try { state.queue = await api("/api/queue"); } catch (e) { $("progress-text").textContent = "error: " + e.message; return; }
+  const q = state.queue;
+  $("reviewer").textContent = q.reviewer;
+  buildTags(q.tags);
+  setRate(storeGet("clipbench.rate", 1));
+  renderProgress();
+  if (!q.items.length) { $("empty").hidden = false; return; }
+  $("main").hidden = false;
+  const fromHash = decodeURIComponent(location.hash.slice(1));
+  let start = q.items.findIndex((it) => it.video_id === fromHash);
+  if (start < 0) start = q.resume_index ?? 0;
+  await loadClip(start);
+}
+init();
+</script>
+</body>
+</html>

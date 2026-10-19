@@ -93,6 +93,7 @@ def test_save_writes_verified_json(data):
         "video_id", "language", "text", "original_text", "tags", "reviewer",
         "reviewed_at", "audio_sha256", "skipped",
         "category", "nonspeech_spans", "codeswitch_spans", "punctuated",
+        "conditions", "speaker_turns", "entity_spans", "alternatives", "itn_spans",
     }
     assert rec["video_id"] == IDS[0] and rec["language"] == "ja"
     assert rec["text"] == "fixed text" and rec["original_text"] == CAPTIONS[IDS[0]]
@@ -449,3 +450,222 @@ def test_foreign_host_and_cross_site_writes_rejected(v2data):
         f"/api/clip/{SHORT}", json={"text": "hola"}, headers={"origin": "http://127.0.0.1:8765", "host": "127.0.0.1:8765"}
     )
     assert ok.status_code == 200
+
+
+# ---------- v3: conditions, speaker turns, entity / alternative / ITN spans (docs/V3.md) ----------
+
+
+def _rec(s, vid):
+    return json.loads((s.verified_dir / f"{vid}.json").read_text(encoding="utf-8"))
+
+
+def test_v3_lists_in_queue(v2data):
+    q = client(v2data).get("/api/queue").json()
+    assert q["conditions"][0] == "music" and "code_switching" in q["conditions"]
+    assert q["entity_types"] == ["person", "brand", "place", "product", "other"]
+    assert "currency" in q["itn_kinds"]
+
+
+def test_conditions_saved_and_music_implied(v2data):
+    c = client(v2data)
+    body = {"text": "t", "conditions": ["outdoor_noise", "fast_speech", "fast_speech"]}
+    assert c.post(f"/api/clip/{SHORT}", json=body).status_code == 200
+    assert _rec(v2data, SHORT)["conditions"] == ["fast_speech", "outdoor_noise"]  # CONDITIONS order
+    # music follows the background_music tag ...
+    c.post(f"/api/clip/{SHORT}", json={"text": "t", "tags": ["background_music"], "conditions": []})
+    assert _rec(v2data, SHORT)["conditions"] == ["music"]
+    # ... or a music non-speech span
+    spans = [{"start_ms": 0, "end_ms": 500, "kind": "music"}]
+    c.post(f"/api/clip/{SHORT}", json={"text": "t", "nonspeech_spans": spans, "conditions": ["sfx"]})
+    assert _rec(v2data, SHORT)["conditions"] == ["music", "sfx"]
+    assert c.get(f"/api/clip/{SHORT}").json()["conditions"] == ["music", "sfx"]
+    assert c.post(f"/api/clip/{SHORT}", json={"text": "t", "conditions": ["rain"]}).status_code == 422
+
+
+def test_speaker_turns_saved_and_validated(v2data):
+    c = client(v2data)
+    turns = [
+        {"start_ms": 1200, "end_ms": 9999, "speaker": "B"},  # clipped to the 2 s WAV
+        {"start_ms": 0, "end_ms": 1300.4, "speaker": "A"},  # overlaps B: crosstalk is fine
+    ]
+    assert c.post(f"/api/clip/{SHORT}", json={"text": "t", "speaker_turns": turns}).status_code == 200
+    expect = [{"start_ms": 0, "end_ms": 1300, "speaker": "A"}, {"start_ms": 1200, "end_ms": 2000, "speaker": "B"}]
+    assert _rec(v2data, SHORT)["speaker_turns"] == expect
+    assert c.get(f"/api/clip/{SHORT}").json()["speaker_turns"] == expect
+    same = [{"start_ms": 0, "end_ms": 1000, "speaker": "A"}, {"start_ms": 900, "end_ms": 1500, "speaker": "A"}]
+    r = c.post(f"/api/clip/{SHORT}", json={"text": "t", "speaker_turns": same})
+    assert r.status_code == 422 and "overlap" in r.json()["detail"]
+    touching = [{"start_ms": 0, "end_ms": 1000, "speaker": "A"}, {"start_ms": 1000, "end_ms": 1500, "speaker": "A"}]
+    assert c.post(f"/api/clip/{SHORT}", json={"text": "t", "speaker_turns": touching}).status_code == 200
+    past_end = [{"start_ms": 2500, "end_ms": 3000, "speaker": "A"}]
+    assert c.post(f"/api/clip/{SHORT}", json={"text": "t", "speaker_turns": past_end}).status_code == 422
+    bad_label = [{"start_ms": 0, "end_ms": 300, "speaker": "Speaker One!"}]
+    assert c.post(f"/api/clip/{SHORT}", json={"text": "t", "speaker_turns": bad_label}).status_code == 422
+
+
+def test_clean_speaker_turns_unit():
+    out = store.clean_speaker_turns([{"start_ms": -5, "end_ms": 10, "speaker": " A "}], None)
+    assert out == [{"start_ms": 0, "end_ms": 10, "speaker": "A"}]
+    with pytest.raises(ValueError):
+        store.clean_speaker_turns([{"start_ms": 0, "end_ms": 0, "speaker": "A"}])
+
+
+def test_entity_and_itn_spans_saved(v2data):
+    c = client(v2data)
+    text = "hola Netflix, son 25 euros"
+    body = {
+        "text": text,
+        "entity_spans": [{"start": 5, "end": 12, "type": "brand", "text": "Netflix"}],
+        "itn_spans": [{"start": 18, "end": 26, "kind": "currency", "text": "25 euros"}],
+    }
+    r = c.post(f"/api/clip/{SHORT}", json=body).json()
+    assert r["dropped"] == {"codeswitch_spans": [], "entity_spans": [], "alternatives": [], "itn_spans": []}
+    rec = _rec(v2data, SHORT)
+    assert rec["entity_spans"] == [{"start": 5, "end": 12, "type": "brand"}]
+    assert rec["itn_spans"] == [{"start": 18, "end": 26, "kind": "currency"}]
+    clip = c.get(f"/api/clip/{SHORT}").json()
+    assert clip["entity_spans"] == [{"start": 5, "end": 12, "type": "brand", "text": "Netflix"}]
+    assert clip["itn_spans"] == [{"start": 18, "end": 26, "kind": "currency", "text": "25 euros"}]
+    bad = {"text": text, "entity_spans": [{"start": 5, "end": 12, "type": "company"}]}
+    assert c.post(f"/api/clip/{SHORT}", json=bad).status_code == 422
+    bad = {"text": text, "itn_spans": [{"start": 18, "end": 20, "kind": "roman"}]}
+    assert c.post(f"/api/clip/{SHORT}", json=bad).status_code == 422
+
+
+def test_alternatives_saved_with_reference_first(v2data):
+    c = client(v2data)
+    text = "今日は ok です"
+    body = {
+        "text": text,
+        "alternatives": [
+            {"start": 0, "end": 2, "options": ["きょう", " きょう ", "今日"], "text": "今日"},
+            {"start": 4, "end": 6, "options": ["okay"], "text": "ok"},
+        ],
+    }
+    r = c.post(f"/api/clip/{WIN}", json=body)
+    assert r.status_code == 200
+    rec = _rec(v2data, WIN)
+    assert rec["alternatives"] == [
+        {"start": 0, "end": 2, "options": ["今日", "きょう"]},
+        {"start": 4, "end": 6, "options": ["ok", "okay"]},
+    ]
+    clip = c.get(f"/api/clip/{WIN}").json()  # the page gets only the other spellings
+    assert clip["alternatives"][0] == {"start": 0, "end": 2, "options": ["きょう"], "text": "今日"}
+    # no other spelling left: dropped with a warning
+    lone = {"text": text, "alternatives": [{"start": 0, "end": 2, "options": ["今日"], "text": "今日"}]}
+    r = c.post(f"/api/clip/{WIN}", json=lone).json()
+    assert r["record"]["alternatives"] == [] and r["dropped"]["alternatives"][0]["text"] == "今日"
+    overlap = {
+        "text": text,
+        "alternatives": [{"start": 0, "end": 2, "options": ["きょう"]}, {"start": 1, "end": 3, "options": ["x"]}],
+    }
+    assert c.post(f"/api/clip/{WIN}", json=overlap).status_code == 422
+    too_many = {"text": text, "alternatives": [{"start": 0, "end": 2, "options": [str(i) for i in range(11)]}]}
+    assert c.post(f"/api/clip/{WIN}", json=too_many).status_code == 422
+
+
+def test_v3_text_spans_reanchored_and_dropped(v2data):
+    """Every text span field re-anchors like codeswitch_spans: stale offsets are re-found by the span's
+    text, spans whose text is gone are dropped and reported."""
+    c = client(v2data)
+    text = "Oh, hola Netflix, son 25 euros"  # "Oh, " was added before everything
+    body = {
+        "text": text,
+        "entity_spans": [
+            {"start": 5, "end": 12, "type": "brand", "text": "Netflix"},
+            {"start": 0, "end": 4, "type": "person", "text": "Pepe"},
+        ],
+        "itn_spans": [{"start": 18, "end": 20, "kind": "number", "text": "25"}],
+        "alternatives": [{"start": 18, "end": 20, "options": ["veinticinco"], "text": "25"}],
+    }
+    r = c.post(f"/api/clip/{SHORT}", json=body).json()
+    rec = r["record"]
+    assert rec["entity_spans"] == [{"start": 9, "end": 16, "type": "brand"}]
+    assert rec["itn_spans"] == [{"start": 22, "end": 24, "kind": "number"}]
+    assert rec["alternatives"] == [{"start": 22, "end": 24, "options": ["25", "veinticinco"]}]
+    assert [d["text"] for d in r["dropped"]["entity_spans"]] == ["Pepe"]
+
+
+def test_v3_text_spans_utf16_offsets(v2data):
+    c = client(v2data)
+    text = "\U0001f600 hola Netflix"  # js: Netflix at 8..15; python: 7..14
+    body = {"text": text, "entity_spans": [{"start": 8, "end": 15, "type": "brand"}]}
+    assert c.post(f"/api/clip/{SHORT}", json=body).status_code == 200
+    assert _rec(v2data, SHORT)["entity_spans"] == [{"start": 7, "end": 14, "type": "brand"}]
+    clip = c.get(f"/api/clip/{SHORT}").json()
+    assert clip["entity_spans"] == [{"start": 8, "end": 15, "type": "brand", "text": "Netflix"}]
+
+
+def test_old_verified_file_without_v3_fields_loads(v2data):
+    """A v2 file (no conditions, speaker turns or v3 spans) opens with empty v3 fields, still parses as a
+    Reference, and keeps its old fields when saved again."""
+    old = {
+        "video_id": SHORT, "language": "es", "text": "hola everyone", "original_text": "hola everyone",
+        "tags": ["noisy"], "reviewer": "old", "reviewed_at": "2026-01-01T00:00:00Z", "audio_sha256": None,
+        "skipped": False, "category": "gaming", "nonspeech_spans": [],
+        "codeswitch_spans": [{"start": 5, "end": 13, "lang": "en"}], "punctuated": True,
+    }  # fmt: skip
+    v2data.verified_dir.mkdir(parents=True, exist_ok=True)
+    (v2data.verified_dir / f"{SHORT}.json").write_text(json.dumps(old), encoding="utf-8")
+    ref = Reference(tier="verified", **{k: old[k] for k in ("video_id", "language", "text", "tags")})
+    assert ref.conditions == [] and ref.speaker_turns == [] and ref.alternatives == []
+    c = client(v2data)
+    clip = c.get(f"/api/clip/{SHORT}").json()
+    assert clip["status"] == "reviewed" and clip["text"] == "hola everyone"
+    assert clip["conditions"] == [] and clip["speaker_turns"] == []
+    assert clip["entity_spans"] == clip["alternatives"] == clip["itn_spans"] == []
+    assert clip["codeswitch_spans"] == [{"start": 5, "end": 13, "lang": "en", "text": "everyone"}]
+    body = {k: clip[k] for k in ("text", "tags", "category", "nonspeech_spans", "codeswitch_spans", "punctuated")}
+    assert c.post(f"/api/clip/{SHORT}", json=body).status_code == 200
+    rec = _rec(v2data, SHORT)
+    for key in old:
+        assert key in rec
+    assert rec["codeswitch_spans"] == old["codeswitch_spans"] and rec["category"] == "gaming"
+    assert rec["conditions"] == [] and rec["speaker_turns"] == [] and rec["itn_spans"] == []
+
+
+def test_verified_file_parses_as_reference(v2data):
+    c = client(v2data)
+    body = {
+        "text": "hola Netflix",
+        "conditions": ["sfx"],
+        "speaker_turns": [{"start_ms": 0, "end_ms": 900, "speaker": "A"}],
+        "entity_spans": [{"start": 5, "end": 12, "type": "brand"}],
+        "alternatives": [{"start": 0, "end": 4, "options": ["ola"]}],
+        "itn_spans": [],
+    }
+    c.post(f"/api/clip/{SHORT}", json=body)
+    rec = _rec(v2data, SHORT)
+    fields = set(Reference.model_fields) - {"tier", "words"}
+    ref = Reference(tier="verified", **{k: v for k, v in rec.items() if k in fields})
+    assert ref.speaker_turns[0].speaker == "A" and ref.entity_spans[0].type == "brand"
+    assert ref.alternatives[0].options == ["hola", "ola"]
+
+
+def test_skip_has_v3_defaults(v2data):
+    c = client(v2data)
+    c.post(f"/api/clip/{SHORT}/skip")
+    rec = _rec(v2data, SHORT)
+    for key in ("conditions", "speaker_turns", "entity_spans", "alternatives", "itn_spans"):
+        assert rec[key] == []
+
+
+def test_suggest_alternatives_endpoint(v2data):
+    c = client(v2data)
+    assert c.post("/api/suggest", json={"text": "25", "language": "en"}).json()["options"] == ["twenty five"]
+    assert c.post("/api/suggest", json={"text": "twenty-five", "language": "en"}).json()["options"] == ["25"]
+    assert c.post("/api/suggest", json={"text": "25", "language": "es"}).json()["options"] == ["veinticinco"]
+    assert "okay" in c.post("/api/suggest", json={"text": "ok", "language": "en"}).json()["options"]
+    hi = c.post("/api/suggest", json={"text": "क्या", "language": "hi"}).json()["options"]
+    assert hi == ["kya"]
+    ja = c.post("/api/suggest", json={"text": "2024", "language": "ja"}).json()["options"]
+    assert ja == ["にせんにじゅうよん"]
+    assert c.post("/api/suggest", json={"text": "かわいい", "language": "ja"}).json()["options"] == ["カワイイ"]
+    assert c.post("/api/suggest", json={"text": "x", "language": "Japanese!"}).status_code == 422
+    assert c.post("/api/suggest", json={"text": "x" * 201, "language": "en"}).status_code == 422
+
+
+def test_suggest_japanese_kana_reading():
+    pytest.importorskip("fugashi")
+    pytest.importorskip("unidic_lite")
+    assert "きょう" in store.suggest_alternatives("ja", "今日")

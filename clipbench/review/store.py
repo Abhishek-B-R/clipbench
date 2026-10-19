@@ -18,6 +18,7 @@ import re
 import tempfile
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +40,14 @@ CATEGORIES: list[str] = list(
     )
 )
 NONSPEECH_KINDS: list[str] = list(getattr(models, "NONSPEECH_KINDS", ["music", "sfx", "silence"]))
+CONDITIONS: list[str] = list(models.CONDITIONS)
+ENTITY_TYPES: list[str] = list(models.ENTITY_TYPES)
+ITN_KINDS: list[str] = list(models.ITN_KINDS)
+SPEAKER_RE = re.compile(r"^[A-Za-z0-9_-]{1,16}$")
+# Text span fields of a verified file (docs/V3.md). All hold code point offsets into `text`.
+TEXT_SPAN_FIELDS = ("codeswitch_spans", "entity_spans", "alternatives", "itn_spans")
+MAX_OPTIONS = 10
+MAX_OPTION_LEN = 200
 
 
 @dataclass
@@ -426,6 +435,44 @@ def spans_from_browser(text: str, spans: list[dict]) -> list[dict]:
     return out
 
 
+def _anchor(text: str, s: dict, what: str) -> tuple[int, int] | None:
+    """Final (start, end) of a text span, re-anchored by its `text` when the offsets went stale.
+
+    None means the span no longer fits the text (dropped). Malformed offsets raise ValueError.
+    """
+    try:
+        start, end = int(s["start"]), int(s["end"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(f"bad {what} span: {s!r}") from exc
+    anchor = s.get("text")
+    if isinstance(anchor, str) and anchor:
+        pos = reanchor_span(text, anchor, start)
+        if pos is None:
+            return None
+        start, end = pos
+    if not (0 <= start < end <= len(text)):
+        return None
+    return start, end
+
+
+def _clean_text_spans(text: str, spans: list[dict], what: str, extra) -> tuple[list[dict], list[dict]]:
+    """Shared re-anchoring for text spans. `extra(span)` validates and returns the span's own fields
+    (raising ValueError on a bad value, even for a span that would be dropped)."""
+    kept: list[dict] = []
+    dropped: list[dict] = []
+    for s in spans:
+        fields = extra(s)
+        pos = _anchor(text, s, what)
+        if pos is None:
+            dropped.append({"start": s.get("start"), "end": s.get("end"), **fields, "text": s.get("text")})
+            continue
+        kept.append({"start": pos[0], "end": pos[1], **fields})
+    kept.sort(key=lambda s: (s["start"], s["end"]))
+    # Drop exact duplicates; overlapping spans are left as tagged.
+    unique = [s for i, s in enumerate(kept) if i == 0 or s != kept[i - 1]]
+    return unique, dropped
+
+
 def clean_codeswitch(text: str, spans: list[dict]) -> tuple[list[dict], list[dict]]:
     """Validate {start, end, lang, text?} spans against the final text.
 
@@ -433,31 +480,206 @@ def clean_codeswitch(text: str, spans: list[dict]) -> tuple[list[dict], list[dic
     span is re-anchored to the nearest occurrence; spans that cannot be found are dropped and
     returned separately so the UI can warn. Returns (kept, dropped); kept spans have start, end, lang.
     """
-    kept: list[dict] = []
-    dropped: list[dict] = []
-    for s in spans:
+
+    def extra(s: dict) -> dict:
         lang = s.get("lang") or "en"
         if not isinstance(lang, str) or not LANG_RE.match(lang):
             raise ValueError(f"bad code-switch language: {lang!r}")
-        try:
-            start, end = int(s["start"]), int(s["end"])
-        except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError(f"bad code-switch span: {s!r}") from exc
-        anchor = s.get("text")
-        if isinstance(anchor, str) and anchor:
-            pos = reanchor_span(text, anchor, start)
-            if pos is None:
-                dropped.append({"start": start, "end": end, "lang": lang, "text": anchor})
-                continue
-            start, end = pos
-        if not (0 <= start < end <= len(text)):
-            dropped.append({"start": start, "end": end, "lang": lang, "text": anchor})
+        return {"lang": lang}
+
+    return _clean_text_spans(text, spans, "code-switch", extra)
+
+
+def clean_entities(text: str, spans: list[dict]) -> tuple[list[dict], list[dict]]:
+    """{start, end, type, text?} proper noun / brand spans (B17); type in ENTITY_TYPES."""
+
+    def extra(s: dict) -> dict:
+        kind = s.get("type") or "other"
+        if kind not in ENTITY_TYPES:
+            raise ValueError(f"unknown entity type: {kind!r}")
+        return {"type": kind}
+
+    return _clean_text_spans(text, spans, "entity", extra)
+
+
+def clean_itn(text: str, spans: list[dict]) -> tuple[list[dict], list[dict]]:
+    """{start, end, kind, text?} spans whose written form matters (A6); kind in ITN_KINDS."""
+
+    def extra(s: dict) -> dict:
+        kind = s.get("kind") or "number"
+        if kind not in ITN_KINDS:
+            raise ValueError(f"unknown ITN kind: {kind!r}")
+        return {"kind": kind}
+
+    return _clean_text_spans(text, spans, "ITN", extra)
+
+
+def clean_alternatives(text: str, spans: list[dict]) -> tuple[list[dict], list[dict]]:
+    """{start, end, options, text?} valid alternative spellings (A7).
+
+    Saved options always start with the reference text at [start:end], then the other spellings
+    (stripped, de-duplicated). A span left with no other spelling is dropped. Alternative spans must
+    not overlap each other, so the scorer's lattice has one path per stretch of text.
+    """
+
+    def extra(s: dict) -> dict:
+        options = s.get("options")
+        if not isinstance(options, list) or not all(isinstance(o, str) for o in options):
+            raise ValueError(f"bad alternatives options: {options!r}")
+        if len(options) > MAX_OPTIONS or any(len(o) > MAX_OPTION_LEN for o in options):
+            raise ValueError("too many or too long alternative options")
+        return {"options": [o.strip() for o in options]}
+
+    kept, dropped = _clean_text_spans(text, spans, "alternative", extra)
+    out: list[dict] = []
+    for s in kept:
+        ref = text[s["start"] : s["end"]]
+        others: list[str] = []
+        for o in s["options"]:
+            if o and o != ref and o not in others:
+                others.append(o)
+        if not others:
+            dropped.append({**s, "text": ref})
             continue
-        kept.append({"start": start, "end": end, "lang": lang})
-    kept.sort(key=lambda s: (s["start"], s["end"]))
-    # Drop exact duplicates; overlapping spans are left as tagged.
-    unique = [s for i, s in enumerate(kept) if i == 0 or s != kept[i - 1]]
-    return unique, dropped
+        out.append({"start": s["start"], "end": s["end"], "options": [ref, *others]})
+    for a, b in zip(out, out[1:], strict=False):
+        if b["start"] < a["end"]:
+            raise ValueError(f"alternative spans overlap: {text[a['start']:a['end']]!r} and {text[b['start']:b['end']]!r}")
+    return out, dropped
+
+
+def clean_conditions(conditions: list[str], tags: list[str], nonspeech_spans: list[dict]) -> list[str]:
+    """Audio conditions (A4) in CONDITIONS order. `music` is implied by the background_music tag or a
+    music non-speech span (docs/V3.md)."""
+    unknown = [c for c in conditions if c not in CONDITIONS]
+    if unknown:
+        raise ValueError(f"unknown conditions: {unknown}")
+    chosen = set(conditions)
+    if "background_music" in tags or any(s.get("kind") == "music" for s in nonspeech_spans):
+        chosen.add("music")
+    return [c for c in CONDITIONS if c in chosen]
+
+
+def clean_speaker_turns(turns: list[dict], duration_ms: int | None = None) -> list[dict]:
+    """Validate {start_ms, end_ms, speaker} turns (B15): clip to the audio, sort, and refuse two turns of
+    the same speaker that overlap (different speakers may overlap: crosstalk)."""
+    out = []
+    for t in turns:
+        speaker = t.get("speaker")
+        speaker = speaker.strip() if isinstance(speaker, str) else speaker
+        if not isinstance(speaker, str) or not SPEAKER_RE.match(speaker):
+            raise ValueError(f"bad speaker label: {speaker!r}")
+        try:
+            start, end = int(round(float(t["start_ms"]))), int(round(float(t["end_ms"])))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"bad speaker turn: {t!r}") from exc
+        start = max(0, start)
+        if duration_ms:
+            end = min(end, duration_ms)
+        if end <= start:
+            raise ValueError(f"empty speaker turn (or past the end of the audio): {t!r}")
+        out.append({"start_ms": start, "end_ms": end, "speaker": speaker})
+    out.sort(key=lambda t: (t["start_ms"], t["end_ms"], t["speaker"]))
+    last_end: dict[str, int] = {}
+    for t in out:
+        if t["start_ms"] < last_end.get(t["speaker"], -1):
+            raise ValueError(f"speaker {t['speaker']} has overlapping turns at {t['start_ms']} ms")
+        last_end[t["speaker"]] = max(last_end.get(t["speaker"], -1), t["end_ms"])
+    return out
+
+
+def text_spans_for_browser(text: str, field: str, spans: list[dict] | None) -> list[dict]:
+    """Saved text spans as the page wants them: UTF-16 offsets plus the anchor `text`. Alternatives
+    list only the other spellings (the reference text is implied)."""
+    out = []
+    for sp in spans or []:
+        try:
+            start, end = int(sp["start"]), int(sp["end"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if not (0 <= start < end <= len(text)):
+            continue
+        item = {
+            **sp,
+            "start": index_to_utf16(text, start),
+            "end": index_to_utf16(text, end),
+            "text": text[start:end],
+        }
+        if field == "alternatives":
+            item["options"] = [o for o in sp.get("options") or [] if isinstance(o, str) and o != text[start:end]]
+        out.append(item)
+    return out
+
+
+_EN_VARIANTS = {
+    "ok": ["okay"], "okay": ["ok"], "alright": ["all right"], "all right": ["alright"],
+    "gonna": ["going to"], "wanna": ["want to"], "gotta": ["got to"], "kinda": ["kind of"],
+    "percent": ["%"], "%": ["percent"],
+}  # fmt: skip
+
+
+@lru_cache(maxsize=8)
+def _number_words(language: str) -> dict[str, str]:
+    """Spelled-out number (lowercase) -> digits, for the languages normalize.py can spell."""
+    from clipbench.scoring import normalize as nz
+
+    speller = {
+        "en": nz.english_number_words,
+        "es": nz.spanish_number_words,
+        "ja": nz.japanese_number_reading,
+    }.get(language)
+    if speller is None:
+        return {}
+    top = 10000 if language == "ja" else 1000
+    return {speller(n).lower(): str(n) for n in range(top + 1)}
+
+
+def suggest_alternatives(language: str, text: str) -> list[str]:
+    """Quick alternative spellings for a selected span: digits vs words, the kana reading for ja (via
+    the scorer's reading normaliser), a Hinglish romanisation for Devanagari, a few en variants."""
+    from clipbench.scoring import normalize as nz
+
+    lang = (language or "").split("-")[0].lower()
+    t = text.strip()
+    if not t:
+        return []
+    out: list[str] = []
+    digits = nz.nfkc(t).replace(",", "")
+    if re.fullmatch(r"\d{1,15}", digits):
+        n = int(digits)
+        if digits != t:
+            out.append(digits)
+        if lang == "ja":
+            out.append(nz.japanese_number_reading(n))
+        elif lang == "es":
+            out.append(nz.spanish_number_words(n))
+        elif lang in ("en", "hi"):
+            out.append(nz.english_number_words(n))
+        if n >= 1000 and lang in ("en", "es", "hi"):
+            out.append(f"{n:,}")
+    elif (num := _number_words(lang).get(re.sub(r"[\s-]+", " ", t.lower()))) is not None:
+        out.append(num)
+    if lang == "ja":
+        if re.search(r"[\u4e00-\u9fff\u3400-\u4dbf\u30a0-\u30ff々]", t):
+            try:
+                out.append(nz.japanese_reading(t))
+            except Exception:  # no fugashi / unidic: try pykakasi alone, else nothing
+                try:
+                    out.append(nz._pykakasi_reading(t))
+                except Exception:
+                    pass
+        elif re.fullmatch(r"[\u3041-\u3096ー]+", t):
+            out.append("".join(chr(ord(ch) + 0x60) if "ぁ" <= ch <= "ゖ" else ch for ch in t))
+    if lang == "hi" and re.search(r"[\u0900-\u097f]", t):
+        out.append(nz.transliterate_devanagari(t))
+    if lang == "en":
+        out.extend(_EN_VARIANTS.get(t.lower(), []))
+    seen: list[str] = []
+    for o in out:
+        o = o.strip()
+        if o and o != t and o not in seen:
+            seen.append(o)
+    return seen[:6]
 
 
 def build_record(
@@ -473,14 +695,22 @@ def build_record(
     nonspeech_spans: list[dict] | None = None,
     codeswitch_spans: list[dict] | None = None,
     punctuated: bool = False,
+    conditions: list[str] | None = None,
+    speaker_turns: list[dict] | None = None,
+    entity_spans: list[dict] | None = None,
+    alternatives: list[dict] | None = None,
+    itn_spans: list[dict] | None = None,
 ) -> dict:
-    """The verified file. Spans must already be cleaned (clean_nonspeech, clean_codeswitch)."""
+    """The verified file (docs/INTERFACES.md plus V2.md and V3.md additions). Spans and turns must
+    already be cleaned (clean_nonspeech, clean_codeswitch, clean_speaker_turns, ...); conditions are
+    cleaned here because `music` follows from the tags and the non-speech spans."""
+    tags = clean_tags(tags)
     return {
         "video_id": item.video_id,
         "language": item.language,
         "text": text,
         "original_text": original_text,
-        "tags": clean_tags(tags),
+        "tags": tags,
         "reviewer": reviewer,
         "reviewed_at": utc_now_iso(),
         "audio_sha256": audio_sha256(settings, item.video_id),
@@ -489,6 +719,11 @@ def build_record(
         "nonspeech_spans": nonspeech_spans or [],
         "codeswitch_spans": codeswitch_spans or [],
         "punctuated": bool(punctuated),
+        "conditions": clean_conditions(conditions or [], tags, nonspeech_spans or []),
+        "speaker_turns": speaker_turns or [],
+        "entity_spans": entity_spans or [],
+        "alternatives": alternatives or [],
+        "itn_spans": itn_spans or [],
     }
 
 

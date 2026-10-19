@@ -40,6 +40,30 @@ class CodeswitchSpan(BaseModel):
     text: str | None = None  # the tagged text, used to re-anchor if the offsets went stale
 
 
+class TextSpanIn(BaseModel):
+    start: int
+    end: int
+    text: str | None = None  # the tagged text, used to re-anchor if the offsets went stale
+
+
+class EntitySpanIn(TextSpanIn):
+    type: str = "other"
+
+
+class AlternativeSpanIn(TextSpanIn):
+    options: list[str] = Field(default_factory=list)  # other spellings; the reference text is implied
+
+
+class ItnSpanIn(TextSpanIn):
+    kind: str = "number"
+
+
+class SpeakerTurnIn(BaseModel):
+    start_ms: float
+    end_ms: float
+    speaker: str
+
+
 class SaveBody(BaseModel):
     text: str
     tags: list[str] = Field(default_factory=list)
@@ -47,6 +71,25 @@ class SaveBody(BaseModel):
     nonspeech_spans: list[NonspeechSpan] = Field(default_factory=list)
     codeswitch_spans: list[CodeswitchSpan] = Field(default_factory=list)
     punctuated: bool = False
+    # v3, docs/V3.md
+    conditions: list[str] = Field(default_factory=list)
+    speaker_turns: list[SpeakerTurnIn] = Field(default_factory=list)
+    entity_spans: list[EntitySpanIn] = Field(default_factory=list)
+    alternatives: list[AlternativeSpanIn] = Field(default_factory=list)
+    itn_spans: list[ItnSpanIn] = Field(default_factory=list)
+
+
+class SuggestBody(BaseModel):
+    text: str = Field(max_length=200)
+    language: str
+
+
+TEXT_SPAN_CLEANERS = {
+    "codeswitch_spans": store.clean_codeswitch,
+    "entity_spans": store.clean_entities,
+    "alternatives": store.clean_alternatives,
+    "itn_spans": store.clean_itn,
+}
 
 
 def create_app(
@@ -99,6 +142,9 @@ def create_app(
             "tags": TAGS,
             "categories": store.CATEGORIES,
             "nonspeech_kinds": store.NONSPEECH_KINDS,
+            "conditions": store.CONDITIONS,
+            "entity_types": store.ENTITY_TYPES,
+            "itn_kinds": store.ITN_KINDS,
             "total": len(queue.items),
             "done": done,
             "reviewed": statuses.count("reviewed"),
@@ -132,22 +178,10 @@ def create_app(
         rec = store.read_verified(settings, video_id)
         saved = rec is not None and not rec.get("skipped")
         text = rec["text"] if saved else original
-        spans = []
-        if saved:
-            for sp in rec.get("codeswitch_spans") or []:
-                try:
-                    start, end = int(sp["start"]), int(sp["end"])
-                    # The page works in UTF-16 units (JS strings); the file in code points.
-                    spans.append(
-                        {
-                            **sp,
-                            "start": store.index_to_utf16(text, start),
-                            "end": store.index_to_utf16(text, end),
-                            "text": text[start:end],
-                        }
-                    )
-                except (KeyError, TypeError, ValueError):
-                    continue
+        # The page works in UTF-16 units (JS strings); the file in code points.
+        text_spans = {
+            f: store.text_spans_for_browser(text, f, rec.get(f) if saved else None) for f in store.TEXT_SPAN_FIELDS
+        }
         saved_category = rec.get("category") if saved else None
         return {
             "video_id": video_id,
@@ -171,8 +205,10 @@ def create_app(
             "category": saved_category or item.category,
             "category_prefilled": saved_category is None and item.category is not None,
             "nonspeech_spans": (rec.get("nonspeech_spans") or []) if saved else [],
-            "codeswitch_spans": spans,
+            **text_spans,
             "punctuated": bool(rec.get("punctuated")) if saved else False,
+            "conditions": (rec.get("conditions") or []) if saved else [],
+            "speaker_turns": (rec.get("speaker_turns") or []) if saved else [],
             "saved": rec,
         }
 
@@ -189,19 +225,20 @@ def create_app(
 
     def save(item: store.QueueItem, body: SaveBody | None) -> dict:
         original, _, _ = creator(item.video_id)
-        dropped: list[dict] = []
+        dropped: dict[str, list[dict]] = {f: [] for f in store.TEXT_SPAN_FIELDS}
         try:
             if body is None:  # skip
                 record = store.build_record(
                     settings, item, text="", original_text=original, tags=[], reviewer=reviewer, skipped=True
                 )
             else:
-                nonspeech = store.clean_nonspeech(
-                    [s.model_dump() for s in body.nonspeech_spans], wav_duration_ms(item.video_id)
-                )
-                codeswitch, dropped = store.clean_codeswitch(
-                    body.text, store.spans_from_browser(body.text, [s.model_dump() for s in body.codeswitch_spans])
-                )
+                duration = wav_duration_ms(item.video_id)
+                nonspeech = store.clean_nonspeech([s.model_dump() for s in body.nonspeech_spans], duration)
+                turns = store.clean_speaker_turns([t.model_dump() for t in body.speaker_turns], duration)
+                cleaned: dict[str, list[dict]] = {}
+                for f, clean in TEXT_SPAN_CLEANERS.items():
+                    spans = store.spans_from_browser(body.text, [s.model_dump() for s in getattr(body, f)])
+                    cleaned[f], dropped[f] = clean(body.text, spans)
                 record = store.build_record(
                     settings,
                     item,
@@ -212,13 +249,23 @@ def create_app(
                     skipped=False,
                     category=body.category,
                     nonspeech_spans=nonspeech,
-                    codeswitch_spans=codeswitch,
+                    codeswitch_spans=cleaned["codeswitch_spans"],
                     punctuated=body.punctuated,
+                    conditions=body.conditions,
+                    speaker_turns=turns,
+                    entity_spans=cleaned["entity_spans"],
+                    alternatives=cleaned["alternatives"],
+                    itn_spans=cleaned["itn_spans"],
                 )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         store.save_verified(settings, record)
-        return {"record": record, "dropped_codeswitch_spans": dropped, "queue": queue_state()}
+        return {
+            "record": record,
+            "dropped_codeswitch_spans": dropped["codeswitch_spans"],
+            "dropped": dropped,  # per text span field, spans that no longer fit the text
+            "queue": queue_state(),
+        }
 
     @app.post("/api/clip/{video_id}")
     def post_clip(video_id: str, body: SaveBody) -> dict:
@@ -227,6 +274,13 @@ def create_app(
     @app.post("/api/clip/{video_id}/skip")
     def skip_clip(video_id: str) -> dict:
         return save(item_or_404(video_id), None)
+
+    @app.post("/api/suggest")
+    def suggest(body: SuggestBody) -> dict:
+        """Quick alternative spellings for a selected span (POST so caption text stays out of URLs)."""
+        if not store.LANG_RE.match(body.language):
+            raise HTTPException(status_code=422, detail="bad language code")
+        return {"options": store.suggest_alternatives(body.language, body.text)}
 
     @app.get("/api/clip/{video_id}/peaks")
     def peaks(video_id: str, n: int = Query(1000, ge=50, le=4000)) -> dict:

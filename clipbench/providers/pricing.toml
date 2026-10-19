@@ -153,3 +153,79 @@ trains_by_default = true
 opt_out_status = "not_offered"   # applied | not_offered | not_needed
 policy_url = "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_ai-opt-out.html"
 notes = "The pricing tier table did not render when checked. Third-party sources give 0.024/min tier 1 (US East); the official page's batch example uses 0.006/min. 0.024 kept as the conservative figure for the budget guard. Verify before publishing cost results."
+
+# ------------------------------------------------------------------ Cloudflare Workers AI
+# Billed in neurons: 0.011 USD per 1,000 neurons, first 10,000 neurons per day free (resets 00:00 UTC).
+# usd_per_minute = neurons_per_minute * 0.011 / 1000 (list price, free allocation ignored).
+# Data policy, all Workers AI models: https://developers.cloudflare.com/workers-ai/platform/data-usage/
+# "does not use Customer Content processed by Workers AI to train AI models"; inputs and outputs are
+# not retained after they are no longer needed (no AI Gateway logging is used). Operational metadata only.
+# Rate limit: 720 requests per minute for Automatic Speech Recognition (platform/limits/).
+
+[cf-whisper-large-v3-turbo]
+model_id = "@cf/openai/whisper-large-v3-turbo"
+usd_per_minute = 0.00051293       # 46.63 neurons per audio minute; 0.0308 USD per hour
+neurons_per_minute = 46.63
+usd_per_1k_neurons = 0.011
+min_billed_seconds = 0            # none stated
+checked_url = "https://developers.cloudflare.com/workers-ai/platform/pricing/"
+checked_on = "2026-10-19"
+data_policy = "Cloudflare does not train on Workers AI inputs and does not retain them after the request (https://developers.cloudflare.com/workers-ai/platform/data-usage/)"
+opt_out = "not needed; no AI Gateway logging is used"
+# policy fields from data_policy above; a missing key means unknown (exported as null)
+retention_days = 0
+trains_by_default = false
+opt_out_status = "not_needed"   # applied | not_offered | not_needed
+policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+notes = "Base64 JSON input with language and task=transcribe; word timings in segments[].words. Model page lists 0.000513 per audio minute. Files longer than chunk_seconds (240) are split into WAV chunks."
+
+[cf-whisper]
+model_id = "@cf/openai/whisper"
+usd_per_minute = 0.00045254       # 41.14 neurons per audio minute; 0.0272 USD per hour
+neurons_per_minute = 41.14
+usd_per_1k_neurons = 0.011
+min_billed_seconds = 0
+checked_url = "https://developers.cloudflare.com/workers-ai/platform/pricing/"
+checked_on = "2026-10-19"
+data_policy = "Cloudflare does not train on Workers AI inputs and does not retain them after the request (https://developers.cloudflare.com/workers-ai/platform/data-usage/)"
+opt_out = "not needed; no AI Gateway logging is used"
+# policy fields from data_policy above; a missing key means unknown (exported as null)
+retention_days = 0
+trains_by_default = false
+opt_out_status = "not_needed"   # applied | not_offered | not_needed
+policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+notes = "Raw bytes input with NO language parameter: the language is auto detected, so non-English clips can come back in the wrong language. Model size is not documented. Word timings in words[]."
+
+[cf-whisper-tiny-en]
+model_id = "@cf/openai/whisper-tiny-en"
+usd_per_minute = 0.00045254       # UNVERIFIED: not on the pricing page; @cf/openai/whisper rate used
+neurons_per_minute = 41.14        # UNVERIFIED, see above
+usd_per_1k_neurons = 0.011
+min_billed_seconds = 0
+checked_url = "https://developers.cloudflare.com/workers-ai/models/whisper-tiny-en/"
+checked_on = "2026-10-19"
+data_policy = "Cloudflare does not train on Workers AI inputs and does not retain them after the request (https://developers.cloudflare.com/workers-ai/platform/data-usage/)"
+opt_out = "not needed; no AI Gateway logging is used"
+# policy fields from data_policy above; a missing key means unknown (exported as null)
+retention_days = 0
+trains_by_default = false
+opt_out_status = "not_needed"   # applied | not_offered | not_needed
+policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+notes = "Beta, English only (other languages are skipped). Price not listed anywhere when checked; budget guard uses the whisper rate."
+
+[cf-deepgram-nova-3]
+model_id = "@cf/deepgram/nova-3"
+usd_per_minute = 0.0052           # 472.73 neurons per audio minute over HTTP; 0.312 USD per hour
+neurons_per_minute = 472.73       # WebSocket is 836.36 (0.0092 per minute); not used
+usd_per_1k_neurons = 0.011
+min_billed_seconds = 0
+checked_url = "https://developers.cloudflare.com/workers-ai/platform/pricing/"
+checked_on = "2026-10-19"
+data_policy = "Cloudflare hosted partner model. Cloudflare does not train on Workers AI inputs and does not retain them after the request (https://developers.cloudflare.com/workers-ai/platform/data-usage/); Deepgram terms apply to the model (https://deepgram.com/terms)"
+opt_out = "mip_opt_out=true sent on every request as well"
+# policy fields from data_policy above; a missing key means unknown (exported as null)
+retention_days = 0
+trains_by_default = false
+opt_out_status = "applied"   # applied | not_offered | not_needed
+policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+notes = "Raw bytes with options as query parameters (language, punctuate, smart_format, mip_opt_out). Nova-3 batch covers en, ja, ko, es, hi. Costs more through Workers AI (0.0052) than direct Deepgram monolingual (0.0043). @cf/deepgram/flux is skipped: WebSocket only, English only, no word timings."

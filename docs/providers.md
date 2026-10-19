@@ -14,6 +14,10 @@ Every system sits behind `clipbench.providers.base.Provider`. Prices and data te
 | `elevenlabs-scribe` | `scribe_v2` | 0.003667 | 0.22 | none stated (file at least 100 ms) | Logs and transcripts stored by default. Opt-out: `enable_logging=false` (zero retention) is Enterprise only; enable with `CLIPBENCH_ELEVENLABS_ZERO_RETENTION=1`. | [pricing](https://elevenlabs.io/pricing/api), 2026-10-19 |
 | `gemini-flash` | `gemini-3.8-flash` | about 0.0034 (estimate) | about 0.20 | none (per token) | Paid tier: not used to improve products, logged for a limited time for abuse monitoring. Free tier: used to improve products. Opt-out: use a billing-enabled key (no request flag). | [pricing](https://ai.google.dev/gemini-api/docs/pricing), 2026-10-19 |
 | `aws-transcribe` | standard batch | 0.024 (unverified) | 1.44 | none, per second | AWS AI services may use content for service improvement. Opt-out: AWS Organizations AI services opt-out policy (no request flag). Adapter deletes S3 objects and the job. | [pricing](https://aws.amazon.com/transcribe/pricing/), 2026-10-19 |
+| `cf-whisper-large-v3-turbo` | `@cf/openai/whisper-large-v3-turbo` | 0.000513 | 0.0308 | none stated | Cloudflare does not train on or retain Workers AI inputs. Opt-out: not needed. | [pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), 2026-10-19 |
+| `cf-whisper` | `@cf/openai/whisper` (size undocumented, auto language) | 0.000453 | 0.0272 | none stated | As above. | [pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), 2026-10-19 |
+| `cf-whisper-tiny-en` | `@cf/openai/whisper-tiny-en` (beta, en only) | 0.000453 (unverified) | 0.0272 | none stated | As above. | [model](https://developers.cloudflare.com/workers-ai/models/whisper-tiny-en/), 2026-10-19 |
+| `cf-deepgram-nova-3` | `@cf/deepgram/nova-3` (HTTP) | 0.0052 | 0.312 | none stated | As above, plus `mip_opt_out=true` on every request. | [pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), 2026-10-19 |
 
 Notes:
 
@@ -27,6 +31,15 @@ Notes:
   so the budget guard is conservative. Verify before publishing.
 - **Groq**: the 10 s minimum matters for Shorts. A 5 s clip is billed as 10 s.
 - **Deepgram**: Nova-3 multilingual (`language=multi`) is 0.0052 per minute; we always pass the language.
+- **Cloudflare Workers AI** (`cf-*`): one account id and one API token run every model. Billed in
+  neurons at 0.011 USD per 1,000, with 10,000 neurons per day free (about 214 minutes of turbo or
+  21 minutes of nova-3 per day); the table shows list price without the free allocation. Cost uses
+  neurons from the response if one is ever reported, else `neurons_per_minute` in `pricing.toml`.
+  `cf-whisper` and `cf-whisper-tiny-en` take no language parameter (auto detect); tiny-en skips every
+  language but `en`. Whisper models split audio longer than `chunk_seconds` (240) into WAV chunks;
+  no request size limit is documented, so any body over 25 MB fails with a clear error.
+  `@cf/deepgram/flux` is not added: WebSocket only, English only, no word timings.
+  Rate limit: 720 requests per minute for speech recognition; concurrency is 8.
 
 Language codes sent: `ja`, `es`, `ko` everywhere except AWS (`ja-JP`, `es-US`, `ko-KR`; set
 `spanish_variant="es-ES"` for Castilian Spanish).
@@ -45,24 +58,28 @@ Language codes sent: `ja`, `es`, `ko` everywhere except AWS (`ja-JP`, `es-US`, `
 - Keys come from the environment (`.env` is loaded by `clipbench.config`). A missing key makes
   `availability()` return `(False, "<id>: skipped, missing KEY in .env")`.
 - `clipbench/providers/http.py` gives each adapter one httpx client and a semaphore sized from
-  `Provider.concurrency` (groq 2, gemini 4, elevenlabs 4, deepgram 8, assemblyai 8, aws 8).
+  `Provider.concurrency` (groq 2, gemini 4, elevenlabs 4, deepgram 8, assemblyai 8, aws 8, cf-* 8).
 - Retries: up to 5 attempts, exponential backoff with full jitter (1 s base, 30 s cap) on 429, 5xx,
   timeouts and network errors. `Retry-After` is honoured (capped at 120 s). Other 4xx fail at once.
   After the last attempt a `ProviderError` is raised.
 - `latency_ms` is wall clock from the first byte sent to the result, including upload and polling for
   async APIs (AssemblyAI, AWS), excluding our own retry backoff and time queued for a concurrency slot.
 - `cost_usd` uses usage reported by the API when there is one (Gemini tokens, AssemblyAI model used,
-  Deepgram billed duration), otherwise `pricing.toml` and the WAV duration, with any minimum applied.
+  Deepgram billed duration, Workers AI neurons if reported), otherwise `pricing.toml` and the WAV
+  duration, with any minimum applied.
 - `raw_response` is the parsed JSON; `provider_version` is filled when the API reports one
-  (Deepgram model version, Gemini `modelVersion`, AssemblyAI `speech_model_used`).
+  (Deepgram model version, Gemini `modelVersion`, AssemblyAI `speech_model_used`, Workers AI nova-3
+  model info).
 
 ## How to add a provider
 
 1. Look up the provider's current docs: best model for batch ja/es/ko, endpoint, language parameter,
    word timestamps, batch price per minute, minimum billing, and data use / opt-out flags.
 2. Add a section to `clipbench/providers/pricing.toml` with `model_id`, `usd_per_minute`,
-   `min_billed_seconds`, `checked_url`, `checked_on`, `data_policy`, `opt_out` (and `[id.models]` for
-   per-model prices).
+   `min_billed_seconds`, `checked_url`, `checked_on`, `data_policy`, `opt_out`, and the exported
+   policy fields `retention_days`, `trains_by_default`, `opt_out_status`, `policy_url` (and
+   `[id.models]` for per-model prices). For a host that serves several models behind one API (Workers
+   AI), give each model its own provider id and section, sharing one base class.
 3. Create `clipbench/providers/<name>.py` with a subclass of `HttpProvider` (from `http.py`), or of
    `Provider` for SDK-based or local systems. Set `id`, `env_keys`, `concurrency`, `timeout_s`,
    `base_url`, implement `headers()` and `transcribe()`. Inside `transcribe`, wrap the work in

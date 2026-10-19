@@ -985,8 +985,8 @@ row per model to `results/compute/bench.parquet`:
 
 ## Drift, reliability, submissions and the public API
 
-Ops features. Covers A3, B19, A11 and A12 of docs/FEATURES-PROMPT.md. Decisions are logged at the
-end of each section (this file stands in for DECISIONS.md entries; merge them there).
+Canary reruns, API reliability, community submissions and the public results API. Decisions are listed
+at the end of each section.
 
 ### Continuous reruns and drift
 
@@ -1113,7 +1113,7 @@ contributors in CONTRIBUTING.md):
 requests (GitHub hosted, no secrets, read-only token): exactly the three files, adapter sha256 matches,
 `scored` is false, no long text fields, rows are numbers and exception names, clips are in the current
 canary set and `canary_sha256` matches, the summary is recomputed from the rows, and the adapter passes
-the contract offline. "Reruns the canary set before merging" (brief A11) is a maintainer step with keys
+the contract offline. Rerunning the canary set before merging is a maintainer step with keys
 (`clipbench canary run` after adding the adapter, or the canary workflow's dispatch), never PR CI.
 
 ### Public results API and badges

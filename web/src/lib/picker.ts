@@ -4,7 +4,7 @@ import { metricValue, CAPTION_METRICS } from "./metrics";
 import { inSlice, streamPair, supports, v3 } from "./v3";
 
 /**
- * "Pick a provider" for builders (docs/REPOSITION-PROMPT.md, section 7). Everything comes from the run's
+ * "Pick a provider" for builders (docs/V2.md). Everything comes from the run's
  * aggregates and paired tables: constraints exclude a model, they never reweight it, and the pick is then
  * paired-tested against every eligible model on the same slice.
  */

@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Reveal } from "@/components/layout/Section";
 
 /**
- * What clipbench measures that other speech-to-text boards do not (docs/REPOSITION-PROMPT.md, section 2).
+ * What clipbench measures that other speech-to-text boards do not (docs/V2.md).
  * Each tile says whether the metric is already in the pipeline or comes with the v2 scoring work.
  */
 const ITEMS = [

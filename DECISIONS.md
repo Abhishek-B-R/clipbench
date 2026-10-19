@@ -4,8 +4,8 @@ One line each: what was decided and why. Newest at the bottom of each section.
 
 ## Setup
 
-- Language for the first verified set: `ja`. The build prompt left it unfilled; Japanese is what the specified stack (fugashi, unidic-lite, pykakasi) is built for, and it has the most short clips with info.json in Vako.
-- Budget cap: 10 USD (the example value in the prompt, left unfilled). Change `budget_usd` in clipbench.toml.
+- Language for the first verified set: `ja`. Japanese is what the specified stack (fugashi, unidic-lite, pykakasi) is built for, and it has the most short clips with info.json in Vako.
+- Budget cap: 10 USD to start. Change `budget_usd` in clipbench.toml.
 - Settings live in `clipbench.toml`, overridable by `CLIPBENCH_*` env vars, so tests can point all paths at a tmp dir.
 - Raw per-run text (hypotheses, reference snapshot) lives in `data/runs/`, not `results/runs/`: hypotheses of a good model are nearly the creator's captions, and results/ is published. `results/runs/<run_id>/` keeps only numbers.
 - CLI is one typer app; each feature module registers its own commands so modules can be built independently.
@@ -101,7 +101,7 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - `clipbench export` replaces demo data entirely when a real run exists, never mixing the two.
 - Rank-change alerts are stored but not sent yet; new-run emails go out once per run via the admin route or the hourly cron when AUTO_NOTIFY is on.
 
-## v2 reposition (brief: docs/REPOSITION-PROMPT.md, contract: docs/V2.md)
+## v2 reposition (contract: docs/V2.md)
 
 - Positioned as the benchmark for captions on short-form video (timing, hallucination over music, caption readiness, code-switching, cost), because plain ASR leaderboards already exist and are better funded.
 - clip_id (`<video_id>` or `<video_id>@<start_ms>-<end_ms>`) stays in the field the code calls `video_id`, with the platform id in `source_id`: the least invasive way to support windows and non-YouTube platforms.
@@ -121,7 +121,7 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - Publish check: Latin runs inside Japanese and Korean references are compared as word 9-grams, after a false positive where an English phrase in a Japanese caption matched ordinary prose letter by letter.
 - Cloudflare Workers AI adds four cheap providers (cf-whisper-large-v3-turbo about $0.03/h, cf-whisper, cf-whisper-tiny-en for English, cf-deepgram-nova-3 about $0.31/h) behind one WorkersAIProvider base; Cloudflare states it does not train on or keep Workers AI inputs. Whisper models are chunked at 240 s since no size limit is documented; cost comes from neurons (10,000 free per day).
 
-## v3 (brief: docs/FEATURES-PROMPT.md, contract: docs/V3.md)
+## v3 (contract: docs/V3.md)
 
 - A "beats" claim must survive Benjamini-Hochberg (q = 0.05) across every paired test of its tier in the run, because a run makes dozens of comparisons and plain alpha 0.05 would publish false positives. The raw verdict is kept as verdict_raw.
 - A comparison finding quotes only numbers measured on the clips both models scored (paired difference, its CI, n), never each model's slice-wide rate, which can cover different clips.

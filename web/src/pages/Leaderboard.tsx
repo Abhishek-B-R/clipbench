@@ -30,7 +30,7 @@ import { buttonClass } from "@/components/ui/Button";
 const LeaderViewPanel = lazy(() => import("@/components/v3/LeaderViews"));
 
 /**
- * Full leaderboard. Reference page for other pages: PageHeader with filters synced to the URL,
+ * Full leaderboard, and the reference layout for other pages: PageHeader with filters synced to the URL,
  * one Figure holding a DataTable, a source line. Tier and metric live in ?tier= and ?metric=.
  */
 export default function Leaderboard() {

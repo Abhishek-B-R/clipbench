@@ -48,7 +48,7 @@ export const CONDITION_LABEL: Record<string, string> = {
   code_switching: "Code-switching",
 };
 
-/** The positioning line (docs/REPOSITION-PROMPT.md, section 2). */
+/** The positioning line (docs/V2.md). */
 export const POSITIONING = {
   question: "Which speech-to-text should your video app use?",
 };

@@ -233,7 +233,7 @@ def draft_findings(
 
 # ---------------------------------------------------------------- v2: structured findings per language
 #
-# Rules (docs/REPOSITION-PROMPT.md section 7):
+# Rules (METHODOLOGY.md, "When a language is published"):
 # - A sentence may compare two models only when paired.parquet says a_better or b_better; then it says
 #   "beats". "No detectable difference" results are not findings (nothing to share).
 # - Single-model facts (timing, hallucination over non-speech, caption readiness, code-switch, music vs no

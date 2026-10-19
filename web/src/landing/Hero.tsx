@@ -16,7 +16,7 @@ import { GateBar } from "@/components/ui/Gate";
 const ease = [0.16, 1, 0.3, 1] as const;
 
 /**
- * Homepage hero. Always leads with the positioning question (docs/REPOSITION-PROMPT.md, section 2). Below it:
+ * Homepage hero. Always leads with the positioning question (docs/V2.md). Below it:
  * when a language is published, the latest finding and a stat strip; otherwise "first results: in progress"
  * with live progress toward the publication gate. Every number comes from the export.
  */

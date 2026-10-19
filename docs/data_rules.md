@@ -42,7 +42,8 @@ language and `<lang>-orig` that info.json lists and that is not on disk.
 - `import-vako` turns a Vako video with a creator track into a whole-video row when it lasts 5-90 s, or into
   one window when it is longer. The window is built from the creator track's lines: edges on line starts
   and ends rounded outwards to whole seconds; no other line overlaps the rounded window (the reference is
-  exactly the lines inside it); start at or after 10 s; end at or before the duration; 20-60 s; highest
+  exactly the lines inside it); start at or after 10 s; end at least 1 s before the info.json duration (the
+  audio stream can end about 0.4 s early); 20-60 s; highest
   caption characters per second wins, ties to the earliest; under 3 chars/s rejected.
 - A window row's tracks are sliced and rebased into `data/tracks/windows/<clip_id>.<key>.json3`.
 - Audio: `yt-dlp -f bestaudio/best --download-sections "*START-END" --force-keyframes-at-cuts`, then
@@ -97,3 +98,6 @@ fetch-audio: at least 10 s between downloads. A bot check or HTTP 429 stops the 
 - 2026-10-19, v1: ja from Vako's store had 11 creator-captioned Shorts (3 channels). Fixed by "Shorts first,
   windows to fill": discover found 23 more ja Shorts (7 channels, about 1450 requests over 229 channels);
   fetch-info for 437 long videos whose Vako track the store's probe saw as creator gave 298 clean windows.
+- 2026-10-20: window end margin of 1 s before the info.json duration. `import-vako --replace` rebuilt the
+  ja vako rows: 9 windows changed (7 moved, 2 dropped), ja pool 34 Shorts and 296 windows; the ja sample is
+  150 clips (23 Shorts, 127 windows, 41 channels) and all 150 have audio.

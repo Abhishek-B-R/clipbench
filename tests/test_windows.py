@@ -46,10 +46,13 @@ def test_window_none_when_too_sparse_or_short():
     assert choose_window([], 100) is None
 
 
-def test_window_respects_duration():
+def test_window_respects_duration_with_margin():
     lines = [line(12 + 5 * k, 16 + 5 * k, 30) for k in range(10)]
-    w = choose_window(lines, duration_s=40)
-    assert w is not None and w.end_s <= 40
+    w = choose_window(lines, duration_s=41)
+    assert w is not None and w.end_s <= 40  # at least 1 s before the reported duration
+    # a line ending at 36 s is not usable when the video is 36.5 s long
+    w = choose_window([line(12, 36, 200)], duration_s=36.5)
+    assert w is None
 
 
 def asr_track() -> str:
@@ -103,6 +106,8 @@ def test_build_adds_window_rows(tmp_settings, tmp_path):
 
     imp = import_vako("ja", settings)
     assert imp.windows == 1 and imp.shorts == 0
+    again = import_vako("ja", settings, replace=True)
+    assert again.removed == 1 and again.added == 1
     merge_clips("ja", [ClipRow("youtube", sid, source="discover")], settings)
     assert {r.source for r in read_clips("ja", settings)} == {"vako", "discover"}
     df, _ = build_manifest("ja", settings)

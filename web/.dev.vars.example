@@ -1,0 +1,32 @@
+# Local secrets for `wrangler dev` (run from web/). Copy to web/.dev.vars, which is gitignored.
+# In production set each one with `wrangler secret put NAME` (from web/). Never commit real values.
+# Empty optional values switch the matching feature off; GET /api/auth-providers reports what is on.
+
+# Required. Signs session cookies and tokens. Generate: openssl rand -base64 32
+BETTER_AUTH_SECRET=
+# Required. Public origin of the site, no trailing slash. OAuth callbacks are <this>/api/auth/callback/<provider>.
+BETTER_AUTH_URL=http://localhost:8787
+
+# Optional. GitHub OAuth app (github.com/settings/developers). Callback: <BETTER_AUTH_URL>/api/auth/callback/github
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+
+# Optional. Google OAuth client, type "Web application" (console.cloud.google.com/apis/credentials).
+# Authorized redirect URI: <BETTER_AUTH_URL>/api/auth/callback/google
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Optional. Resend API key for magic link and alert emails. Unset locally: links and emails are printed to the
+# wrangler log instead of sent. Unset in production: email sign-in is hidden and alerts are only logged.
+RESEND_API_KEY=
+# Sender for all email, on a domain verified in Resend, e.g. clipbench <hello@mail.example.com>
+EMAIL_FROM=
+
+# Required for POST /api/admin/notify-new-run (Authorization: Bearer <token>). Generate: openssl rand -hex 32
+ADMIN_TOKEN=
+
+# Plain vars (wrangler.jsonc "vars"); override here for local dev if needed.
+# Extra comma separated origins allowed on mutating routes, e.g. a Vite dev server: http://localhost:5173
+TRUSTED_ORIGINS=http://localhost:5173
+# "true" lets the hourly cron email watchers about a new latest run once.
+AUTO_NOTIFY=false

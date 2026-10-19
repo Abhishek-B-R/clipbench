@@ -1,0 +1,65 @@
+// clipbench web: one Worker serves the built SPA (dist/) and the API under /api/*.
+// Backend owns this file (docs/WEB.md). Run wrangler from web/ (see web/worker/package.json scripts).
+{
+  "$schema": "./worker/node_modules/wrangler/config-schema.json",
+  "name": "clipbench",
+  "main": "./worker/src/index.ts",
+  "compatibility_date": "2026-10-12",
+  // Better Auth needs AsyncLocalStorage.
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
+    "not_found_handling": "single-page-application"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "clipbench",
+      // `wrangler d1 create clipbench` prints the real id; paste it here before the first deploy.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Public data API limits, per minute. Anonymous: keyed by client IP. API key: keyed by key id.
+  // namespace_id must be unique per rate limiter within the account.
+  "ratelimits": [
+    { "name": "ANON_LIMITER", "namespace_id": "4101", "simple": { "limit": 30, "period": 60 } },
+    { "name": "KEY_LIMITER", "namespace_id": "4102", "simple": { "limit": 600, "period": 60 } }
+  ],
+
+  "vars": {
+    // Comma separated extra origins allowed to call mutating routes (the BETTER_AUTH_URL origin is always allowed).
+    "TRUSTED_ORIGINS": "",
+    // "true" lets the hourly cron email watchers about a new latest run. Off until a human checks the run.
+    "AUTO_NOTIFY": "false"
+  },
+
+  // Set with `wrangler secret put NAME` in production and in .dev.vars locally (see .dev.vars.example).
+  // Optional ones may be empty: the matching sign-in method or email sending is then disabled.
+  "secrets": {
+    "required": [
+      "BETTER_AUTH_SECRET",
+      "BETTER_AUTH_URL",
+      "GITHUB_CLIENT_ID",
+      "GITHUB_CLIENT_SECRET",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "RESEND_API_KEY",
+      "EMAIL_FROM",
+      "ADMIN_TOKEN"
+    ]
+  },
+
+  "triggers": { "crons": ["17 * * * *"] },
+
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "traces": { "enabled": true }
+  }
+}

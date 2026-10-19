@@ -1,6 +1,6 @@
 """clipbench publish --check: make sure nothing we publish leaks audio or caption text.
 
-Fails when any file under site/ or results/ is:
+Fails when any file under site/, results/, web/public/data/ or web/dist/ is:
 - audio or video, by extension (AUDIO_EXTENSIONS) or by magic bytes (RIFF, ID3, OggS, fLaC, ftyp at
   offset 4, EBML 1A45DFA3 for webm/mkv);
 - or contains more than MAX_WORDS (8) consecutive words of any reference text.
@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import unicodedata
 from collections.abc import Iterable, Iterator
@@ -41,7 +42,7 @@ WINDOW = MAX_WORDS + 1
 FALLBACK_CHARS = 12  # 8 words ~ 12 characters for unspaced text without a tokenizer
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".webm", ".opus", ".ogg", ".flac", ".aac", ".mp4", ".mkv"}
 TEXT_EXTENSIONS = {".md", ".html", ".htm", ".json", ".csv", ".txt", ".js", ".svg"}
-SCAN_DIRS = ("site", "results")
+SCAN_DIRS = ("site", "results", "web/public/data", "web/dist")
 
 _CJK = re.compile(r"[぀-ヿ㐀-鿿豈-﫿ｦ-ﾟ]")
 _HANGUL = re.compile(r"[가-힯ᄀ-ᇿ㄰-㆏]")
@@ -282,8 +283,14 @@ def file_texts(path: Path) -> Iterator[str]:
     yield text
 
 
+def web_dirs(settings: Settings) -> tuple[Path, ...]:
+    """The web app's generated run data and its build output ($CLIPBENCH_WEB_DIR overrides web/)."""
+    web = Path(os.environ.get("CLIPBENCH_WEB_DIR", settings.root / "web"))
+    return (web / "public" / "data", web / "dist")
+
+
 def iter_files(settings: Settings) -> Iterator[Path]:
-    for root in (settings.site_dir, settings.results_dir):
+    for root in (settings.site_dir, settings.results_dir, *web_dirs(settings)):
         if root.exists():
             yield from sorted(p for p in root.rglob("*") if p.is_file())
 

@@ -11,3 +11,10 @@ __pycache__/
 .DS_Store
 *.egg-info/
 dist/
+
+# Web app (Worker) local state and secrets
+web/.dev.vars
+web/.wrangler/
+web/worker/node_modules/
+web/worker/.wrangler/
+web/worker/worker-configuration.d.ts

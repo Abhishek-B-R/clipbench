@@ -22,6 +22,7 @@ _MODULES = [
     "clipbench.scoring.cli",  # clipbench score
     "clipbench.analysis.cli",  # clipbench errors
     "clipbench.report.cli",  # clipbench report, clipbench publish
+    "clipbench.report.export",  # clipbench export
 ]
 
 for _name in _MODULES:

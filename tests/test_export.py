@@ -8,12 +8,13 @@ import pytest
 from typer.testing import CliRunner
 
 from clipbench.report import export, publish
-from tests.test_report import PROVIDERS, _write_run
+from tests.test_report import PROVIDERS, _write_run, published_rules  # noqa: F401 - fixture
 
 RUN_KEYS = {
     "run_id", "created_at", "language", "git_commit", "sample_seed", "metrics", "providers", "aggregates",
-    "paired", "stability", "findings", "errors", "clips", "per_clip", "limitations",
+    "paired", "stability", "findings", "errors", "clips", "per_clip", "limitations", "languages",
 }  # fmt: skip
+POLICY_KEYS = {"retention_days", "trains_by_default", "opt_out", "opt_out_note", "policy_url"}
 
 
 @pytest.fixture
@@ -34,16 +35,24 @@ def _write_scores(settings, run_id="r1"):
                         "language": "ja", "metric": metric, "is_primary": primary, "error_rate": er,
                         "hallucination_rate": 0.0, "latency_ms": lat, "duration_s": 20.0 + i,
                         "tags": json.dumps(["background_music"] if i == 0 else []),
+                        "category": "talking_head", "audio_condition": "music" if i == 0 else "no_music",
                     }
                 )  # fmt: skip
             run_rows.append(
-                {"run_id": run_id, "provider": pid, "video_id": vid, "channel": f"ch{i}", "repeat": 0}
-            )
+                {"run_id": run_id, "provider": pid, "video_id": vid, "channel": f"ch{i}", "repeat": 0,
+                 "status": "ok", "tier": "verified"}
+            )  # fmt: skip
+    # A window clip from a longer video (docs/V2.md clip ids).
+    rows.append(dict(rows[0], video_id="vid9@12000-40000"))
     pd.DataFrame(rows).to_parquet(settings.results_dir / run_id / "scores.parquet")
     pd.DataFrame(run_rows).to_parquet(settings.runs_dir / run_id / "rows.parquet")
 
 
-def test_export_writes_contract(web_settings):
+@pytest.mark.usefixtures("published_rules")
+def test_export_writes_contract(web_settings, monkeypatch):
+    from clipbench.report import rules
+
+    monkeypatch.setattr(rules, "MIN_VERIFIED_CLIPS", 4)  # scores below hold 4 verified clip ids
     _write_run(web_settings)
     _write_scores(web_settings)
     run_path, index_path = export.export_run("latest", web_settings)
@@ -59,15 +68,20 @@ def test_export_writes_contract(web_settings):
     provs = {p["id"]: p for p in run["providers"]}
     assert set(provs) == set(PROVIDERS)
     assert provs["alpha"]["model_id"] == "alpha-1" and provs["alpha"]["pricing_checked_on"] == "2026-10-19"
-    assert set(provs["alpha"]) == {
-        "id",
-        "model_id",
-        "label",
-        "pricing_checked_on",
-        "usd_per_hour",
-        "paid",
-        "uploads_audio",
-    }
+    assert (
+        set(provs["alpha"])
+        == {
+            "id",
+            "model_id",
+            "label",
+            "pricing_checked_on",
+            "usd_per_hour",
+            "paid",
+            "uploads_audio",
+        }
+        | POLICY_KEYS
+    )
+    assert all(provs["alpha"][k] is None for k in POLICY_KEYS)  # unknown provider: null, never guessed
 
     assert run["aggregates"] and {"provider", "error_rate", "ci_low", "too_small"} <= set(
         run["aggregates"][0]
@@ -89,20 +103,29 @@ def test_export_writes_contract(web_settings):
 
     clips = {c["video_id"]: c for c in run["clips"]}
     assert clips["v0"] == {"video_id": "v0", "tier": "verified", "duration_s": 20.0, "channel": "ch0",
-                           "tags": ["background_music"]}  # fmt: skip
-    assert len(run["per_clip"]) == 3 * 3 * 2
+                           "tags": ["background_music"], "kind": "short", "start_s": None,
+                           "category": "talking_head", "audio_condition": "music"}  # fmt: skip
+    assert clips["vid9@12000-40000"]["kind"] == "window" and clips["vid9@12000-40000"]["start_s"] == 12.0
+    assert len(run["per_clip"]) == 3 * 3 * 2 + 1
     assert set(run["per_clip"][0]) == {
         "provider", "video_id", "tier", "metric", "error_rate", "hallucination_rate", "latency_ms",
     }  # fmt: skip
     assert any("YouTube auto captions and Wayin" in line for line in run["limitations"])
+
+    assert run["languages"] == [
+        {"lang": "ja", "verified_clips": 4, "providers_ok": 3, "published": True, "channels": 3,
+         "categories": ["talking_head"], "largest_channel_share": round(1 / 3, 4)}
+    ]  # fmt: skip
 
     index = json.loads(index_path.read_text())
     assert index["latest"] == "r1" and "demo" not in index
     entry = index["runs"][0]
     assert entry == {
         "run_id": "r1", "created_at": "2026-10-19T10:00:00Z", "language": "ja", "tiers": ["verified", "creator"],
-        "n_clips": {"verified": 60, "creator": 60}, "providers": entry["providers"],
+        "n_clips": {"verified": 60, "creator": 60}, "providers": entry["providers"], "languages": run["languages"],
     }  # fmt: skip
+    assert [lang["lang"] for lang in index["languages"]] == ["en", "ja", "ko", "es", "hi"]
+    assert index["languages"][0]["verified_clips"] == 0 and index["languages"][1]["providers_ok"] == 3
     assert set(entry["providers"]) == set(PROVIDERS)
 
     raw = run_path.read_text() + index_path.read_text()
@@ -169,3 +192,49 @@ def test_publish_check_scans_web_data(web_settings):
     (dist / "clip.mp3").write_bytes(b"ID3\x00")
     names = {o.path.name for o in publish.check(web_settings) if o.path.name != ".gitignore"}
     assert names == {"leak.json", "clip.mp3"}
+
+
+def _png_size(path):
+    import struct
+
+    head = path.read_bytes()[:24]
+    assert head[:8] == b"\x89PNG\r\n\x1a\n"
+    return struct.unpack(">II", head[16:24])
+
+
+@pytest.mark.usefixtures("published_rules")
+def test_findings_files_and_og_images(web_settings):
+    _write_run(web_settings)  # no scores.parquet: 60 verified clips from aggregates, 3 providers
+    export.export_run("r1", web_settings)
+    data = export.data_dir(web_settings)
+    doc = json.loads((data / "findings" / "ja.json").read_text())
+    assert set(doc) == {"lang", "run_id", "created_at", "published", "findings"}
+    assert doc["published"] is True and doc["run_id"] == "r1" and doc["created_at"] == "2026-10-19T10:00:00Z"
+    assert doc["findings"]
+    for f in doc["findings"]:
+        assert set(f) == {"id", "slug", "text", "status", "source", "numbers"}
+        assert f["status"] == "draft" and not f["text"].startswith("DRAFT")
+        assert re.fullmatch(r"[a-z0-9-]+", f["slug"])
+        assert set(f["source"]) == {"table", "filters"} and f["source"]["table"] in {"aggregates", "paired"}
+        if "beats" in f["text"]:
+            assert f["source"]["table"] == "paired"
+    for lang in ("en", "ko", "es", "hi"):
+        empty = json.loads((data / "findings" / f"{lang}.json").read_text())
+        assert empty == {"lang": lang, "run_id": None, "created_at": None, "published": False, "findings": []}
+
+    og = export.web_dir(web_settings) / "public" / "og"
+    assert _png_size(og / "home.png") == (1200, 630)
+    for lang in ("en", "ja", "ko", "es", "hi"):
+        assert _png_size(og / f"{lang}.png") == (1200, 630)
+    assert {p.stem for p in (og / "ja").glob("*.png")} == {f["slug"] for f in doc["findings"]}
+
+
+def test_unpublished_export_has_no_findings(web_settings):
+    _write_run(web_settings)  # real bar: 60 < 100 verified clips
+    run_path, _ = export.export_run("r1", web_settings)
+    run = json.loads(run_path.read_text())
+    assert run["findings"] == [] and run["languages"][0]["published"] is False
+    doc = json.loads((export.data_dir(web_settings) / "findings" / "ja.json").read_text())
+    assert doc["published"] is False and doc["findings"] == []
+    og = export.web_dir(web_settings) / "public" / "og"
+    assert (og / "ja.png").exists() and not list(og.glob("ja/*.png"))

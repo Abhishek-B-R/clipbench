@@ -20,15 +20,19 @@ from typing import Any
 
 import pandas as pd
 
-from clipbench.report import charts, findings
+from clipbench.report import charts, findings, rules
 from clipbench.report.report import (
     LANGUAGE_NAMES,
     METHODOLOGY_DOC,
     Block,
     RunData,
+    caption_table,
     limitations,
     meta_block,
     methodology_url,
+    source_text,
+    unpublished_text,
+    v2_findings,
 )
 
 VEGA = "https://cdn.jsdelivr.net/npm/vega@5.30.0"
@@ -400,10 +404,14 @@ class Ctx:
         self.color = {p: charts.PALETTE[i % len(charts.PALETTE)] for i, p in enumerate(providers)}
         self.charts = [b for b in blocks if b.kind == "chart"]
         self.lang = LANGUAGE_NAMES.get(data.language, data.language)
+        # Unpublished languages get no ranking anywhere on the page (rules.py).
+        self.ranked = data.published
 
     def overall(self, tier: str, metric: str) -> pd.DataFrame:
         a = self.data.aggregates
         rows = a[(a["tier"] == tier) & (a["metric"] == metric) & (a["slice_kind"] == "all")]
+        if not self.ranked:
+            return rows.sort_values("provider")
         return rows.sort_values("error_rate", na_position="last")
 
     def dot(self, provider: str) -> str:
@@ -437,11 +445,41 @@ def _controls(ctx: Ctx, with_metric: bool) -> str:
 # ---------------------------------------------------------------- sections
 
 
+POSITIONING = (
+    "Which speech-to-text should your video app use? The independent benchmark for captions on real short-form "
+    "video: accuracy, word timing, hallucination over music, and cost, in five languages."
+)
+
+
+def progress_hero(ctx: Ctx, eyebrow: str) -> str:
+    st = ctx.data.status or rules.LanguageStatus(lang=ctx.data.language)
+    tiles = [
+        ("Verified clips", f"{st.verified_clips} / {rules.MIN_VERIFIED_CLIPS}", "needed before any ranking"),
+        ("Providers with results", f"{st.providers_ok} / {rules.MIN_PROVIDERS_OK}", "on verified clips"),
+        ("Channels", str(st.channels), "in this run"),
+        ("Categories", str(len(st.categories)), ", ".join(st.categories) or "none tagged yet"),
+    ]
+    kpis = "".join(
+        f'<div class="kpi"><p class="label">{_e(lbl)}</p><p class="value num">{_e(val)}</p>'
+        f'<p class="who">{_e(who)}</p></div>'
+        for lbl, val, who in tiles
+    )
+    return (
+        f'<header class="hero wrap" id="top"><p class="eyebrow">{_e(eyebrow)}</p>'
+        f"<h1>{_e(ctx.lang)}: first results once {rules.MIN_VERIFIED_CLIPS} clips are verified.</h1>"
+        f'<p class="hero-sub">{_e(POSITIONING)}</p>'
+        f'<p class="hero-sub">{_e(unpublished_text(ctx.data))}</p>'
+        f'<div class="kpis">{kpis}</div></header>'
+    )
+
+
 def hero(ctx: Ctx) -> str:
     d = ctx.data
     tier, metric = ctx.head, d.metric
     ov = ctx.overall(tier, metric).dropna(subset=["error_rate"])
     eyebrow = f"Speech-to-text benchmark / {ctx.lang} short-form video / run {d.run_id}"
+    if not ctx.ranked:
+        return progress_hero(ctx, eyebrow)
     if ov.empty:
         return (
             f'<header class="hero wrap" id="top"><p class="eyebrow">{_e(eyebrow)}</p>'
@@ -551,7 +589,9 @@ def leaderboard(ctx: Ctx) -> str:
             rows = []
             for rank, (_, r) in enumerate(ov.iterrows(), start=1):
                 p = r["provider"]
-                if p == best:
+                if not ctx.ranked:
+                    verdict = '<span class="verdict">not ranked</span>'
+                elif p == best:
                     verdict = '<span class="verdict best">lowest</span>'
                 else:
                     v, _row = findings.paired_verdict(d.paired, tier, metric, "all", "all", best, p)
@@ -574,10 +614,10 @@ def leaderboard(ctx: Ctx) -> str:
                         f'<span class="pt" style="left:{float(er) / scale * 100:.2f}%;background:{color}"></span></span>'
                     )
                 rows.append(
-                    f'<tr class="{"top" if p == best else ""}" data-rank="{rank}" data-provider="{_e(p)}" '
+                    f'<tr class="{"top" if ctx.ranked and p == best else ""}" data-rank="{rank}" data-provider="{_e(p)}" '
                     f'data-er="{_sortval(er)}" data-cost="{_sortval(r["cost_per_hour"])}" '
                     f'data-lat="{_sortval(r["latency_p50"])}" data-rtf="{_sortval(r["rtf"])}" data-n="{int(r["n_clips"])}">'
-                    f'<td class="r num">{rank}</td>'
+                    f'<td class="r num">{rank if ctx.ranked else ""}</td>'
                     f'<td class="prov"><span class="prov-name">{ctx.dot(p)}{_e(p)}</span>'
                     f'<span class="model mono">{_e(r["model_id"])}</span></td>'
                     f'<td><div class="ci"><span class="val num">{_e(pct(er))}</span>{bar}'
@@ -608,10 +648,15 @@ def leaderboard(ctx: Ctx) -> str:
                 f"(paired.parquet); everything else from aggregates.parquet, tier={_e(tier)}, "
                 f"metric={_e(metric)}, slice=all.</p></div>"
             )
+    title = "Leaderboard" if ctx.ranked else "Results so far (not a ranking)"
+    lead = (
+        "All clips, one row per provider. The bar is the 95% confidence interval; click a column to sort."
+        if ctx.ranked
+        else "Rows are in provider order. This language is not published yet, so these numbers check the pipeline "
+        "and rank nothing."
+    )
     return (
-        '<section id="leaderboard" class="wrap"><h2>Leaderboard</h2>'
-        '<p class="lead">All clips, one row per provider. The bar is the 95% confidence interval; click a column '
-        "to sort.</p>"
+        f'<section id="leaderboard" class="wrap"><h2>{title}</h2><p class="lead">{_e(lead)}</p>'
         f"{_controls(ctx, True)}{''.join(panels)}</section>"
     )
 
@@ -660,7 +705,7 @@ def _heat_table(ctx: Ctx, tier: str, metric: str, kind: str) -> str:
                 if hi <= lo
                 else min(RAMP_STEPS - 1, int((float(r["error_rate"]) - lo) / (hi - lo) * RAMP_STEPS))
             )
-            best = " best" if best_in_col.get(c) == p else ""
+            best = " best" if ctx.ranked and best_in_col.get(c) == p else ""
             cells.append(
                 f'<td class="cell h{step}{best}" title="{_e(p)}, {_e(c)}: {_e(pct(r["error_rate"]))}, '
                 f'95% CI {_e(pct(r["ci_low"]))} to {_e(pct(r["ci_high"]))}, n={n}">'
@@ -676,21 +721,21 @@ def heatmaps(ctx: Ctx) -> str:
     panels = []
     for tier in ctx.tiers:
         for metric in ctx.metrics:
-            tag = _heat_table(ctx, tier, metric, "tag")
-            dur = _heat_table(ctx, tier, metric, "duration")
-            if not (tag or dur):
-                continue
             inner = ""
-            if tag:
-                inner += f'<h3 style="font-size:14px;margin:0 0 8px">By tag</h3>{tag}'
-            if dur:
-                inner += f'<h3 style="font-size:14px;margin:18px 0 8px">By clip duration</h3>{dur}'
+            for kind, title in (("category", "By content category"), ("audio_condition", "Music vs no music"),
+                                ("tag", "By tag"), ("duration", "By clip duration")):  # fmt: skip
+                table = _heat_table(ctx, tier, metric, kind)
+                if table:
+                    margin = "0" if not inner else "18px"
+                    inner += f'<h3 style="font-size:14px;margin:{margin} 0 8px">{title}</h3>{table}'
+            if not inner:
+                continue
             panels.append(
                 f'<div data-panel data-tier="{tier}" data-metric="{_e(metric)}">'
                 f'<div class="panel-head">{_tier_badge(tier)}<span>metric <b class="mono">{_e(metric)}</b></span></div>'
                 f"{inner}"
                 f'<p class="caption">source: aggregates.parquet, tier={_e(tier)}, metric={_e(metric)}, '
-                f"slice_kind=tag and duration.</p></div>"
+                f"slice_kind=category, audio_condition, tag and duration.</p></div>"
             )
     if not panels:
         return ""
@@ -742,9 +787,44 @@ def chart_section(ctx: Ctx) -> tuple[str, dict]:
     return html_, specs
 
 
+def caption_section(ctx: Ctx) -> str:
+    panels = []
+    for tier in ctx.tiers:
+        b = caption_table(ctx.data.aggregates, tier, ctx.data.metric)
+        if b is None:
+            continue
+        head = "".join(f"<th>{_e(h)}</th>" for h in b.headers)
+        body = "".join(
+            "<tr>"
+            + f'<td class="prov"><span class="prov-name">{ctx.dot(r[0])}{_e(r[0])}</span></td>'
+            + "".join(f'<td class="r num">{_e(c)}</td>' for c in r[1:])
+            + "</tr>"
+            for r in b.rows
+        )
+        panels.append(
+            f'<div data-panel data-tier="{tier}"><div class="panel-head">{_tier_badge(tier)}</div>'
+            f'<div class="card scroll"><table class="lb"><thead><tr>{head}</tr></thead><tbody>{body}</tbody>'
+            f'</table></div><p class="caption">{_e(b.caption)}</p></div>'
+        )
+    if not panels:
+        return ""
+    return (
+        '<section id="captions" class="wrap"><h2>Caption metrics</h2>'
+        '<p class="lead">What a captioning product ships: word timing, words invented over music and silence, '
+        "punctuation and casing, and accuracy on code-switched spans. n/a means not measured, never zero.</p>"
+        f"{_controls(ctx, False)}{''.join(panels)}</section>"
+    )
+
+
 def findings_section(ctx: Ctx) -> str:
     d = ctx.data
+    if not ctx.ranked:
+        return (
+            '<section id="findings" class="wrap"><h2>Findings</h2>'
+            f'<p class="note">{_e(unpublished_text(d))}</p></section>'
+        )
     panels = []
+    v2 = v2_findings(d)
     for tier in ctx.tiers:
         lines = findings.draft_findings(d.aggregates, d.paired, d.stability, tier, d.metric)
         if not lines:
@@ -753,6 +833,12 @@ def findings_section(ctx: Ctx) -> str:
         for line in lines:
             text, src = _split_source(line)
             items.append(f'<li><p class="text">{_draft(text)}</p><p class="src mono">({_e(src)})</p></li>')
+        if tier == "verified":
+            for f in v2:
+                items.append(
+                    f'<li id="f-{_e(f["slug"])}"><p class="text">{_draft(findings.PREFIX + " " + f["text"])}</p>'
+                    f'<p class="src mono">{_e(source_text(f["source"]))}</p></li>'
+                )
         panels.append(
             f'<div data-panel data-tier="{tier}"><div class="panel-head">{_tier_badge(tier)}</div>'
             f'<ol class="findings">{"".join(items)}</ol></div>'
@@ -843,13 +929,14 @@ def render_html(data: RunData, blocks: list[Block]) -> str:
             hero(ctx),
             leaderboard(ctx),
             heatmaps(ctx),
+            caption_section(ctx),
             charts_html,
             findings_section(ctx),
             errors_section(ctx),
             limits_section(ctx),
         ]
     )
-    toc = [("leaderboard", "Leaderboard"), ("by-clip", "By clip type"), ("charts", "Charts"),
+    toc = [("leaderboard", "Leaderboard"), ("by-clip", "By clip type"), ("captions", "Captions"), ("charts", "Charts"),
            ("findings", "Findings"), ("errors", "Errors"), ("limits", "Limitations"), ("run", "Run")]  # fmt: skip
     nav = "".join(f'<a href="#{sid}">{_e(t)}</a>' for sid, t in toc if f'id="{sid}"' in body)
     # Keep the inline JSON safe inside <script>: escape "</" so no spec string can close the tag.

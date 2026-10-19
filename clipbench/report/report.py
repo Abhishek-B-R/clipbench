@@ -18,11 +18,12 @@ from typing import Any
 import pandas as pd
 
 from clipbench.config import Settings, get_settings
-from clipbench.report import charts, findings
+from clipbench.report import charts, findings, rules
 
 TIER_TITLES = {"verified": "Verified references", "creator": "Creator captions (unverified reference)"}
-FALLBACK_PRIMARY = {"ja": "cer", "es": "wer", "ko": "cer_nospace"}
-LANGUAGE_NAMES = {"ja": "Japanese", "es": "Spanish", "ko": "Korean"}
+FALLBACK_PRIMARY = {"ja": "cer", "es": "wer", "ko": "cer_nospace", "en": "wer", "hi": "wer"}
+LANGUAGE_NAMES = {"en": "English", "ja": "Japanese", "es": "Spanish", "ko": "Korean", "hi": "Hindi"}
+CAPTION_METRICS_DOC = "METHODOLOGY.md, section Caption metrics"
 METHODOLOGY_DOC = "METHODOLOGY.md"
 
 
@@ -53,6 +54,11 @@ class RunData:
     scores: pd.DataFrame | None
     errors: dict | None
     meta: dict
+    status: rules.LanguageStatus | None = None
+
+    @property
+    def published(self) -> bool:
+        return bool(self.status and self.status.published)
 
 
 def _read(path: Path) -> pd.DataFrame | None:
@@ -96,6 +102,7 @@ def load_run(run_id: str, settings: Settings | None = None) -> RunData:
     return RunData(
         run_id=run_id,
         language=language,
+        status=rules.run_status(run_id, language, aggregates, scores, settings),
         metric=_primary_metric(language, scores, aggregates),
         aggregates=aggregates,
         paired=_read(res / "paired.parquet"),
@@ -169,9 +176,10 @@ def methodology_url() -> str | None:
 # ---------------------------------------------------------------- sections
 
 
-def headline_table(agg: pd.DataFrame, tier: str, metric: str) -> Block:
+def headline_table(agg: pd.DataFrame, tier: str, metric: str, ranked: bool = True) -> Block:
     rows = agg[(agg["tier"] == tier) & (agg["metric"] == metric) & (agg["slice_kind"] == "all")]
-    rows = rows.sort_values("error_rate", na_position="last")
+    # Unpublished languages get no ranking: rows in provider order, not by error rate.
+    rows = rows.sort_values("error_rate", na_position="last") if ranked else rows.sort_values("provider")
     body = [
         [
             str(r["provider"]),
@@ -197,7 +205,13 @@ def headline_table(agg: pd.DataFrame, tier: str, metric: str) -> Block:
             "n clips",
         ],
         rows=body,
-        caption=f"Tier: {tier}. Metric: {metric}, lower is better. Slice: all clips.{label} "
+        caption=f"Tier: {tier}. Metric: {metric}, lower is better. Slice: all clips.{label}"
+        + (
+            ""
+            if ranked
+            else " Not a ranking: this language is not published yet, rows are in provider order."
+        )
+        + " "
         f"(source: aggregates.parquet, tier={tier}, metric={metric}, slice=all)",
         css="headline" if tier == "verified" else "unverified",
     )
@@ -261,9 +275,106 @@ def tier_section(data: RunData, tier: str, out_dirs: list[Path]) -> list[Block]:
                 css="note",
             )
         )
-    blocks.append(headline_table(data.aggregates, tier, data.metric))
+    blocks.append(headline_table(data.aggregates, tier, data.metric, ranked=data.published))
+    cap = caption_table(data.aggregates, tier, data.metric)
+    if cap:
+        blocks.append(Block("h3", "Caption metrics"))
+        blocks.append(cap)
+    for kind, title in (("category", "By content category"), ("audio_condition", "Music vs no music")):
+        tbl = slice_table(data.aggregates, tier, data.metric, kind)
+        if tbl:
+            blocks.append(Block("h3", title))
+            blocks.append(tbl)
     blocks.extend(chart_blocks(data, tier, out_dirs))
     return blocks
+
+
+def _count(x: Any) -> int:
+    return 0 if _nan(x) else int(x)
+
+
+def ms(x: Any) -> str:
+    return "n/a" if _nan(x) else f"{float(x):.0f} ms"
+
+
+def caption_table(agg: pd.DataFrame, tier: str, metric: str) -> Block | None:
+    """Timing, hallucination over non-speech, caption readiness and code-switch per provider (slice all).
+    Missing measurements are n/a, never 0: a provider without word timings has no timing numbers."""
+    if "timing_n_clips" not in agg:
+        return None
+    rows = agg[(agg["tier"] == tier) & (agg["metric"] == metric) & (agg["slice_kind"] == "all")]
+    rows = rows.sort_values("provider")
+    if rows.empty:
+        return None
+    body = []
+    for _, r in rows.iterrows():
+        tn, nn, rn, cn = (_count(r.get(k)) for k in ("timing_n_clips", "nonspeech_n_clips", "readiness_n_clips",
+                                                       "codeswitch_n_clips"))  # fmt: skip
+        hal = r.get("halluc_per_nonspeech_min")
+        body.append(
+            [
+                str(r["provider"]),
+                f"{ms(r.get('timing_median_ms'))} / {ms(r.get('timing_p90_ms'))}" if tn else "n/a",
+                pct(r.get("timing_within_200ms")) if tn else "n/a",
+                str(tn),
+                "n/a" if not nn or _nan(hal) else f"{float(hal):.2f}",
+                str(nn),
+                num(r.get("punct_f1"), 2) if rn else "n/a",
+                pct(r.get("casing_acc")) if rn else "n/a",
+                str(rn),
+                pct(r.get("codeswitch_error_rate")) if cn else "n/a",
+                str(cn),
+            ]
+        )
+    return Block(
+        "table",
+        headers=[
+            "provider",
+            "timing median / p90",
+            "words within 200 ms",
+            "timed clips",
+            "halluc. words / non-speech min",
+            "non-speech clips",
+            "punct. F1",
+            "casing acc.",
+            "readiness clips",
+            f"code-switch {metric}",
+            "code-switch clips",
+        ],  # fmt: skip
+        rows=body,
+        caption=f"Tier: {tier}. n/a means the measurement does not exist for that provider or clip set (for example "
+        f"no word timings), not zero. Definitions: {CAPTION_METRICS_DOC}. "
+        f"(source: aggregates.parquet, tier={tier}, metric={metric}, slice=all)",
+    )
+
+
+def slice_table(agg: pd.DataFrame, tier: str, metric: str, kind: str) -> Block | None:
+    sub = agg[(agg["tier"] == tier) & (agg["metric"] == metric) & (agg["slice_kind"] == kind)]
+    if sub.empty:
+        return None
+    slices = sorted(set(sub["slice"].astype(str)))
+    providers = sorted(set(sub["provider"].astype(str)))
+    body = []
+    for pid in providers:
+        row = [pid]
+        for sl in slices:
+            r = sub[(sub["provider"] == pid) & (sub["slice"] == sl)]
+            if r.empty:
+                row.append("n/a")
+                continue
+            r = r.iloc[0]
+            cell = f"{pct(r['error_rate'])} (n={int(r['n_clips'])})"
+            if bool(r["too_small"]):
+                cell += f", {charts.TOO_SMALL_LABEL}"
+            row.append(cell)
+        body.append(row)
+    return Block(
+        "table",
+        headers=["provider", *slices],
+        rows=body,
+        caption=f"{metric} per {kind.replace('_', ' ')}, lower is better. Slices under {rules.MIN_SLICE_CLIPS} clips "
+        f"are {charts.TOO_SMALL_LABEL}. (source: aggregates.parquet, tier={tier}, metric={metric}, slice_kind={kind})",
+    )
 
 
 def error_blocks(errors: dict | None) -> list[Block]:
@@ -349,6 +460,42 @@ def limitations(data: RunData) -> Block:
     )
 
 
+def v2_findings(data: RunData) -> list[dict]:
+    """Structured findings for a published language; none otherwise. Verified tier only."""
+    if not data.published:
+        return []
+    return findings.structured_findings(
+        data.aggregates, data.paired, data.metric, tier="verified", min_clips=rules.MIN_SLICE_CLIPS
+    )
+
+
+def source_text(source: dict) -> str:
+    filt = ", ".join(f"{k}={v}" for k, v in (source.get("filters") or {}).items())
+    return f"(source: {source.get('table')}.parquet{', ' + filt if filt else ''})"
+
+
+def unpublished_text(data: RunData) -> str:
+    st = data.status or rules.LanguageStatus(lang=data.language)
+    return (
+        f"Not published yet: {st.verified_clips} of {rules.MIN_VERIFIED_CLIPS} verified clips and "
+        f"{st.providers_ok} of {rules.MIN_PROVIDERS_OK} providers with results on verified clips. Until both are met there is no "
+        "ranking and no findings; the numbers here are a progress check of the pipeline."
+    )
+
+
+def status_block(data: RunData) -> Block:
+    st = data.status or rules.LanguageStatus(lang=data.language)
+    lang = LANGUAGE_NAMES.get(data.language, data.language)
+    if data.published:
+        return Block(
+            "p",
+            f"{lang} is published: {st.verified_clips} verified clips, {st.providers_ok} providers, "
+            f"{st.channels} channels, {len(st.categories)} categories.",
+            css="note",
+        )
+    return Block("p", unpublished_text(data), css="note")
+
+
 def meta_block(data: RunData) -> Block:
     m = data.meta
     commit = m.get("git_commit") or m.get("commit") or "n/a"
@@ -381,23 +528,37 @@ def build_blocks(data: RunData, out_dirs: list[Path]) -> list[Block]:
             css="lede",
         )
     )
+    blocks.append(status_block(data))
     for tier in tiers:
         blocks.extend(tier_section(data, tier, out_dirs))
 
     blocks.append(Block("h2", "Findings"))
-    blocks.append(
-        Block(
-            "p",
-            "Drafted automatically from the tables. Each line must be checked by a person before it is "
-            "quoted. Only a paired test verdict can say one provider beats another.",
-            css="note",
+    if not data.published:
+        blocks.append(Block("p", unpublished_text(data), css="note"))
+    else:
+        blocks.append(
+            Block(
+                "p",
+                "Drafted automatically from the tables. Each line must be checked by a person before it is "
+                "quoted. Only a paired test verdict can say one provider beats another.",
+                css="note",
+            )
         )
-    )
-    for tier in tiers:
-        lines = findings.draft_findings(data.aggregates, data.paired, data.stability, tier, data.metric)
-        if lines:
-            blocks.append(Block("h3", TIER_TITLES.get(tier, tier)))
-            blocks.append(Block("list", items=lines, css="findings"))
+        for tier in tiers:
+            lines = findings.draft_findings(data.aggregates, data.paired, data.stability, tier, data.metric)
+            if lines:
+                blocks.append(Block("h3", TIER_TITLES.get(tier, tier)))
+                blocks.append(Block("list", items=lines, css="findings"))
+        v2 = v2_findings(data)
+        if v2:
+            blocks.append(Block("h3", "Caption findings"))
+            blocks.append(
+                Block(
+                    "list",
+                    items=[f"{findings.PREFIX} {f['text']} {source_text(f['source'])}" for f in v2],
+                    css="findings",
+                )
+            )
 
     blocks.extend(error_blocks(data.errors))
     blocks.append(Block("h2", "Limitations"))

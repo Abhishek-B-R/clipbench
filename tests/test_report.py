@@ -4,8 +4,9 @@ import json
 import re
 
 import pandas as pd
+import pytest
 
-from clipbench.report import findings
+from clipbench.report import findings, rules
 from clipbench.report.report import build_report
 
 PROVIDERS = {
@@ -29,7 +30,9 @@ def _agg_rows():
             }  # fmt: skip
             slices = [("all", "all", 60, False), ("tag", "background_music", 20, False),
                       ("tag", "noisy", 4, True), ("tag", "fast_speech", 18, False), ("duration", "<15s", 25, False),
-                      ("duration", "15-30s", 30, False), ("duration", "30-60s", 5, True)]  # fmt: skip
+                      ("duration", "15-30s", 30, False), ("duration", "30-60s", 5, True),
+                      ("category", "talking_head", 40, False), ("category", "gaming", 6, True),
+                      ("audio_condition", "music", 20, False), ("audio_condition", "no_music", 40, False)]  # fmt: skip
             for kind, sl, n, small in slices:
                 e = er + shift + moff + (0.05 if sl == "background_music" and pid == "alpha" else 0.0)
                 e += 0.06 if sl == "fast_speech" and pid == "beta" else 0.0
@@ -43,9 +46,31 @@ def _agg_rows():
                         "ci_low": e - 0.03,
                         "ci_high": e + 0.03,
                         "too_small": small,
+                        **_v2(pid, n),
                     }  # fmt: skip
                 )
     return pd.DataFrame(rows)
+
+
+def _v2(pid, n):
+    """v2 caption metrics. gamma has no word timings (null, must show as n/a, never 0)."""
+    timed = pid != "gamma"
+    return {
+        "timing_n_clips": n if timed else 0, "timing_n_words": 30 * n if timed else 0,
+        "timing_median_ms": 80.0 if timed else None, "timing_p90_ms": 240.0 if timed else None,
+        "timing_within_200ms": 0.85 if timed else None,
+        "nonspeech_n_clips": n, "nonspeech_minutes": n * 0.1, "halluc_nonspeech_words": n * (2 if pid == "gamma" else 0),
+        "halluc_per_nonspeech_min": 20.0 if pid == "gamma" else 0.0,
+        "readiness_n_clips": n, "punct_f1": 0.71, "casing_acc": None,
+        "codeswitch_n_clips": 0, "codeswitch_ref_len": 0, "codeswitch_errors": 0, "codeswitch_error_rate": None,
+    }  # fmt: skip
+
+
+@pytest.fixture
+def published_rules(monkeypatch):
+    """The synthetic run has 60 verified clips and 3 providers: lower the bar so it counts as published."""
+    monkeypatch.setattr(rules, "MIN_VERIFIED_CLIPS", 50)
+    monkeypatch.setattr(rules, "MIN_PROVIDERS_OK", 3)
 
 
 def _paired():
@@ -62,6 +87,9 @@ def _paired():
             {"tier": tier, "metric": "cer", "slice_kind": "tag", "slice": "background_music",
              "provider_a": "beta", "provider_b": "alpha", "n_clips": 20, "diff": -0.03, "ci_low": -0.08,
              "ci_high": 0.02, "p_value": 0.3, "verdict": "no_difference"},
+            {"tier": tier, "metric": "cer", "slice_kind": "audio_condition", "slice": "music",
+             "provider_a": "alpha", "provider_b": "gamma", "n_clips": 20, "diff": -0.2, "ci_low": -0.25,
+             "ci_high": -0.15, "p_value": 0.002, "verdict": "a_better"},
         ]  # fmt: skip
     return pd.DataFrame(rows)
 
@@ -100,7 +128,7 @@ def _write_run(settings, run_id="r1"):
     }))  # fmt: skip
 
 
-def test_report_renders(tmp_settings):
+def test_report_renders(tmp_settings, published_rules):
     _write_run(tmp_settings)
     md_path, html_path = build_report("r1", tmp_settings)
     md = md_path.read_text()
@@ -156,3 +184,93 @@ def test_beats_requires_paired_verdict():
     lines = findings.draft_findings(agg, None, None, "verified", "cer")
     assert lines and not any("beats" in line for line in lines)
     assert all(line.startswith("DRAFT: verify.") for line in lines)
+
+
+def test_unpublished_report_has_no_ranking_or_findings(tmp_settings):
+    _write_run(tmp_settings)  # 60 verified clips, 3 providers: below the real bar
+    md_path, html_path = build_report("r1", tmp_settings)
+    md, page = md_path.read_text(), html_path.read_text()
+    assert "Not published yet: 60 of 100 verified clips and 3 of 6 providers" in md
+    assert not [line for line in md.splitlines() if line.startswith("- DRAFT")]
+    assert "beats" not in md.replace("one provider beats another", "")
+    # Headline rows in provider order, not by error rate (gamma is worst but still listed last by name).
+    table = md.split("## Verified references", 1)[1].split("_Tier:", 1)[0]
+    order = [
+        line.split("|")[1].strip()
+        for line in table.splitlines()
+        if line.startswith("| ") and "provider" not in line
+    ]
+    assert order == sorted(order)
+    assert "Not a ranking" in md
+    assert "Lowest CER" not in page and "first results once 100 clips are verified" in page
+    assert "Results so far (not a ranking)" in page and "<h2>Leaderboard</h2>" not in page
+    assert "unverified reference" in page.lower()
+    assert 'class="verdict best"' not in page and 'best"' not in page
+
+
+def test_caption_metrics_show_na_not_zero(tmp_settings, published_rules):
+    _write_run(tmp_settings)
+    md = build_report("r1", tmp_settings)[0].read_text()
+    section = md.split("### Caption metrics", 1)[1].split("_Tier", 1)[0]
+    gamma = next(line for line in section.splitlines() if line.startswith("| gamma"))
+    assert gamma.split("|")[2].strip() == "n/a" and gamma.split("|")[3].strip() == "n/a"
+    alpha = next(line for line in section.splitlines() if line.startswith("| alpha"))
+    assert "80 ms / 240 ms" in alpha
+    assert "### By content category" in md and "### Music vs no music" in md
+    assert "talking_head" in md and "too small to conclude" in md.split("### By content category", 1)[1]
+
+
+def test_structured_findings_rules():
+    agg, paired = _agg_rows(), _paired()
+    items = findings.structured_findings(agg, paired, "cer", tier="verified", min_clips=15)
+    assert items
+    for f in items:
+        assert f["status"] == "draft" and "DRAFT" not in f["text"]
+        assert set(f) >= {"id", "slug", "kind", "text", "source", "numbers"}
+        assert f["source"]["table"] in {"paired", "aggregates"}
+        assert re.fullmatch(r"[a-z0-9-]+", f["slug"])
+        allowed = {"tier", "metric", "slice_kind", "slice", "provider_a", "provider_b", "provider", "sort"}
+        assert set(f["source"]["filters"]) <= allowed
+        assert f["source"]["filters"].get("sort") in {
+            None,
+            "timing",
+            "offset",
+            "halluc",
+            "punct",
+            "casing",
+            "codeswitch",
+        }
+        if "beats" in f["text"]:
+            assert f["kind"] == "comparison"
+    comps = [f for f in items if f["kind"] == "comparison"]
+    # Only the two a_better/b_better rows survive; no_difference rows are not findings.
+    assert {f["slug"] for f in comps} == {
+        "cer-alpha-beats-gamma",
+        "cer-alpha-beats-gamma-audio-condition-music",
+    }
+    music = next(f for f in comps if "music" in f["slug"])
+    assert music["source"]["filters"]["slice"] == "music" and music["numbers"]["p_value"] == 0.002
+    assert music["source"]["filters"]["provider_a"] == "alpha" and music["source"]["table"] == "paired"
+    timing_alpha = next(f for f in items if f["slug"] == "timing-alpha")
+    assert timing_alpha["source"]["filters"] == {"tier": "verified", "metric": "cer", "slice_kind": "all", "slice": "all",
+                                                 "provider": "alpha", "sort": "timing"}  # fmt: skip
+    timing = {f["slug"] for f in items if f["kind"] == "timing"}
+    assert timing == {"timing-alpha", "timing-beta"}  # gamma has no word timings
+    assert any(f["kind"] == "hallucination" and "gamma" in f["slug"] for f in items)
+    assert any(f["kind"] == "music" for f in items)
+    # Stable: same input, same ids.
+    again = findings.structured_findings(agg, paired, "cer", tier="verified", min_clips=15)
+    assert [f["id"] for f in again] == [f["id"] for f in items]
+    # Too small: nothing passes a bar above every slice.
+    assert findings.structured_findings(agg, paired, "cer", min_clips=1000) == []
+
+
+def test_rules_language_status(tmp_settings):
+    _write_run(tmp_settings)
+    st = rules.run_status("r1", "ja", pd.read_parquet(tmp_settings.results_dir / "r1" / "aggregates.parquet"), None,
+                          tmp_settings)  # fmt: skip
+    assert (st.verified_clips, st.providers_ok, st.published) == (60, 3, False)
+    langs = rules.all_languages({"ja": st})
+    assert [entry["lang"] for entry in langs] == ["en", "ja", "ko", "es", "hi"]
+    assert langs[0] == rules.LanguageStatus(lang="en").as_dict()
+    assert rules.is_published(100, 6) and not rules.is_published(99, 6) and not rules.is_published(100, 5)

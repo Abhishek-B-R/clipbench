@@ -91,3 +91,23 @@ def test_verified_json_is_a_reference(tmp_settings):
 
 def test_repo_gitignore_ok(tmp_settings):
     assert not [o for o in publish.check(tmp_settings) if o.path.name == ".gitignore"]
+
+
+def test_latin_inside_japanese_reference(tmp_settings):
+    _setup(tmp_settings)
+    ref = (
+        "今日のテーマはこれです。the only real difference is the language you choose to use every day ですね"
+    )
+    runs2 = tmp_settings.runs_text_dir / "r2"
+    runs2.mkdir(parents=True)
+    pd.DataFrame(
+        [{"video_id": "ja2", "tier": "verified", "ref_text": ref, "words_json": None, "tags": "[]"}]
+    ).to_parquet(runs2 / "refs.parquet")
+    # Ordinary English that shares a few words is fine.
+    (tmp_settings.site_dir / "app.js").write_text('const s="The real difference is the method";')
+    assert _reasons(tmp_settings) == []
+    # Nine English words copied from the reference are caught.
+    (tmp_settings.site_dir / "app.js").write_text(
+        'const s="only real difference is the language you choose to";'
+    )
+    assert [o.path.name for o in _reasons(tmp_settings)] == ["app.js"]

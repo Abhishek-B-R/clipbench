@@ -114,3 +114,8 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - Non-speech spans are clipped to the WAV length on save. Creator caption gaps of 1 s or more are offered as one-click candidate spans; the reviewer still confirms by ear.
 - Category is optional when saving so review stays fast; `clipbench data check` enforces category coverage per language.
 - Window clip ids use milliseconds (`<video_id>@<start_ms>-<end_ms>`), per docs/V2.md.
+- The publication rule lives only in clipbench/report/rules.py, so report, site, export and OG images gate the same way. providers_ok counts only providers with ok rows on verified clips.
+- Findings: comparisons only when the paired test says one model is better on at least 15 clips; "no detectable difference" is not a finding. Single-model facts need at least 15 clips with that metric; a null metric produces nothing, never 0.
+- OG images are rendered from SVG with vl-convert (no new dependency), with Gloock unpacked from the site's font package.
+- Export output (web/public/data, web/public/og) is gitignored: it is generated from a local run with `clipbench export` right before a deploy, so test runs never land in the repo.
+- Publish check: Latin runs inside Japanese and Korean references are compared as word 9-grams, after a false positive where an English phrase in a Japanese caption matched ordinary prose letter by letter.

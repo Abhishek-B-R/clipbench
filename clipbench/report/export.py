@@ -27,6 +27,7 @@ import typer
 
 from clipbench.config import Settings, get_settings
 from clipbench.report import findings as findings_mod
+from clipbench.report import rules
 from clipbench.report.report import RunData, _pricing_toml, limitations, load_run
 
 TIERS = ("verified", "creator")
@@ -38,7 +39,11 @@ METRIC_LABELS = {
     "wer_no_accents": "WER ignoring accents",
     "cer_nospace": "CER ignoring spaces",
     "wer_syllable": "Syllable WER",
+    "wer_translit": "WER after transliteration",
 }
+
+# Window clip ids look like "<video_id>@<start_ms>-<end_ms>" (docs/V2.md).
+_WINDOW_RE = re.compile(r"^(?P<vid>.+)@(?P<start>\d+)-(?P<end>\d+)$")
 
 PROVIDER_LABELS = {
     "whisper-local": "Whisper large-v3 (local)",
@@ -172,9 +177,22 @@ def providers_section(data: RunData) -> list[dict[str, Any]]:
                 "usd_per_hour": usd_per_hour,
                 "paid": bool(paid),
                 "uploads_audio": bool(uploads),
+                **policy_fields(price),
             }
         )
     return out
+
+
+def policy_fields(price: dict[str, Any]) -> dict[str, Any]:
+    """Data policy from pricing.toml. A key missing there is unknown and exported as null.
+    `opt_out` is what clipbench did (applied | not_offered | not_needed); `opt_out_note` is the free text."""
+    return {
+        "retention_days": price.get("retention_days"),
+        "trains_by_default": price.get("trains_by_default"),
+        "opt_out": price.get("opt_out_status"),
+        "opt_out_note": price.get("opt_out"),
+        "policy_url": price.get("policy_url"),
+    }
 
 
 def split_source(line: str) -> tuple[str, str]:
@@ -189,6 +207,9 @@ def split_source(line: str) -> tuple[str, str]:
 
 
 def findings_section(data: RunData, tiers: list[str]) -> list[dict[str, str]]:
+    """Legacy draft lines for the run page. Empty unless the language is published (rules.py)."""
+    if not data.published:
+        return []
     out = []
     for tier in tiers:
         for line in findings_mod.draft_findings(
@@ -207,7 +228,11 @@ def errors_section(errors: dict | None) -> dict[str, Any]:
         providers[pid] = {
             "top_substitutions": [list(t) for t in info.get("top_substitutions", [])],
             "worst_clips": [
-                {k: w.get(k) for k in ("video_id", "error_rate", "others_median")}
+                {
+                    k: w.get(k)
+                    for k in ("video_id", "error_rate", "others_median", "category", "audio_condition")
+                    if k in w
+                }
                 for w in info.get("worst_clips", [])
             ],
         }
@@ -235,7 +260,9 @@ def clips_section(data: RunData, settings: Settings) -> list[dict[str, Any]]:
     if scores is None or scores.empty:
         return []
     channels = _channels(settings, data.run_id)
-    cols = [c for c in ("video_id", "tier", "duration_s", "tags") if c in scores]
+    cols = [
+        c for c in ("video_id", "tier", "duration_s", "tags", "category", "audio_condition") if c in scores
+    ]
     uniq = scores[cols].drop_duplicates(subset=["video_id", "tier"]).sort_values(["tier", "video_id"])
     out = []
     for r in uniq.astype(object).to_dict("records"):
@@ -247,10 +274,20 @@ def clips_section(data: RunData, settings: Settings) -> list[dict[str, Any]]:
                     "duration_s": _num(r.get("duration_s")),
                     "channel": channels.get(str(r["video_id"])),
                     "tags": _tags(r.get("tags")),
+                    **clip_kind(str(r["video_id"])),
+                    "category": r.get("category"),
+                    "audio_condition": r.get("audio_condition"),
                 }
             )
         )
     return out
+
+
+def clip_kind(clip_id: str) -> dict[str, Any]:
+    m = _WINDOW_RE.match(clip_id)
+    if not m:
+        return {"kind": "short", "start_s": None}
+    return {"kind": "window", "start_s": int(m.group("start")) / 1000}
 
 
 def per_clip_section(data: RunData) -> list[dict[str, Any]]:
@@ -302,7 +339,13 @@ def build_run(run_id: str, settings: Settings) -> dict[str, Any]:
         "clips": clips_section(data, settings),
         "per_clip": per_clip_section(data),
         "limitations": list(limitations(data).items),
+        "languages": [status_dict(data)],
     }
+
+
+def status_dict(data: RunData) -> dict[str, Any]:
+    st = data.status or rules.LanguageStatus(lang=data.language)
+    return clean(st.as_dict())
 
 
 def index_entry(run: dict[str, Any], tiers: list[str], n_clips: dict[str, int]) -> dict[str, Any]:
@@ -313,7 +356,51 @@ def index_entry(run: dict[str, Any], tiers: list[str], n_clips: dict[str, int]) 
         "tiers": tiers,
         "n_clips": n_clips,
         "providers": [p["id"] for p in run["providers"]],
+        "languages": run.get("languages", []),
     }
+
+
+def index_languages(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Status per v2 language from the newest run of each language (zeros when there is none)."""
+    latest: dict[str, rules.LanguageStatus] = {}
+    for r in sorted(runs, key=lambda r: str(r.get("created_at") or ""), reverse=True):
+        for st in r.get("languages") or []:
+            if isinstance(st, dict) and st.get("lang") and st["lang"] not in latest:
+                fields = {k: st.get(k) for k in rules.LanguageStatus.__dataclass_fields__ if k in st}
+                latest[st["lang"]] = rules.LanguageStatus(**fields)
+    return clean(rules.all_languages(latest))
+
+
+def findings_file(data: RunData) -> dict[str, Any]:
+    """findings/<lang>.json: structured findings for a published language, none otherwise."""
+    items = []
+    if data.published:
+        items = findings_mod.structured_findings(
+            data.aggregates, data.paired, data.metric, tier="verified", min_clips=rules.MIN_SLICE_CLIPS
+        )
+    keys = ("id", "slug", "text", "status", "source", "numbers")
+    return clean(
+        {
+            "lang": data.language,
+            "run_id": data.run_id,
+            "created_at": data.meta.get("created_at") or data.meta.get("updated_at"),
+            "published": data.published,
+            "findings": [{k: f[k] for k in keys} for f in items],
+        }
+    )
+
+
+def write_findings(data: RunData, settings: Settings) -> Path:
+    """Write findings/<lang>.json for this run's language; other v2 languages get an empty file if missing."""
+    out = data_dir(settings) / "findings"
+    path = out / f"{data.language}.json"
+    _write_json(findings_file(data), path)
+    for lang in rules.LANGUAGES:
+        other = out / f"{lang}.json"
+        if not other.exists() or json.loads(other.read_text() or "{}").get("run_id") is None:
+            empty = {"lang": lang, "run_id": None, "created_at": None, "published": False, "findings": []}
+            _write_json(empty, other)
+    return path
 
 
 def _write_json(obj: Any, path: Path) -> None:
@@ -348,7 +435,14 @@ def export_run(run_id: str, settings: Settings | None = None) -> tuple[Path, Pat
     runs.append(index_entry(run, tiers, n_clips_by_tier(data, tiers)))
     runs.sort(key=lambda r: (str(r.get("created_at") or ""), str(r.get("run_id"))), reverse=True)
     # A real export replaces the demo flag: index.json now points at real runs only.
-    _write_json({"latest": runs[0]["run_id"], "runs": runs}, index_path)
+    _write_json({"latest": runs[0]["run_id"], "runs": runs, "languages": index_languages(runs)}, index_path)
+    findings_path = write_findings(data, settings)
+    try:
+        from clipbench.report import og
+
+        og.write_all(data, json.loads(findings_path.read_text()), index_languages(runs), web_dir(settings))
+    except Exception as exc:  # noqa: BLE001 - images are a nice to have; the data export must not fail
+        typer.echo(f"og images skipped: {exc}", err=True)
     return run_path, index_path
 
 

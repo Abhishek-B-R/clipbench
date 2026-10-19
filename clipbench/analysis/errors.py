@@ -360,10 +360,28 @@ def analyse(alignments: list[ClipAlignment], rates: dict[tuple[str, str], float]
     return result
 
 
+def _add_clip_slices(result: dict, settings: Settings, run_id: str) -> None:
+    """Label worst clips with their content category and audio condition (v2 slices), when scored."""
+    scores = _read_parquet(settings.results_dir / run_id / "scores.parquet")
+    if scores is None or not {"category", "audio_condition"} <= set(scores.columns):
+        return
+    info = {
+        str(r.video_id): (None if _missing(r.category) else str(r.category),
+                          None if _missing(r.audio_condition) else str(r.audio_condition))
+        for r in scores.drop_duplicates("video_id").itertuples(index=False)
+    }  # fmt: skip
+    for prov in result["providers"].values():
+        for w in prov["worst_clips"]:
+            w["category"], w["audio_condition"] = info.get(w["video_id"], (None, None))
+    fails = Counter(info.get(v, (None, None))[1] for v in result["all_fail"])
+    result["all_fail_by_audio_condition"] = {str(k): n for k, n in fails.items() if k}
+
+
 def run_errors(run_id: str, settings: Settings | None = None, align_fn=None) -> dict:
     settings = settings or get_settings()
     alignments = align_run(run_id, settings, align_fn=align_fn)
     result = analyse(alignments, _score_rates(settings, run_id))
+    _add_clip_slices(result, settings, run_id)
     out_dir = settings.results_dir / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "errors.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))

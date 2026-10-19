@@ -18,6 +18,9 @@ Words:
   Matching on characters keeps the check robust to MeCab segmenting the same span differently
   inside a different context. If no tokenizer is available, 8 words count as 12 characters, so any
   13 character window of a reference fails the check.
+- Latin runs inside unspaced text (English code-switching, digits) are cut out before the character
+  windows are built and checked as whitespace word 9-grams instead, so ordinary English prose on the
+  site cannot match a Japanese reference letter by letter.
 
 Scanned file types: .md .html .htm .json .csv .txt .js .svg (as text, HTML entities and \\uXXXX
 escapes decoded, JSON parsed to strings) and .parquet (every string column, cell by cell).
@@ -46,6 +49,7 @@ SCAN_DIRS = ("site", "results", "web/public/data", "web/dist")
 
 _CJK = re.compile(r"[぀-ヿ㐀-鿿豈-﫿ｦ-ﾟ]")
 _HANGUL = re.compile(r"[가-힯ᄀ-ᇿ㄰-㆏]")
+_LATIN_RUN = re.compile(r"[a-z0-9']+(?:\s+[a-z0-9']+)*")
 _UESC = re.compile(r"\\u([0-9a-fA-F]{4})")
 
 
@@ -157,7 +161,14 @@ class ReferenceIndex:
             return
         self.n_refs += 1
         if is_unspaced(text):
-            for w in unspaced_windows(text):
+            # Latin runs inside Japanese or Korean text (English code-switching) are spaced words: check them
+            # as word 9-grams. Joined without spaces they would match any English prose of 9 letters.
+            norm = normalise(text)
+            for run in _LATIN_RUN.findall(norm):
+                toks = run.split()
+                for i in range(len(toks) - WINDOW + 1):
+                    self.grams.add(hash(tuple(toks[i : i + WINDOW])))
+            for w in unspaced_windows(_LATIN_RUN.sub(" ", norm)):
                 if len(w) >= self.prefix_len:
                     self.windows_by_prefix.setdefault(w[: self.prefix_len], set()).add(w)
         else:

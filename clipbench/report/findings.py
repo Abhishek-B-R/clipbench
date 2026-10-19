@@ -139,8 +139,11 @@ def draft_findings(
         if cheap["provider"] == best["provider"]:
             out.append(
                 f"{PREFIX} No provider is cheaper than {best['provider']} while staying inside its 95% CI; "
-                + (f"it has no API cost (local or free) {src_all}." if float(cheap["cost"]) == 0
-                 else f"it costs {_cost(cheap['cost'])} {src_all}.")
+                + (
+                    f"it has no API cost (local or free) {src_all}."
+                    if float(cheap["cost"]) == 0
+                    else f"it costs {_cost(cheap['cost'])} {src_all}."
+                )
             )
         else:
             out.append(
@@ -151,10 +154,14 @@ def draft_findings(
 
     # Hallucination.
     hal = overall.dropna(subset=["hallucination_rate"]).sort_values("hallucination_rate", ascending=False)
-    if len(hal) and float(hal.iloc[0]["hallucination_rate"]) == 0 and not float(
-        pd.to_numeric(hal["long_output_rate"], errors="coerce").fillna(0).max()
+    if (
+        len(hal)
+        and float(hal.iloc[0]["hallucination_rate"]) == 0
+        and not float(pd.to_numeric(hal["long_output_rate"], errors="coerce").fillna(0).max())
     ):
-        out.append(f"{PREFIX} No provider hallucinated: 0.0% of reference tokens and no long outputs {src_all}.")
+        out.append(
+            f"{PREFIX} No provider hallucinated: 0.0% of reference tokens and no long outputs {src_all}."
+        )
     elif len(hal):
         h = hal.iloc[0]
         out.append(
@@ -189,3 +196,321 @@ def draft_findings(
                     f"disagreement); least stable: {st.index[-1]} ({_pct(float(st.iloc[-1]))}) {src}."
                 )
     return out
+
+
+# ---------------------------------------------------------------- v2: structured findings per language
+#
+# Rules (docs/REPOSITION-PROMPT.md section 7):
+# - A sentence may compare two models only when paired.parquet says a_better or b_better; then it says
+#   "beats". "No detectable difference" results are not findings (nothing to share).
+# - Single-model facts (timing, hallucination over non-speech, caption readiness, code-switch, music vs no
+#   music) are allowed when the slice behind them has at least rules.MIN_SLICE_CLIPS clips.
+# - A null metric (for example no word timings) produces no finding; it is never reported as 0.
+# - The DRAFT marker lives in `status`, not in `text`, so the site can badge it.
+
+LANGUAGE_NAMES = {"en": "English", "ja": "Japanese", "ko": "Korean", "es": "Spanish", "hi": "Hindi"}
+SLICE_WORDS = {
+    "all": "all clips",
+    "music": "clips with music under the speech",
+    "no_music": "clips without music",
+}
+
+
+def _slug(*parts: str) -> str:
+    import re
+
+    s = "-".join(str(p) for p in parts if p not in (None, ""))
+    s = re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+    return s[:90]
+
+
+def _fid(slug: str) -> str:
+    import hashlib
+
+    return hashlib.sha1(slug.encode()).hexdigest()[:10]
+
+
+def _f(x) -> float | None:
+    try:
+        v = float(x)
+    except (TypeError, ValueError):
+        return None
+    return None if math.isnan(v) else v
+
+
+def _slice_words(kind: str, slice_: str) -> str:
+    if kind == "all":
+        return "all clips"
+    if kind == "audio_condition":
+        return SLICE_WORDS.get(slice_, slice_)
+    if kind == "category":
+        return f"{slice_.replace('_', ' ')} clips"
+    if kind == "tag":
+        return f"clips tagged {slice_.replace('_', ' ')}"
+    return f"{slice_} clips"
+
+
+# Which column the web table sorts by when a finding links to it (web contract: timing, offset, halluc,
+# punct, casing, codeswitch).
+SORT_BY_KIND = {
+    "timing": "timing",
+    "hallucination": "halluc",
+    "readiness": "punct",
+    "codeswitch": "codeswitch",
+}
+
+
+def _finding(
+    kind: str,
+    slug: str,
+    tier: str,
+    text: str,
+    table: str,
+    filt: dict,
+    numbers: dict,
+    provider: str | None = None,
+) -> dict:
+    """One finding in the web contract shape (docs/V2.md, findings/<lang>.json). `kind` and `tier` are kept for
+    the report and OG images; the exporter writes only the contract keys."""
+    filters = dict(filt)
+    if provider is not None:
+        filters["provider"] = provider
+    if kind in SORT_BY_KIND:
+        filters["sort"] = SORT_BY_KIND[kind]
+    return {
+        "id": _fid(slug),
+        "slug": slug,
+        "kind": kind,
+        "status": "draft",
+        "tier": tier,
+        "text": text,
+        "source": {"table": table.removesuffix(".parquet"), "filters": filters},
+        "numbers": {k: v for k, v in numbers.items() if v is not None},
+    }
+
+
+def structured_findings(
+    aggregates: pd.DataFrame,
+    paired: pd.DataFrame | None,
+    metric: str,
+    tier: str = "verified",
+    min_clips: int = 15,
+) -> list[dict]:
+    """Findings for one language's published run. The caller decides publication; this only applies the
+    paired-test and too-small rules."""
+    out: list[dict] = []
+    agg = aggregates[(aggregates["tier"] == tier) & (aggregates["metric"] == metric)]
+    if agg.empty:
+        return out
+
+    # 1. Model comparisons that survive the paired test, overall and per category / audio condition.
+    if paired is not None and not paired.empty:
+        p = paired[(paired["tier"] == tier) & (paired["metric"] == metric)]
+        p = p[p["verdict"].isin(["a_better", "b_better"]) & (p["n_clips"] >= min_clips)]
+        p = p[p["slice_kind"].isin(["all", "category", "audio_condition", "tag"])]
+        for r in p.itertuples(index=False):
+            win, lose = (
+                (r.provider_a, r.provider_b) if r.verdict == "a_better" else (r.provider_b, r.provider_a)
+            )
+            ea = agg[(agg["slice_kind"] == r.slice_kind) & (agg["slice"] == r.slice)]
+            er = {str(x.provider): _f(x.error_rate) for x in ea.itertuples(index=False)}
+            where = _slice_words(r.slice_kind, r.slice)
+            diff = abs(_f(r.diff) or 0.0)
+            text = (
+                f"{win} beats {lose} on {metric} on {where}: {_pct(er.get(win))} vs {_pct(er.get(lose))}, "
+                f"a paired difference of {diff * 100:.1f} points over {int(r.n_clips)} clips (p={float(r.p_value):.3g})."
+            )
+            slug = _slug(
+                metric,
+                win,
+                "beats",
+                lose,
+                r.slice_kind if r.slice_kind != "all" else "",
+                r.slice if r.slice != "all" else "",
+            )
+            out.append(
+                _finding(
+                    "comparison",
+                    slug,
+                    tier,
+                    text,
+                    "paired.parquet",
+                    {
+                        "tier": tier,
+                        "metric": metric,
+                        "slice_kind": r.slice_kind,
+                        "slice": r.slice,
+                        "provider_a": r.provider_a,
+                        "provider_b": r.provider_b,
+                    },
+                    {
+                        "winner_error_rate": er.get(win),
+                        "loser_error_rate": er.get(lose),
+                        "diff": diff,
+                        "ci_low": _f(r.ci_low),
+                        "ci_high": _f(r.ci_high),
+                        "p_value": _f(r.p_value),
+                        "n_clips": int(r.n_clips),
+                    },
+                )  # fmt: skip
+            )
+
+    overall = agg[agg["slice_kind"] == "all"]
+    filt_all = {"tier": tier, "metric": metric, "slice_kind": "all", "slice": "all"}
+
+    for r in overall.itertuples(index=False):
+        pid = str(r.provider)
+        d = r._asdict()
+        # 2. Caption timing.
+        tn = int(d.get("timing_n_clips") or 0)
+        med, p90, w200 = (
+            _f(d.get("timing_median_ms")),
+            _f(d.get("timing_p90_ms")),
+            _f(d.get("timing_within_200ms")),
+        )
+        if tn >= min_clips and med is not None:
+            text = (
+                f"{pid} places words a median {med:.0f} ms from the reference start (p90 {p90:.0f} ms); "
+                f"{_pct(w200)} of matched words land within 200 ms, over {tn} clips."
+                if p90 is not None and w200 is not None
+                else f"{pid} places words a median {med:.0f} ms from the reference start, over {tn} clips."
+            )
+            out.append(
+                _finding(
+                    "timing",
+                    _slug("timing", pid),
+                    tier,
+                    text,
+                    "aggregates.parquet",
+                    filt_all,
+                    {
+                        "timing_median_ms": med,
+                        "timing_p90_ms": p90,
+                        "timing_within_200ms": w200,
+                        "timing_n_clips": tn,
+                        "timing_n_words": int(d.get("timing_n_words") or 0),
+                    },
+                    provider=pid,
+                )  # fmt: skip
+            )
+        # 3. Caption readiness.
+        rn = int(d.get("readiness_n_clips") or 0)
+        f1, cas = _f(d.get("punct_f1")), _f(d.get("casing_acc"))
+        if rn >= min_clips and f1 is not None:
+            extra = f" and casing accuracy {_pct(cas)}" if cas is not None else ""
+            out.append(
+                _finding(
+                    "readiness",
+                    _slug("readiness", pid),
+                    tier,
+                    f"{pid} scores punctuation F1 {f1:.2f}{extra} on {rn} clips with checked punctuation.",
+                    "aggregates.parquet",
+                    filt_all,
+                    {"punct_f1": f1, "casing_acc": cas, "readiness_n_clips": rn},
+                    provider=pid,
+                )  # fmt: skip
+            )
+        # 4. Code-switch.
+        cn = int(d.get("codeswitch_n_clips") or 0)
+        cer_cs = _f(d.get("codeswitch_error_rate"))
+        if cn >= min_clips and cer_cs is not None:
+            out.append(
+                _finding(
+                    "codeswitch",
+                    _slug("codeswitch", pid),
+                    tier,
+                    f"On code-switched spans, {pid} has a {metric} of {_pct(cer_cs)} "
+                    f"(vs {_pct(_f(r.error_rate))} on whole clips), over {cn} clips.",
+                    "aggregates.parquet",
+                    filt_all,
+                    {
+                        "codeswitch_error_rate": cer_cs,
+                        "error_rate": _f(r.error_rate),
+                        "codeswitch_n_clips": cn,
+                        "codeswitch_ref_len": int(d.get("codeswitch_ref_len") or 0),
+                    },
+                    provider=pid,
+                )  # fmt: skip
+            )
+
+    # 5. Hallucination over non-speech, overall and over music.
+    for kind, slice_ in (("all", "all"), ("audio_condition", "music")):
+        part = agg[(agg["slice_kind"] == kind) & (agg["slice"] == slice_)]
+        for r in part.itertuples(index=False):
+            d = r._asdict()
+            nn = int(d.get("nonspeech_n_clips") or 0)
+            rate = _f(d.get("halluc_per_nonspeech_min"))
+            if nn < min_clips or rate is None:
+                continue
+            where = "non-speech" if kind == "all" else "non-speech in clips with music"
+            text = (
+                f"{r.provider} emits {rate:.1f} words per minute of {where} "
+                f"({int(d.get('halluc_nonspeech_words') or 0)} words over {_f(d.get('nonspeech_minutes')) or 0:.1f} min, "
+                f"{nn} clips)."
+            )
+            out.append(
+                _finding(
+                    "hallucination",
+                    _slug("halluc", r.provider, slice_ if kind != "all" else ""),
+                    tier,
+                    text,
+                    "aggregates.parquet",
+                    {"tier": tier, "metric": metric, "slice_kind": kind, "slice": slice_},
+                    {
+                        "halluc_per_nonspeech_min": rate,
+                        "halluc_nonspeech_words": int(d.get("halluc_nonspeech_words") or 0),
+                        "nonspeech_minutes": _f(d.get("nonspeech_minutes")),
+                        "nonspeech_n_clips": nn,
+                    },
+                    provider=str(r.provider),
+                )  # fmt: skip
+            )
+
+    # 6. Music vs no music, per model (a fact about one model in two conditions, not a model comparison).
+    ac = agg[agg["slice_kind"] == "audio_condition"]
+    for pid, grp in ac.groupby("provider", sort=True):
+        by = {str(x.slice): x for x in grp.itertuples(index=False)}
+        m, nm = by.get("music"), by.get("no_music")
+        if m is None or nm is None or int(m.n_clips) < min_clips or int(nm.n_clips) < min_clips:
+            continue
+        em, enm = _f(m.error_rate), _f(nm.error_rate)
+        if em is None or enm is None:
+            continue
+        text = (
+            f"{pid} has a {metric} of {_pct(em)} on {int(m.n_clips)} clips with music and {_pct(enm)} on "
+            f"{int(nm.n_clips)} clips without (95% CIs {_pct(_f(m.ci_low))} to {_pct(_f(m.ci_high))} and "
+            f"{_pct(_f(nm.ci_low))} to {_pct(_f(nm.ci_high))})."
+        )
+        out.append(
+            _finding(
+                "music",
+                _slug("music-vs-no-music", pid),
+                tier,
+                text,
+                "aggregates.parquet",
+                {
+                    "tier": tier,
+                    "metric": metric,
+                    "slice_kind": "audio_condition",
+                    "slice": "music",
+                },
+                {
+                    "music_error_rate": em,
+                    "no_music_error_rate": enm,
+                    "music_n_clips": int(m.n_clips),
+                    "no_music_n_clips": int(nm.n_clips),
+                },
+                provider=str(pid),
+            )  # fmt: skip
+        )
+
+    # Stable order, unique slugs.
+    seen: set[str] = set()
+    uniq = []
+    order = {"comparison": 0, "music": 1, "hallucination": 2, "timing": 3, "readiness": 4, "codeswitch": 5}
+    for f in sorted(out, key=lambda f: (order.get(f["kind"], 9), f["slug"])):
+        if f["slug"] in seen:
+            continue
+        seen.add(f["slug"])
+        uniq.append(f)
+    return uniq

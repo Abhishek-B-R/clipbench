@@ -1,0 +1,32 @@
+# Submission bundles (A11, CONTRIBUTING.md). Contract tests only: no keys, no network calls to providers,
+# no audio. A pull request from a fork gets a read-only token and no secrets, which is what running a
+# third-party adapter needs. Maintainers rerun the canary set with their own keys before merging.
+name: submissions
+
+on:
+  pull_request:
+    paths:
+      - "submissions/**"
+      - "clipbench/submit.py"
+      - "clipbench/canary.py"
+      - "datasets/canary/**"
+      - ".github/workflows/submissions.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: uv sync --frozen
+      - name: Check every bundle (numbers only, hashes, adapter contract offline)
+        run: uv run clipbench submission-check --all
+      - name: Contract tests of the harness itself
+        run: uv run pytest -q tests/test_submit.py

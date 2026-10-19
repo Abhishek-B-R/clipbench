@@ -98,3 +98,35 @@ weekly canaries are the only steady sample of a provider's uptime between full r
 **Export.** `clipbench.scoring.reliability.export_section(run_id, settings)` returns
 `reliability: {run: [rows for this run], all_runs: [rows across every run]}`, or null when there are no
 runs. NaN values are null.
+
+## A11 Open harness and submissions
+
+`clipbench submit --adapter path/to/module.py:Class --lang L` (clipbench/submit.py, documented for
+contributors in CONTRIBUTING.md):
+
+1. **Contract** (always first, network blocked by patching socket connect, create_connection and
+   getaddrinfo; the adapter file is imported under the same block): Provider subclass with a new valid
+   id; attribute types; `availability()` returns `(False, msg)` with its keys unset; `settings()` is JSON
+   with a stable hash; a paid adapter has a price; a valid `Result` for 2 s of synthetic tone (shape,
+   audio seconds, cost, retries, HTTP status, word timings in order and inside the audio, speakers
+   parallel to words); `parse_response` raises on malformed responses; with dummy keys and no network
+   `transcribe` raises within 15 s (no hang, no silent empty Result, no ProviderSkip for a failure).
+   Decision: API adapters expose `fixture_response` + `parse_response(raw, audio_seconds)` so the shape
+   is checked offline from the same parser `transcribe` uses; offline local models are checked through
+   `transcribe` itself. Missing word timings is a warning, not a failure.
+2. **Dry run** on the public canary ids of L (audio the submitter fetched into data/audio): clip count,
+   missing audio, audio minutes and the estimate. No request without `--run`.
+3. **Run** (`--run`, submitter's own keys): refused over `--max-usd` (default 1); mid-run the next
+   request is skipped once it would cross the cap.
+4. **Bundle** `submissions/<name>/`: `submission.json`, `rows.csv`, `adapter.py`. Numbers only: per clip
+   status, exception type (never the message, which can echo response bodies), latency, cost, retries,
+   HTTP status, detected language, hypothesis length, word count and sha256 of the hypothesis.
+   Decision: no error rates in bundles. The verified references are private, so a submitter cannot
+   compute them and must not type them; maintainers rerun the canary set and score it.
+
+`clipbench submission-check <dir>|--all` is what `.github/workflows/submissions.yml` runs on pull
+requests (GitHub hosted, no secrets, read-only token): exactly the three files, adapter sha256 matches,
+`scored` is false, no long text fields, rows are numbers and exception names, clips are in the current
+canary set and `canary_sha256` matches, the summary is recomputed from the rows, and the adapter passes
+the contract offline. "Reruns the canary set before merging" (brief A11) is a maintainer step with keys
+(`clipbench canary run` after adding the adapter, or the canary workflow's dispatch), never PR CI.

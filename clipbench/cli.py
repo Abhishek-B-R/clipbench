@@ -26,7 +26,10 @@ _MODULES = [
     "clipbench.report.export",  # clipbench export
     "clipbench.canary",  # clipbench canary select|run|due|drift
     "clipbench.scoring.reliability",  # clipbench reliability
+    "clipbench.submit",  # clipbench submit, clipbench submission-check
     "clipbench.sweeps.cli",  # clipbench sweep build|fetch-beds|beds|run|score
+    "clipbench.longform",  # clipbench longform list|fetch|run|score
+    "clipbench.streaming.cli",  # clipbench run-stream, clipbench score-stream
 ]
 
 for _name in _MODULES:

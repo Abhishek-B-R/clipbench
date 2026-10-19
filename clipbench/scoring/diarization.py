@@ -3,7 +3,7 @@
 Reference: `speaker_turns` from the review UI (start_ms, end_ms, speaker), labels local to the clip.
 Hypothesis: the provider's words with per word speaker labels (`Result.speakers`).
 
-Method (documented in docs/methodology_v3_providers.md):
+Method (documented in METHODOLOGY.md):
 - Hypothesis speech: each labelled word is an interval of its speaker; consecutive words of the same
   speaker are joined when the gap between them is at most HYP_JOIN_GAP_MS (word timings leave small
   gaps that are not real pauses). Words with no speaker label are dropped.

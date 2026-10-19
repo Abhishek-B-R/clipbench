@@ -2,7 +2,7 @@
 
 A reference becomes a lattice: a chain of segments, each segment holding one or more valid token
 sequences. Valid alternatives come from the reference's `alternatives` spans and from built-in per
-language equivalences (documented in docs/methodology_v3_quality.md). The hypothesis is aligned to
+language equivalences (documented in METHODOLOGY.md). The hypothesis is aligned to
 every path at once with one dynamic program over the lattice (a DAG), never by enumerating paths.
 
 The strict path (the reference as written, tokenised whole) is always one of the valid paths, so the

@@ -7,7 +7,7 @@
   (digits or words, date, time, currency, percent and unit formats), with a per kind breakdown.
 
 Writes results/<run_id>/formatting.parquet and formatting_aggregates.parquet. Numbers only.
-See docs/methodology_v3_quality.md.
+See METHODOLOGY.md.
 """
 
 from __future__ import annotations

@@ -37,7 +37,7 @@ LABEL_COLUMNS = [
     "lang", "ref", "hyp", "human_score", "labeller", "note", "pair_id", "run_id", "provider", "video_id",
     "labelled_at",
 ]  # fmt: skip
-# Publishing gate, see docs/methodology_v3_quality.md.
+# Publishing gate, see METHODOLOGY.md.
 MIN_PAIRS = 50
 MIN_SPEARMAN = 0.7
 MAX_MAE = 0.2

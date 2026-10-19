@@ -7,7 +7,8 @@ Rules (see docs/data_rules.md):
   seconds (YouTube's `t=` and embeds take whole seconds, as Vako `clipping.ts` does).
 - Clean edges only: no other caption line may overlap the rounded window, so the reference is
   exactly the lines inside it and no captioned speech is cut in half.
-- Start at or after 10 s (skip intros), end at or before the video duration.
+- Start at or after 10 s (skip intros), end at least 1 s before the info.json duration (the audio
+  stream can end a few hundred ms before the duration YouTube reports).
 - Length 20-60 s. Among all candidates, the one with the most caption characters per second wins
   (dense speech), ties to the earliest. Windows under 3 characters per second are rejected.
 """
@@ -26,6 +27,7 @@ MIN_WINDOW_S = 20
 MAX_WINDOW_S = 60
 SKIP_INTRO_S = 10
 MIN_CHARS_PER_S = 3.0
+END_MARGIN_S = 1
 
 
 @dataclass(frozen=True)
@@ -55,7 +57,7 @@ def _chars(text: str) -> int:
 def choose_window(lines: list[TimedText], duration_s: float | None) -> Window | None:
     if not lines:
         return None
-    limit_ms = duration_s * 1000 if duration_s else None
+    limit_ms = (duration_s - END_MARGIN_S) * 1000 if duration_s else None
     chars = [_chars(t.text) for t in lines]
     best: Window | None = None
     n = len(lines)

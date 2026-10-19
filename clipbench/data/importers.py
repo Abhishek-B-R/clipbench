@@ -27,6 +27,7 @@ from clipbench.data.datasets import (
     read_channels,
     read_clips,
     write_channels,
+    write_clips,
 )
 from clipbench.data.info import read_json
 from clipbench.data.vako import classify_track, find_info, load_info, scan_tracks
@@ -47,10 +48,13 @@ class ImportSummary:
     too_short: int = 0
     added: int = 0
     already: int = 0
+    removed: int = 0
     errors: list[str] = field(default_factory=list)
 
 
-def import_vako(language: str, settings: Settings | None = None) -> ImportSummary:
+def import_vako(language: str, settings: Settings | None = None, *, replace: bool = False) -> ImportSummary:
+    """`replace` drops the language's existing `vako` rows first, so a changed window rule takes effect
+    (other sources are kept)."""
     settings = settings or get_settings()
     src = settings.vako_root / ".vr" / "src" / language
     summary = ImportSummary()
@@ -90,6 +94,10 @@ def import_vako(language: str, settings: Settings | None = None) -> ImportSummar
             ClipRow("youtube", vid, win.start_s * 1000, win.end_s * 1000, channel_id=channel, source="vako")
         )
         summary.windows += 1
+    if replace:
+        kept = [r for r in read_clips(language, settings) if r.source != "vako"]
+        summary.removed = len(read_clips(language, settings)) - len(kept)
+        write_clips(language, kept, settings)
     res = merge_clips(language, rows, settings)
     summary.added, summary.already = res.added, res.updated + res.unchanged
     return summary

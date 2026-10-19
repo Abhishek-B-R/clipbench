@@ -44,7 +44,7 @@ SCORE_COLUMNS = [
     "codeswitch_errors", "codeswitch_error_rate", "category", "audio_condition",
     # counts behind the v2 rates, so aggregates can be corpus style
     "timing_n_within_200ms", "punct_tp", "punct_fp", "punct_fn", "casing_n", "casing_correct",
-    # v3 A7: closest valid path through the reference lattice (docs/methodology_v3_quality.md)
+    # v3 A7: closest valid path through the reference lattice (METHODOLOGY.md)
     "error_rate_lattice", "lattice_ref_len", "lattice_errors", "lattice_hits", "lattice_subs", "lattice_dels",
     "lattice_ins",
 ]  # fmt: skip

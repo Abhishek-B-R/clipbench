@@ -7,5 +7,5 @@
 - `score`: error rate and hallucination per provider per SNR, and the SNR where the error rate doubles.
 - `export`: the `sweeps` key of the site export.
 
-See docs/methodology_v3_audio.md.
+See METHODOLOGY.md.
 """

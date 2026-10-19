@@ -174,6 +174,7 @@ def import_vako_cmd(
     seed_channels: bool = typer.Option(
         False, "--seed-channels", help="Also merge the store's channels into datasets/<lang>/channels.csv."
     ),
+    replace: bool = typer.Option(False, "--replace", help="Drop the existing vako rows first (rule changes)."),
 ) -> None:
     """Add clips from the Vako caption store to datasets/<lang>/clips.csv (Shorts and long-video windows)."""
     from clipbench.config import get_settings
@@ -181,12 +182,12 @@ def import_vako_cmd(
 
     settings = get_settings()
     lang = lang or settings.language
-    s = import_vako(lang, settings)
+    s = import_vako(lang, settings, replace=replace)
     typer.echo(
         f"scanned {s.scanned}: {s.shorts} Shorts, {s.windows} windows; skipped: no info {s.no_info}, "
         f"no creator track {s.no_creator}, no clean window {s.no_window}, under 5 s {s.too_short}"
     )
-    typer.echo(f"clips.csv: {s.added} added, {s.already} already there")
+    typer.echo(f"clips.csv: {s.removed} vako rows removed, {s.added} added, {s.already} already there")
     if seed_channels:
         path, total, added = seed_channels_csv(lang, settings)
         typer.echo(f"{path}: {total} channels ({added} added)")

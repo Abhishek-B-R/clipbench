@@ -9,7 +9,7 @@ Caption apps choose differently: some want "um" and stutters kept (verbatim), mo
   ("f***", "[ __ ]", "[bleep]"), drops it or replaces it with another word; and bleeps marked in the
   reference.
 
-Word lists per language are documented in docs/methodology_v3_quality.md. Writes
+Word lists per language are documented in METHODOLOGY.md. Writes
 results/<run_id>/style.parquet and style_aggregates.parquet. Numbers only.
 """
 

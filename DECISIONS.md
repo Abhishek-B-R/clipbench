@@ -110,3 +110,7 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - Accounts, sign-in, requests and alerts are hidden behind VITE_ACCOUNTS (off); the Worker code stays for later.
 - Word timings for verified references come from forced alignment of the corrected text (`clipbench align`), since corrected text no longer matches the creator track's timings.
 - Generated `site/` is gitignored; it is rebuilt from a run by `clipbench report`.
+- Review UI: code-switch spans are stored as {start, end, lang} character offsets; the browser re-anchors them on every edit and the server re-checks on save, dropping (with a warning) any span whose text was replaced, so an English span overwritten in another language is never silently kept.
+- Non-speech spans are clipped to the WAV length on save. Creator caption gaps of 1 s or more are offered as one-click candidate spans; the reviewer still confirms by ear.
+- Category is optional when saving so review stays fast; `clipbench data check` enforces category coverage per language.
+- Window clip ids use milliseconds (`<video_id>@<start_ms>-<end_ms>`), per docs/V2.md.

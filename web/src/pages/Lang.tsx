@@ -2,7 +2,9 @@ import { Link, useParams } from "react-router";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import type { Run } from "@/lib/types";
 import { useRunFor, useSource } from "@/lib/data";
-import { CATEGORY_KEYS, LANGUAGE_NAME, isPublished, languageProgress, runLanguageStatus } from "@/lib/analysis";
+import { CATEGORY_KEYS, LANGUAGE_NAME, isPublished, languageProgress, overall, runLanguageStatus } from "@/lib/analysis";
+import { hasCaptionMetrics } from "@/lib/metrics";
+import { CaptionMetricsTable } from "@/components/charts/CaptionMetrics";
 import { CATEGORIES, GITHUB_URL, LANGUAGES, RULES } from "@/lib/config";
 import { date, int, pct } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -64,16 +66,30 @@ export default function Lang() {
         }
         actions={
           published && (
-            <Link to={`/leaderboard?lang=${code}`} className={buttonClass("primary", "sm")}>
-              Full leaderboard <ArrowRight size={14} />
-            </Link>
+            <>
+              <Link to={`/findings/${code}`} className={buttonClass("secondary", "sm")}>
+                Findings
+              </Link>
+              <Link to={`/leaderboard?lang=${code}`} className={buttonClass("primary", "sm")}>
+                Full leaderboard <ArrowRight size={14} />
+              </Link>
+            </>
           )
         }
       />
       <div className="frame grid gap-8 py-8">
         {(state.status === "error" || src.status === "error") && <ErrorState title="Could not load the run data." body="The results files did not load. Check your connection and try again." onRetry={() => location.reload()} />}
         {state.status === "loading" && <Skeleton className="h-64 w-full" />}
-        {state.status === "ready" && published && run && <MiniLeaderboard run={run} />}
+        {state.status === "ready" && published && run && (
+          <>
+            <MiniLeaderboard run={run} />
+            {hasCaptionMetrics(run) && (
+              <Figure n={2} title="Caption metrics, all clips" caption="Word timing, words invented over non-speech, punctuation, casing and code-switching. n/a means a model or these clips cannot be scored on it." source={`source: aggregates, run=${run.run_id}, slice=all`} bodyClassName="p-0 sm:p-0">
+                <CaptionMetricsTable run={run} rows={overall(run)} />
+              </Figure>
+            )}
+          </>
+        )}
         {state.status === "ready" && !published && (
           <div className="grid items-start gap-8 lg:grid-cols-2">
             <Figure n={1} title="Publication gate" caption="Counts from the latest export for this language." source={run ? `source: run ${run.run_id}` : "source: index.json"}>

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { maxOf } from "@/lib/scale";
 import { Link, useSearchParams } from "react-router";
-import { Download } from "lucide-react";
-import type { Aggregate, Run, Tier } from "@/lib/types";
+import { ChevronDown, Download } from "lucide-react";
+import type { Aggregate, Run, SliceKind, Tier } from "@/lib/types";
+import { SLICE_KIND_LABEL, hasCaptionMetrics, sliceKindsIn, sliceLabel, slicesOf } from "@/lib/metrics";
+import { CaptionMetricsTable } from "@/components/charts/CaptionMetrics";
 import { loadRun, runUrl, useRunFor } from "@/lib/data";
 import { Gated } from "@/components/ui/Gate";
-import { LANGUAGE_NAME, TIER_LABEL, isPublished, pickTier, overall, pair, primaryMetric, providerColor, providerLabel } from "@/lib/analysis";
+import { LANGUAGE_NAME, TIER_LABEL, aggregatesFor, isPublished, pickTier, pair, primaryMetric, providerColor, providerLabel } from "@/lib/analysis";
 import { date, ms, pct, usdPerHour } from "@/lib/format";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Figure } from "@/components/ui/Card";
@@ -31,10 +33,16 @@ export default function Leaderboard() {
   const published = run ? isPublished(run) : run === undefined;
   const tier = pickTier(run ?? undefined, params.get("tier"));
   const metric = params.get("metric") || (run ? primaryMetric(run).name : "cer");
+  const kinds = run ? sliceKindsIn(run, tier) : (["all"] as SliceKind[]);
+  const kind = (kinds.includes(params.get("slice_kind") as SliceKind) ? params.get("slice_kind") : "all") as SliceKind;
+  const values = run ? slicesOf(run, tier, kind) : ["all"];
+  const slice = kind === "all" ? "all" : values.includes(params.get("slice") ?? "") ? params.get("slice")! : (values[0] ?? "all");
   const history = useHistory(published ? (run ?? undefined) : undefined);
-  const set = (k: string, v: string) => {
+  const set = (k: string, v: string | null) => {
     const p = new URLSearchParams(params);
-    p.set(k, v);
+    if (v == null || v === "") p.delete(k);
+    else p.set(k, v);
+    if (k === "slice_kind") p.delete("slice");
     setParams(p, { replace: true });
   };
 
@@ -67,11 +75,46 @@ export default function Leaderboard() {
             options={run.metrics.map((m) => ({ value: m.name, label: m.label }))}
           />
         )}
+        {run && published && kinds.length > 1 && (
+          <Segmented label="Slice" value={kind} onChange={(v) => set("slice_kind", v === "all" ? null : v)} options={kinds.map((k) => ({ value: k, label: SLICE_KIND_LABEL[k] }))} />
+        )}
+        {run && published && kind !== "all" && (
+          <label className="relative inline-flex">
+            <span className="sr-only">{SLICE_KIND_LABEL[kind]}</span>
+            <select
+              value={slice}
+              onChange={(e) => set("slice", e.target.value)}
+              className="h-8 appearance-none rounded-sm border border-line bg-surface pr-8 pl-2.5 text-[12.5px] text-ink hover:border-line-strong focus:border-ink focus:outline-none"
+            >
+              {values.map((v) => (
+                <option key={v} value={v}>
+                  {sliceLabel(kind, v)}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-ink-3" aria-hidden />
+          </label>
+        )}
       </PageHeader>
       <div className="frame py-8">
         {state.status === "ready" ? (
           <Gated run={run} lang={lang ?? undefined}>
-            {run && <Board run={run} tier={tier} metric={metric} history={history} />}
+            {run && (
+              <div className="grid gap-8">
+                <Board run={run} tier={tier} metric={metric} kind={kind} slice={slice} history={history} highlight={params.get("provider")} />
+                {hasCaptionMetrics(run) && (
+                  <Figure
+                    n={2}
+                    title={`Caption metrics, ${sliceLabel(kind, slice).toLowerCase()}`}
+                    caption="What a caption product ships besides the text: word timing, words invented over music and silence, punctuation, casing and code-switching. n/a means the model or these clips cannot be scored on it."
+                    source={`source: aggregates, run=${run.run_id}, tier=${tier}, metric=${metric}, slice_kind=${kind}, slice=${slice}`}
+                    bodyClassName="p-0 sm:p-0"
+                  >
+                    <CaptionMetricsTable run={run} rows={aggregatesFor(run, { tier, metric, kind, slice })} sort={params.get("sort")} highlight={params.get("provider")} />
+                  </Figure>
+                )}
+              </div>
+            )}
           </Gated>
         ) : state.status === "error" ? (
           <ErrorState title="Could not load the run data." body="The results files did not load. Check your connection and try again." onRetry={() => location.reload()} />
@@ -101,17 +144,17 @@ function useHistory(run: Run | undefined) {
   return runs;
 }
 
-function Board({ run, tier, metric, history }: { run: Run; tier: Tier; metric: string; history: Run[] }) {
-  const rows = overall(run, tier, metric);
+function Board({ run, tier, metric, kind, slice, history, highlight }: { run: Run; tier: Tier; metric: string; kind: SliceKind; slice: string; history: Run[]; highlight: string | null }) {
+  const rows = aggregatesFor(run, { tier, metric, kind, slice });
   const leader = rows[0];
   const max = maxOf(rows.map((r) => r.ci_high), 0.1) * 1.08 || 0.1;
   const trend = useMemo(() => {
     const out: Record<string, number[]> = {};
     for (const h of history)
       for (const a of h.aggregates)
-        if (a.tier === tier && a.metric === metric && a.slice_kind === "all") (out[a.provider] ??= []).push(a.error_rate);
+        if (a.tier === tier && a.metric === metric && a.slice_kind === kind && a.slice === slice) (out[a.provider] ??= []).push(a.error_rate);
     return out;
-  }, [history, tier, metric]);
+  }, [history, tier, metric, kind, slice]);
 
   const columns: Column<Aggregate>[] = [
     { key: "rank", header: "#", cell: (_, i) => <span className="num text-ink-3">{String(i + 1).padStart(2, "0")}</span>, className: "w-10" },
@@ -158,7 +201,7 @@ function Board({ run, tier, metric, history }: { run: Run; tier: Tier; metric: s
       header: "vs leader",
       cell: (r) => {
         if (!leader || r.provider === leader.provider) return <Badge tone="good">Lowest</Badge>;
-        const t = pair(run, { tier, metric, kind: "all", slice: "all" }, r.provider, leader.provider);
+        const t = pair(run, { tier, metric, kind, slice }, r.provider, leader.provider);
         if (!t) return <span className="text-[12.5px] text-ink-3">not tested</span>;
         return t.better === leader.provider ? (
           <span className="num text-[12.5px] text-ink-2">+{(t.diff * 100).toFixed(1)} pts</span>
@@ -177,7 +220,7 @@ function Board({ run, tier, metric, history }: { run: Run; tier: Tier; metric: s
     { key: "hall", header: "Hallucination", align: "right", sort: (r) => r.hallucination_rate, cell: (r) => <span className="num text-ink-2">{pct(r.hallucination_rate, 2)}</span>, headerClassName: "hidden md:table-cell", className: "hidden md:table-cell" },
     { key: "cost", header: "$ / hour", align: "right", sort: (r) => r.cost_per_hour, cell: (r) => <span className="num text-ink-2">{usdPerHour(r.cost_per_hour)}</span> },
     { key: "p50", header: "p50", align: "right", sort: (r) => r.latency_p50, cell: (r) => <span className="num text-ink-2">{ms(r.latency_p50)}</span>, headerClassName: "hidden md:table-cell", className: "hidden md:table-cell" },
-    { key: "p95", header: "p95", align: "right", sort: (r) => r.latency_p95, cell: (r) => <span className="num text-ink-3">{ms(r.latency_p95)}</span>, headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
+    { key: "p95", header: "p95", align: "right", sort: (r) => r.latency_p95, cell: (r) => <span className="num text-ink-3">{ms(r.latency_p95)}</span>, headerClassName: "hidden 2xl:table-cell", className: "hidden 2xl:table-cell" },
     {
       key: "n",
       header: "Clips",
@@ -201,9 +244,9 @@ function Board({ run, tier, metric, history }: { run: Run; tier: Tier; metric: s
   return (
     <Figure
       n={1}
-      title={`${m?.label ?? metric}, ${TIER_LABEL[tier].toLowerCase()}`}
+      title={`${m?.label ?? metric}, ${TIER_LABEL[tier].toLowerCase()}${kind === "all" ? "" : `, ${sliceLabel(kind, slice).toLowerCase()}`}`}
       caption={rows.some((r) => r.too_small) ? "Lower is better. Fewer than 15 clips per model: read the ranking as a first look, not a result." : "Lower is better. Click a header to sort; click a model for its page."}
-      source={`source: aggregates + paired, run=${run.run_id}, tier=${tier}, metric=${metric}, slice=all`}
+      source={`source: aggregates + paired, run=${run.run_id}, tier=${tier}, metric=${metric}, slice_kind=${kind}, slice=${slice}`}
       bodyClassName="p-0 sm:p-0"
     >
       {tier === "creator" && (
@@ -211,7 +254,7 @@ function Board({ run, tier, metric, history }: { run: Run; tier: Tier; metric: s
           Unverified reference: scored against the creators' own captions. Read as agreement with the creator, not accuracy.
         </p>
       )}
-      <DataTable columns={columns} rows={rows} rowKey={(r) => r.provider} caption="Leaderboard" />
+      <DataTable columns={columns} rows={rows} rowKey={(r) => r.provider} caption="Leaderboard" highlight={highlight ? (r) => r.provider === highlight : undefined} />
     </Figure>
   );
 }

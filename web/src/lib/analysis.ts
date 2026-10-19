@@ -242,8 +242,15 @@ export function median(xs: number[]) {
 }
 
 /** Per clip type: this model's row, the field median (other models) and the best model. */
-export function tagProfile(run: Run, provider: string, tier: Tier, metric: string, kind: "tag" | "duration" = "tag") {
-  const slices = kind === "tag" ? tagsInRun(run, tier) : ["<15s", "15-30s", "30-60s", "60-90s"];
+export function tagProfile(run: Run, provider: string, tier: Tier, metric: string, kind: Exclude<SliceKind, "all"> = "tag") {
+  const slices =
+    kind === "tag"
+      ? tagsInRun(run, tier)
+      : kind === "duration"
+        ? ["<15s", "15-30s", "30-60s", "60-90s"]
+        : kind === "audio_condition"
+          ? ["music", "no_music"]
+          : [...new Set(run.aggregates.filter((a) => a.tier === tier && a.slice_kind === kind).map((a) => a.slice))].sort((a, b) => (a === "other" ? 1 : b === "other" ? -1 : a.localeCompare(b)));
   return slices
     .map((slice) => {
       const rows = aggregatesFor(run, { tier, metric, kind, slice });

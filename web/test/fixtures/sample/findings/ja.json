@@ -1,0 +1,90 @@
+{
+  "lang": "ja",
+  "run_id": "demo-2026-10-19",
+  "created_at": "2026-10-19T09:00:00Z",
+  "published": true,
+  "findings": [
+    {
+      "id": "f-lowest-error-overall",
+      "slug": "lowest-error-overall",
+      "status": "draft",
+      "text": "Model C makes the fewest errors overall: 9.2% against 10.5% for Model D, the runner-up (p < 0.001).",
+      "source": {
+        "table": "paired",
+        "filters": {
+          "tier": "verified",
+          "metric": "cer",
+          "slice_kind": "all",
+          "slice": "all",
+          "provider_a": "model-c",
+          "provider_b": "model-d"
+        }
+      },
+      "numbers": {
+        "error_rate": 0.092,
+        "runner_up_error_rate": 0.1048,
+        "p_value": 0
+      }
+    },
+    {
+      "id": "f-lowest-error-with-music",
+      "slug": "lowest-error-with-music",
+      "status": "draft",
+      "text": "Model C makes the fewest errors on clips with music: 10.3% against 12.4% for Model D, the runner-up (p < 0.001).",
+      "source": {
+        "table": "paired",
+        "filters": {
+          "tier": "verified",
+          "metric": "cer",
+          "slice_kind": "audio_condition",
+          "slice": "music",
+          "provider_a": "model-c",
+          "provider_b": "model-d"
+        }
+      },
+      "numbers": {
+        "error_rate": 0.1028,
+        "runner_up_error_rate": 0.1237,
+        "p_value": 0
+      }
+    },
+    {
+      "id": "f-best-word-timing",
+      "slug": "best-word-timing",
+      "status": "draft",
+      "text": "Model A places the most words within 200 ms of when they are said: 86.1% of matched words.",
+      "source": {
+        "table": "aggregates",
+        "filters": {
+          "tier": "verified",
+          "metric": "cer",
+          "slice_kind": "all",
+          "slice": "all",
+          "sort": "timing"
+        }
+      },
+      "numbers": {
+        "timing_within_200ms": 0.8605
+      }
+    },
+    {
+      "id": "f-most-hallucination-music",
+      "slug": "most-hallucination-over-music",
+      "status": "draft",
+      "text": "Model F invents the most words over music and silence: 6.06 words per minute of non-speech audio on clips with music.",
+      "source": {
+        "table": "aggregates",
+        "filters": {
+          "tier": "verified",
+          "metric": "cer",
+          "slice_kind": "audio_condition",
+          "slice": "music",
+          "sort": "halluc"
+        }
+      },
+      "numbers": {
+        "halluc_per_nonspeech_min": 6.059
+      }
+    }
+  ]
+}

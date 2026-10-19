@@ -19,6 +19,7 @@ const Changelog = lazy(() => import("./pages/Changelog"));
 const Account = lazy(() => import("./pages/Account"));
 const ApiDocs = lazy(() => import("./pages/ApiDocs"));
 const Lang = lazy(() => import("./pages/Lang"));
+const Findings = lazy(() => import("./pages/Findings"));
 
 function L({ children }: { children: ReactNode }) {
   return (
@@ -58,6 +59,8 @@ export const router = createBrowserRouter([
           ]
         : []),
       { path: "/lang/:code", element: <L><Lang /></L> },
+      { path: "/findings/:lang", element: <L><Findings /></L> },
+      { path: "/findings/:lang/:slug", element: <L><Findings /></L> },
       { path: "/docs/api", element: <L><ApiDocs /></L> },
       { path: "*", element: <L><NotFound /></L> },
     ],

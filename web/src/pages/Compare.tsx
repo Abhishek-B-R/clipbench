@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import { Bookmark, Link2, Loader2 } from "lucide-react";
-import type { Run, Tier } from "@/lib/types";
+import type { Run, SliceKind, Tier } from "@/lib/types";
+import { CAPTION_METRICS, metricValue, sliceLabel } from "@/lib/metrics";
 import { useRun } from "@/lib/data";
 import { TAG_LABEL, TAG_PHRASE, isPublished, pickTier, aggregatesFor, overall, pair, primaryMetric, providerColor, providerLabel, providerOrder, tagsInRun, type SliceQuery } from "@/lib/analysis";
 import { ms, pct, pValue, pts, usdPerHour, words } from "@/lib/format";
@@ -40,6 +41,9 @@ export default function Compare() {
   const tier = pickTier(run, params.get("tier"));
   const published = run ? isPublished(run) : true;
   const metric = params.get("metric") || (run ? primaryMetric(run).name : "cer");
+  // A focus slice from a findings deep link (?slice_kind=audio_condition&slice=music), shown first.
+  const focusKind = params.get("slice_kind");
+  const focus = focusKind && focusKind !== "all" && params.get("slice") ? { kind: focusKind as SliceKind, slice: params.get("slice")! } : null;
   const tagsParam = params.get("tags");
   const tags = tagsParam ? tagsParam.split(",").filter(Boolean) : [];
   const mParam = params.get("m");
@@ -134,8 +138,8 @@ export default function Compare() {
               </fieldset>
             </div>
             <TierNote tier={tier} className="-mt-3" />
-            <SideBySide run={run} models={models} tier={tier} metric={metric} tags={tags} />
-            <Verdicts run={run} models={models} tier={tier} metric={metric} tags={tags} />
+            <SideBySide run={run} models={models} tier={tier} metric={metric} tags={tags} focus={focus} />
+            <Verdicts run={run} models={models} tier={tier} metric={metric} tags={tags} focus={focus} />
             <PerType run={run} models={models} tier={tier} metric={metric} tags={tags} />
           </>
         )}
@@ -248,12 +252,12 @@ function defaultName(run: Run, models: string[]) {
 
 // ---------------------------------------------------------------- side by side
 
-function SideBySide({ run, models, tier, metric, tags }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[] }) {
+function SideBySide({ run, models, tier, metric, tags, focus }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[]; focus: Focus }) {
   const all = overall(run, tier, metric);
-  const get = (kind: "all" | "tag", slice: string) => aggregatesFor(run, { tier, metric, kind, slice });
+  const get = (kind: SliceKind, slice: string) => aggregatesFor(run, { tier, metric, kind, slice });
   const allRows = get("all", "all");
   const max = Math.max(0.01, ...allRows.filter((a) => models.includes(a.provider)).map((a) => a.ci_high)) * 1.1;
-  const row = (kind: "all" | "tag", slice: string) => models.map((m) => get(kind, slice).find((a) => a.provider === m));
+  const row = (kind: SliceKind, slice: string) => models.map((m) => get(kind, slice).find((a) => a.provider === m));
   const lowest = (vals: (number | null | undefined)[]) => {
     const xs = vals.filter((v): v is number => v != null);
     return xs.length ? Math.min(...xs) : null;
@@ -261,7 +265,7 @@ function SideBySide({ run, models, tier, metric, tags }: { run: Run; models: str
   const showTags = tags.length ? tags : tagsInRun(run, tier);
   const metricLabel = run.metrics.find((m) => m.name === metric)?.label ?? metric;
 
-  const rateRow = (label: ReactNode, kind: "all" | "tag", slice: string, big = false) => {
+  const rateRow = (label: ReactNode, kind: SliceKind, slice: string, big = false) => {
     const r = row(kind, slice);
     const lo = lowest(r.filter((a) => a && !a.too_small).map((a) => a!.error_rate));
     return (
@@ -344,11 +348,17 @@ function SideBySide({ run, models, tier, metric, tags }: { run: Run; models: str
           </thead>
           <tbody>
             {rateRow(<span className="font-medium text-ink">All clips</span>, "all", "all", true)}
+            {focus && rateRow(<span className="font-medium text-ink">{sliceLabel(focus.kind, focus.slice)}</span>, focus.kind, focus.slice, true)}
             {showTags.map((t) => rateRow(TAG_LABEL[t] ?? t, "tag", t))}
             {plain("Hallucination", aggs.map((a) => pct(a?.hallucination_rate, 2)), argmin(aggs.map((a) => a?.hallucination_rate)))}
             {plain("Price per hour", aggs.map((a) => usdPerHour(a?.cost_per_hour)), argmin(aggs.map((a) => a?.cost_per_hour)))}
             {plain("Latency p50", aggs.map((a) => ms(a?.latency_p50)), argmin(aggs.map((a) => a?.latency_p50)))}
             {plain("Latency p95", aggs.map((a) => ms(a?.latency_p95)), argmin(aggs.map((a) => a?.latency_p95)))}
+            {CAPTION_METRICS.filter((m) => aggs.some((a) => metricValue(a, m) != null)).map((m) => {
+              const vals = aggs.map((a) => metricValue(a, m));
+              const best = m.better === "lower" ? argmin(vals) : argmin(vals.map((v) => (v == null ? null : -v)));
+              return plain(m.label, vals.map((v) => (v == null ? "n/a" : m.fmt(v))), best);
+            })}
             {plain(
               "Audio leaves your machine",
               models.map((m) => (run.providers.find((p) => p.id === m)?.uploads_audio ? "Yes" : "No")),
@@ -359,6 +369,8 @@ function SideBySide({ run, models, tier, metric, tags }: { run: Run; models: str
     </Figure>
   );
 }
+
+type Focus = { kind: SliceKind; slice: string } | null;
 
 function Tr({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
@@ -376,11 +388,12 @@ function Td({ children }: { children: ReactNode }) {
 
 // ---------------------------------------------------------------- verdicts
 
-function Verdicts({ run, models, tier, metric, tags }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[] }) {
+function Verdicts({ run, models, tier, metric, tags, focus }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[]; focus: Focus }) {
   const pairs: [string, string][] = [];
   for (let i = 0; i < models.length; i++) for (let j = i + 1; j < models.length; j++) pairs.push([models[i]!, models[j]!]);
   const slices: { label: string; q: SliceQuery }[] = [
     { label: "All clips", q: { tier, metric, kind: "all", slice: "all" } },
+    ...(focus ? [{ label: sliceLabel(focus.kind, focus.slice), q: { tier, metric, kind: focus.kind, slice: focus.slice } }] : []),
     ...(tags.length ? tags : tagsInRun(run, tier).slice(0, 3)).map((t) => ({ label: TAG_LABEL[t] ?? t, q: { tier, metric, kind: "tag" as const, slice: t } })),
   ];
   return (

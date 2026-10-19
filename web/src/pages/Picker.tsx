@@ -1,12 +1,15 @@
 import { useMemo, type ReactNode } from "react";
-import { maxOf } from "@/lib/scale";
 import { Link, useSearchParams } from "react-router";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowRight, Check, Clock, Cpu, Minus, Scale, Wallet, X } from "lucide-react";
-import type { Run, Tier } from "@/lib/types";
-import { useRun, useSource } from "@/lib/data";
-import { LANGUAGE_NAME, TAG_LABEL, TAG_PHRASE, defaultTier, isPublished, providerById, providerColor, providerLabel, recommend, tagsInRun, type LatencyNeed, type PickerInput, type PickerRow } from "@/lib/analysis";
+import { ArrowRight, Check, Clock, Cpu, Minus, Scale, Timer, Wallet, X } from "lucide-react";
+import type { Run } from "@/lib/types";
+import { useRunFor, useSource } from "@/lib/data";
+import { LANGUAGE_NAME, isPublished, languageProgress, providerById, providerColor, providerLabel } from "@/lib/analysis";
+import { pick, type LatencyNeed, type PickInput, type PickRow } from "@/lib/picker";
+import { sliceLabel } from "@/lib/metrics";
+import { LANGUAGES } from "@/lib/config";
 import { ms, pct, pValue, signedPts, usdPerHour } from "@/lib/format";
+import { maxOf } from "@/lib/scale";
 import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Figure, Corners } from "@/components/ui/Card";
@@ -20,81 +23,96 @@ import { TierNote } from "@/components/ui/TierControl";
 import { Gated } from "@/components/ui/Gate";
 
 const ease = [0.16, 1, 0.3, 1] as const;
-const ALL_LANGS = ["ja", "es", "ko", "en"];
 
 /**
- * "Which model for my clips?" Inputs on the left, a live recommendation on the right. Constraints exclude models,
- * they never reweight them; the pick is then paired-tested against every eligible model on exactly the clips you
- * described, so a statistical tie is said out loud. All inputs live in the URL.
+ * "Pick a provider" for builders. Inputs: language, music-heavy or not, budget per audio hour, word timing,
+ * latency, and whether audio may leave your machine. Output: a ranked short list with the numbers behind each
+ * model and the paired-test caveat, from the published run's aggregates. Unpublished languages show progress.
  */
 export default function Picker() {
-  const state = useRun();
   const src = useSource();
-  const run = state.data?.run;
   const [params, setParams] = useSearchParams();
-  const tags = (params.get("tags") ?? "").split(",").filter(Boolean);
+  const progress = src.data ? languageProgress(src.data.index) : undefined;
+  const firstPublished = progress?.find((l) => l.published)?.lang;
+  const latestLang = src.data?.index.runs.find((r) => r.run_id === src.data!.index.latest)?.language;
+  const lang = params.get("lang") || firstPublished || latestLang || "en";
+  const state = useRunFor(src.data ? lang : null);
+  const run = state.data?.run ?? null;
+  const audio = (params.get("audio") as PickInput["audio"]) || "any";
   const budgetRaw = params.get("budget");
   const budget = budgetRaw == null || budgetRaw === "" ? null : Number(budgetRaw);
+  const timing = params.get("timing") === "1";
   const latency = (params.get("lat") as LatencyNeed) || "any";
   const local = params.get("local") === "1";
   const set = (patch: Record<string, string | null>) => {
     const p = new URLSearchParams(params);
-    for (const [k, v] of Object.entries(patch)) v == null ? p.delete(k) : p.set(k, v);
+    for (const [k, v] of Object.entries(patch)) (v == null ? p.delete(k) : p.set(k, v));
     setParams(p, { replace: true });
   };
-  const input: PickerInput = { tags, budget, latency, local };
-  const result = useMemo(() => (run ? recommend(run, input) : null), [run, tags.join(), budget, latency, local]); // eslint-disable-line react-hooks/exhaustive-deps
-  const languages = new Set(src.data?.index.runs.map((r) => r.language) ?? []);
+  const input: PickInput = { audio, budget, timing, latency, local };
+  const published = Boolean(run && isPublished(run));
+  const result = useMemo(() => (run && published ? pick(run, input) : null), [run, published, audio, budget, timing, latency, local]); // eslint-disable-line react-hooks/exhaustive-deps
+  const loading = src.status === "loading" || state.status === "loading";
 
   return (
     <>
       <PageHeader
-        eyebrow="Model picker"
-        title="Which model for my clips?"
-        description="Describe your audio and your limits. The pick is the lowest error on clips like yours, and we tell you when the runner-up is a statistical tie."
+        eyebrow="Pick a provider"
+        title="Which speech-to-text for my app?"
+        description="Describe your clips and your limits. You get a short list ranked by error on audio like yours, with the numbers behind each model, and we say so when the top two are a statistical tie."
       />
       <div className="frame py-8">
-        {state.status === "error" && <ErrorState title="Could not load the run data." body="The results files did not load. Check your connection and try again." onRetry={() => location.reload()} />}
-        {!run && state.status !== "error" && (
+        {(src.status === "error" || state.status === "error") && <ErrorState title="Could not load the run data." body="The results files did not load. Check your connection and try again." onRetry={() => location.reload()} />}
+        {loading && (
           <div className="grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)]">
             <Skeleton className="h-[520px]" />
             <Skeleton className="h-[520px]" />
           </div>
         )}
-        {run && !isPublished(run) && <Gated run={run} what="recommendation">{null}</Gated>}
-        {run && result && isPublished(run) && (
+        {!loading && state.status === "ready" && (
           <div className="grid items-start gap-8 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)] xl:gap-10">
-            <form onSubmit={(e) => e.preventDefault()} aria-label="Your clips" className="grid gap-0 overflow-hidden rounded-md border border-line bg-surface shadow-card lg:sticky lg:top-20">
-              <Step n={1} title="Language">
+            <form onSubmit={(e) => e.preventDefault()} aria-label="Your app" className="grid overflow-hidden rounded-md border border-line bg-surface shadow-card lg:sticky lg:top-20">
+              <Step n={1} title="Language" hint={published ? "Published" : "Not published yet"}>
                 <div className="flex flex-wrap gap-1.5">
-                  {ALL_LANGS.map((l) => {
-                    const has = languages.has(l);
+                  {LANGUAGES.map((l) => {
+                    const st = progress?.find((x) => x.lang === l);
+                    const ok = Boolean(st?.published);
                     return (
-                      <Chip key={l} pressed={l === run.language} disabled={!has} aria-disabled={!has} title={has ? undefined : "No published run for this language yet"}>
+                      <Chip key={l} pressed={l === lang} disabled={!ok && l !== lang} title={ok ? undefined : "Not published yet"} onClick={() => set({ lang: l })}>
                         {LANGUAGE_NAME[l]}
                       </Chip>
                     );
                   })}
                 </div>
-                <p className="mt-2 text-[12px] text-ink-3">Other languages open when their first run is published.</p>
+                <p className="mt-2 text-[12px] text-ink-3">A language opens here once its results are published.</p>
               </Step>
-              <Step n={2} title="Clip types that matter" hint={tags.length ? `${tags.length} picked` : "Any clip"}>
-                {tagsInRun(run).length ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {tagsInRun(run).map((t) => (
-                      <Chip key={t} pressed={tags.includes(t)} onClick={() => set({ tags: (tags.includes(t) ? tags.filter((x) => x !== t) : [...tags, t]).join(",") || null })}>
-                        {TAG_LABEL[t]}
-                      </Chip>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-[13px] text-ink-3">No clip types are tagged in this run yet, so the pick uses every clip.</p>
-                )}
+              <Step n={2} title="Is your audio music-heavy?">
+                <Segmented
+                  label="Music-heavy audio"
+                  value={audio}
+                  onChange={(v) => set({ audio: v === "any" ? null : v })}
+                  options={[
+                    { value: "any", label: "A mix" },
+                    { value: "music", label: "Mostly music" },
+                    { value: "no_music", label: "Mostly speech" },
+                  ]}
+                />
               </Step>
-              <Step n={3} title="Budget per hour of audio" hint={budget == null ? "No limit" : `Up to ${usdPerHour(budget)}`}>
-                <Budget run={run} value={budget} onChange={(v) => set({ budget: v == null ? null : v.toFixed(2) })} />
+              <Step n={3} title="Budget per hour of audio" hint={budget == null ? "No limit" : `Up to ${usdPerHour(budget)}`} >
+                {run ? <Budget run={run} value={budget} onChange={(v) => set({ budget: v == null ? null : v.toFixed(2) })} /> : null}
               </Step>
-              <Step n={4} title="Latency" hint="Median per clip">
+              <Step n={4} title="Do you need word timings?" hint="Word-by-word captions">
+                <Segmented
+                  label="Need word timings"
+                  value={timing ? "yes" : "no"}
+                  onChange={(v) => set({ timing: v === "yes" ? "1" : null })}
+                  options={[
+                    { value: "no", label: "No" },
+                    { value: "yes", label: "Yes" },
+                  ]}
+                />
+              </Step>
+              <Step n={5} title="Latency" hint="Median per clip">
                 <Segmented
                   label="Latency need"
                   value={latency}
@@ -106,7 +124,7 @@ export default function Picker() {
                   ]}
                 />
               </Step>
-              <Step n={5} title="Can audio leave your machine?" last>
+              <Step n={6} title="Can audio leave your machine?" last>
                 <Segmented
                   label="Can audio leave your machine"
                   value={local ? "no" : "yes"}
@@ -117,9 +135,9 @@ export default function Picker() {
                   ]}
                 />
               </Step>
-              {(tags.length > 0 || budget != null || latency !== "any" || local) && (
+              {(audio !== "any" || budget != null || timing || latency !== "any" || local) && (
                 <div className="border-t border-line px-5 py-3">
-                  <button type="button" onClick={() => setParams(new URLSearchParams(), { replace: true })} className="text-[12.5px] text-ink-3 underline decoration-line-strong underline-offset-4 hover:text-ink">
+                  <button type="button" onClick={() => setParams(new URLSearchParams(params.get("lang") ? { lang } : {}), { replace: true })} className="text-[12.5px] text-ink-3 underline decoration-line-strong underline-offset-4 hover:text-ink">
                     Reset all
                   </button>
                 </div>
@@ -127,9 +145,23 @@ export default function Picker() {
             </form>
 
             <div className="grid min-w-0 gap-8">
-              <TierNote tier={defaultTier(run)} />
-              <Recommendation run={run} result={result} input={input} onRelax={set} />
-              <Ranked run={run} result={result} />
+              {!published ? (
+                <Gated run={run} lang={lang} what="recommendation">
+                  {null}
+                </Gated>
+              ) : (
+                run &&
+                result && (
+                  <>
+                    <TierNote tier={result.tier} />
+                    {result.fellBack && audio !== "any" && (
+                      <p className="rounded-md border border-line bg-sunken/60 px-4 py-2.5 text-[13px] text-ink-2">This run has no music or speech-only slices yet, so the list uses all clips.</p>
+                    )}
+                    <Recommendation run={run} result={result} input={input} lang={lang} onRelax={set} />
+                    <Ranked run={run} result={result} input={input} lang={lang} />
+                  </>
+                )
+              )}
             </div>
           </div>
         )}
@@ -208,17 +240,32 @@ function Budget({ run, value, onChange }: { run: Run; value: number | null; onCh
 
 // ---------------------------------------------------------------- recommendation
 
-type Result = ReturnType<typeof recommend>;
+type Result = ReturnType<typeof pick>;
 
-function Recommendation({ run, result, input, onRelax }: { run: Run; result: Result; input: PickerInput; onRelax: (p: Record<string, string | null>) => void }) {
+/** "all clips", "clips with music", "clips without music". */
+function whereText(r: Result) {
+  return r.kind === "all" ? "all clips" : `clips ${sliceLabel(r.kind, r.slice).toLowerCase()}`;
+}
+
+function evidence(lang: string, r: Result, input: PickInput) {
+  const q = new URLSearchParams({ lang });
+  if (r.kind !== "all") {
+    q.set("slice_kind", r.kind);
+    q.set("slice", r.slice);
+  }
+  if (input.timing) q.set("sort", "timing");
+  return `/leaderboard?${q}`;
+}
+
+function Recommendation({ run, result, input, lang, onRelax }: { run: Run; result: Result; input: PickInput; lang: string; onRelax: (p: Record<string, string | null>) => void }) {
   const reduce = useReducedMotion();
-  const { pick, tied, cheaperTie, betterExcluded, nClips } = result;
-  const where = input.tags.length ? `${nClips} clips with ${list(input.tags.map((t) => TAG_PHRASE[t] ?? t), "or")}` : `all ${nClips} clips`;
+  const { best, tied, cheaperTie, betterExcluded } = result;
+  const where = whereText(result);
 
-  if (!pick)
+  if (!best)
     return (
       <div className="relative rounded-lg border border-line bg-surface p-6 shadow-card sm:p-8">
-        <Corners />
+        <Corners className="pointer-events-none absolute inset-0" />
         <div className="label">No model fits all of that</div>
         <h2 className="mt-3 text-[24px] font-semibold tracking-[-0.02em] text-ink">Loosen one limit to see a pick.</h2>
         <p className="mt-2 max-w-[56ch] text-[14.5px] text-ink-2">Every model in this run is ruled out by at least one of your limits. Each button below lifts one of them.</p>
@@ -226,6 +273,11 @@ function Recommendation({ run, result, input, onRelax }: { run: Run; result: Res
           {input.budget != null && (
             <Button variant="secondary" size="sm" onClick={() => onRelax({ budget: null })}>
               <Wallet size={14} /> Remove the budget limit
+            </Button>
+          )}
+          {input.timing && (
+            <Button variant="secondary" size="sm" onClick={() => onRelax({ timing: null })}>
+              <Timer size={14} /> Drop word timings
             </Button>
           )}
           {input.latency !== "any" && (
@@ -242,27 +294,44 @@ function Recommendation({ run, result, input, onRelax }: { run: Run; result: Res
       </div>
     );
 
-  const p = providerById(run, pick.provider)!;
+  const p = providerById(run, best.provider)!;
   const tie = cheaperTie ?? tied[0];
   const reasons: { ok: boolean; text: ReactNode }[] = [
     {
       ok: true,
       text: (
         <>
-          Lowest error on {where}: <span className="num text-ink">{pct(pick.score)}</span> (95% interval {pct(pick.ci_low)} to {pct(pick.ci_high)}).
+          Lowest error on {where}: <span className="num text-ink">{pct(best.agg.error_rate)}</span> (95% interval {pct(best.agg.ci_low)} to {pct(best.agg.ci_high)}, {best.agg.n_clips} clips).
         </>
       ),
     },
-    ...pick.tagRanks
-      .filter((r) => r.rank > 0)
-      .map((r) => ({
-        ok: r.rank === 1,
-        text: (
-          <>
-            {r.rank === 1 ? "Ranked first" : `Ranked ${r.rank} of ${r.of}`} on {TAG_PHRASE[r.tag]} alone{r.tooSmall ? " (too few clips to conclude)" : ""}.
-          </>
-        ),
-      })),
+    ...(input.timing || best.timing != null
+      ? [
+          {
+            ok: best.timing != null,
+            text:
+              best.timing != null ? (
+                <>
+                  <span className="num text-ink">{pct(best.timing)}</span> of correctly heard words start within 200 ms of when they are said.
+                </>
+              ) : (
+                <>Returns no word timings.</>
+              ),
+          },
+        ]
+      : []),
+    ...(input.audio === "music" && best.halluc != null
+      ? [
+          {
+            ok: true,
+            text: (
+              <>
+                Invents <span className="num text-ink">{best.halluc.toFixed(2)}</span> words per minute of music or silence.
+              </>
+            ),
+          },
+        ]
+      : []),
     {
       ok: true,
       text: p.paid ? (
@@ -277,48 +346,39 @@ function Recommendation({ run, result, input, onRelax }: { run: Run; result: Res
       ok: true,
       text: (
         <>
-          Median latency <span className="num text-ink">{ms(pick.p50)}</span> per clip{input.latency !== "any" ? `, under your ${ms(Number(input.latency))} limit` : ""}.
+          Median latency <span className="num text-ink">{ms(best.p50)}</span> per clip. {p.uploads_audio ? "Sends audio to the provider." : "Audio never leaves your machine."}
         </>
       ),
     },
-    { ok: true, text: p.uploads_audio ? <>Sends audio to the provider's servers.</> : <>Audio never leaves your machine.</> },
   ];
 
   return (
     <section aria-live="polite" aria-labelledby="pick-title" className="relative overflow-hidden rounded-lg border border-line bg-surface shadow-card">
-      <Corners />
+      <Corners className="pointer-events-none absolute inset-0" />
       <div className="grid gap-6 p-6 sm:p-8 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:gap-10">
         <div>
           <div className="label flex items-center gap-2">
-            <SeriesDot color={providerColor(run, pick.provider)} />
-            <span className="text-signal-ink">Our pick</span> / for your clips
+            <SeriesDot color={providerColor(run, best.provider)} />
+            <span className="text-signal-ink">Top pick</span> / for {LANGUAGE_NAME[lang] ?? lang}, {where}
           </div>
           <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={pick.provider}
-              initial={reduce ? false : { opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduce ? undefined : { opacity: 0, y: -8 }}
-              transition={{ duration: 0.35, ease }}
-            >
+            <motion.div key={best.provider} initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={reduce ? undefined : { opacity: 0, y: -8 }} transition={{ duration: 0.35, ease }}>
               <h2 id="pick-title" className={cn("display mt-4 text-ink", p.label.length > 14 ? "text-[34px] sm:text-[40px]" : "text-[44px] sm:text-[56px]")}>
                 {p.label}
               </h2>
               <p className="mt-2 font-mono text-[12px] text-ink-3">{p.model_id}</p>
               <div className="mt-6 grid grid-cols-3 gap-4">
-                <Stat label="Error rate" value={pct(pick.score)} />
-                <Stat label="Per hour" value={usdPerHour(p.usd_per_hour)} />
-                <Stat label="Median latency" value={ms(pick.p50)} />
+                <Stat label="Error rate" value={pct(best.agg.error_rate)} />
+                <Stat label={input.timing ? "Words on time" : "Per hour"} value={input.timing ? (best.timing == null ? "n/a" : pct(best.timing)) : usdPerHour(p.usd_per_hour)} />
+                <Stat label={input.audio === "music" ? "Invented / min" : "Median latency"} value={input.audio === "music" ? (best.halluc == null ? "n/a" : best.halluc.toFixed(2)) : ms(best.p50)} />
               </div>
               <div className="mt-7 flex flex-wrap gap-2">
-                <Link to={`/providers/${pick.provider}`} className={buttonClass("primary", "sm", "group")}>
+                <Link to={`/providers/${best.provider}`} className={buttonClass("primary", "sm", "group")}>
                   Open {p.label} <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
                 </Link>
-                {tie && (
-                  <Link to={`/compare?m=${[pick.provider, tie.provider].join(",")}${input.tags.length ? `&tags=${input.tags.join(",")}` : ""}`} className={buttonClass("secondary", "sm")}>
-                    Compare with {providerLabel(run, tie.provider)}
-                  </Link>
-                )}
+                <Link to={evidence(lang, result, input)} className={buttonClass("secondary", "sm")}>
+                  See the evidence
+                </Link>
               </div>
             </motion.div>
           </AnimatePresence>
@@ -344,7 +404,7 @@ function Recommendation({ run, result, input, onRelax }: { run: Run; result: Res
               <Scale size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-ink-3" aria-hidden />
               <span>
                 <span className="font-medium text-ink">Statistically tied with {providerLabel(run, tie.provider)}</span>
-                {tied.length > 1 ? ` and ${tied.length - 1} more` : ""}: it is {signedPts(tie.vsPick.diff)} on these clips ({pValue(tie.vsPick.p)}, interval crosses zero).
+                {tied.length > 1 ? ` and ${tied.length - 1} more` : ""}: {signedPts(tie.vsPick.diff)} on these clips ({pValue(tie.vsPick.p)}, interval crosses zero).
                 {cheaperTie ? ` It costs ${usdPerHour(cheaperTie.price)} per hour, so if price matters it is just as good a choice.` : " Either is a sound choice."}
               </span>
             </p>
@@ -353,7 +413,7 @@ function Recommendation({ run, result, input, onRelax }: { run: Run; result: Res
             <p key={b.provider} className="flex gap-3 text-[13.5px] text-ink-2">
               <X size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-ink-3" aria-hidden />
               <span>
-                {providerLabel(run, b.provider)} makes fewer errors on these clips ({pct(b.score)}) but is ruled out: {b.excluded.join(", ").toLowerCase()}.
+                {providerLabel(run, b.provider)} makes fewer errors on these clips ({pct(b.agg.error_rate)}) but is ruled out: {b.excluded.join(", ").toLowerCase()}.
               </span>
             </p>
           ))}
@@ -374,40 +434,50 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function list(xs: string[], word: string) {
-  if (xs.length <= 1) return xs.join("");
-  return `${xs.slice(0, -1).join(", ")} ${word} ${xs[xs.length - 1]}`;
-}
+// ---------------------------------------------------------------- short list
 
-// ---------------------------------------------------------------- ranked list
-
-function Ranked({ run, result }: { run: Run; result: Result }) {
-  const { pick, nClips } = result;
+function Ranked({ run, result, input, lang }: { run: Run; result: Result; input: PickInput; lang: string }) {
+  const { best } = result;
   const rows = [...result.rows.filter((r) => !r.excluded.length), ...result.rows.filter((r) => r.excluded.length)];
-  const max = Math.max(0.01, ...rows.map((r) => r.ci_high)) * 1.06;
-  const tier: Tier = defaultTier(run);
+  const max = maxOf(rows.map((r) => r.agg.ci_high), 0.1) * 1.06 || 0.1;
+  const where = whereText(result);
   return (
     <Figure
       n={1}
-      title="Every model, ranked for your clips"
-      caption={`Mean per-clip error on the ${nClips} matching clips, with a 95% bootstrap interval. Ruled-out models stay listed, greyed, with the reason.`}
-      source={`source: per_clip, tier=${tier}, metric=cer; paired bootstrap vs the pick, 1000 resamples`}
+      title={`Short list, ${where}`}
+      caption="Error rate with its 95% interval on the matching audio, then the numbers your inputs care about. Ruled-out models stay listed, greyed, with the reason."
+      source={
+        <span className="flex flex-wrap items-center justify-between gap-2">
+          <span>
+            source: aggregates + paired, run={run.run_id}, tier={result.tier}, metric={result.metric}, slice_kind={result.kind}, slice={result.slice}
+          </span>
+          <Link to={evidence(lang, result, input)} className="inline-flex items-center gap-1 text-ink-2 hover:text-ink">
+            Evidence <ArrowRight size={12} />
+          </Link>
+        </span>
+      }
       bodyClassName="p-0 sm:p-0"
     >
       <ol>
         {rows.map((r, i) => (
-          <motion.li layout transition={{ type: "spring", stiffness: 400, damping: 38 }} key={r.provider} className={cn("grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-line px-4 py-3 last:border-b-0 sm:grid-cols-[28px_170px_minmax(0,1fr)_150px] sm:px-5", r.excluded.length && "bg-sunken/40")}>
-            <span className={cn("num text-[12.5px]", r === pick ? "text-signal-ink" : "text-ink-3")}>{r.excluded.length ? <span className="sr-only">Ruled out</span> : String(i + 1).padStart(2, "0")}</span>
+          <motion.li layout transition={{ type: "spring", stiffness: 400, damping: 38 }} key={r.provider} className={cn("grid gap-x-4 gap-y-2 border-b border-line px-4 py-3.5 last:border-b-0 sm:px-5 md:grid-cols-[28px_120px_minmax(140px,1fr)_minmax(0,230px)_130px] md:items-center", r.excluded.length && "bg-sunken/40")}>
+            <span className={cn("num hidden text-[12.5px] md:block", r === best ? "text-signal-ink" : "text-ink-3")}>{r.excluded.length ? "" : String(i + 1).padStart(2, "0")}</span>
             <Link to={`/providers/${r.provider}`} className={cn("flex min-w-0 items-center gap-2 hover:underline", r.excluded.length ? "text-ink-3" : "text-ink")}>
               <SeriesDot color={providerColor(run, r.provider)} className={r.excluded.length ? "opacity-40" : ""} />
               <span className="truncate text-[13.5px] font-medium">{providerLabel(run, r.provider)}</span>
             </Link>
-            <span className="col-span-3 row-start-2 flex items-center gap-3 sm:col-span-1 sm:row-start-auto">
+            <span className="flex items-center gap-3">
               <ScoreBar r={r} max={max} color={providerColor(run, r.provider)} muted={r.excluded.length > 0} />
-              <span className={cn("num w-12 shrink-0 text-right text-[13px]", r.excluded.length ? "text-ink-3" : "text-ink")}>{pct(r.score)}</span>
+              <span className={cn("num w-12 shrink-0 text-right text-[13px]", r.excluded.length ? "text-ink-3" : "text-ink")}>{pct(r.agg.error_rate)}</span>
             </span>
-            <span className="col-start-3 row-start-1 flex justify-end sm:col-start-auto sm:row-start-auto">
-              <Status r={r} pick={pick} />
+            <span className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-3">
+              <Num label="per hour" v={usdPerHour(r.price)} />
+              {(input.timing || r.timing != null) && <Num label="on time" v={r.timing == null ? "n/a" : pct(r.timing)} />}
+              {input.audio === "music" && <Num label="invented / min" v={r.halluc == null ? "n/a" : r.halluc.toFixed(2)} />}
+              {input.latency !== "any" && <Num label="p50" v={ms(r.p50)} />}
+            </span>
+            <span className="flex justify-start md:justify-end">
+              <Status r={r} best={best} />
             </span>
           </motion.li>
         ))}
@@ -416,13 +486,21 @@ function Ranked({ run, result }: { run: Run; result: Result }) {
   );
 }
 
-function ScoreBar({ r, max, color, muted }: { r: PickerRow; max: number; color: string; muted: boolean }) {
+function Num({ label, v }: { label: string; v: string }) {
+  return (
+    <span className="whitespace-nowrap">
+      <span className="num text-ink-2">{v}</span> {label}
+    </span>
+  );
+}
+
+function ScoreBar({ r, max, color, muted }: { r: PickRow; max: number; color: string; muted: boolean }) {
   const w = (v: number) => `${(v / max) * 100}%`;
   return (
-    <span className={cn("relative h-5 flex-1", muted && "opacity-35")} role="img" aria-label={`${pct(r.score)}, interval ${pct(r.ci_low)} to ${pct(r.ci_high)}`}>
+    <span className={cn("relative h-5 flex-1", muted && "opacity-35")} role="img" aria-label={`${pct(r.agg.error_rate)}, interval ${pct(r.agg.ci_low)} to ${pct(r.agg.ci_high)}`}>
       <span className="absolute inset-y-0 left-0 w-px bg-line-strong" />
-      <motion.span className="absolute top-[3px] bottom-[3px] left-0 rounded-r-[4px]" style={{ background: color }} initial={false} animate={{ width: w(r.score) }} transition={{ duration: 0.6, ease }} />
-      <motion.span className="absolute top-1/2 h-px -translate-y-1/2 bg-ink" initial={false} animate={{ left: w(r.ci_low), width: `calc(${w(r.ci_high)} - ${w(r.ci_low)})` }} transition={{ duration: 0.6, ease }}>
+      <motion.span className="absolute top-[3px] bottom-[3px] left-0 rounded-r-[4px]" style={{ background: color }} initial={false} animate={{ width: w(r.agg.error_rate) }} transition={{ duration: 0.6, ease }} />
+      <motion.span className="absolute top-1/2 h-px -translate-y-1/2 bg-ink" initial={false} animate={{ left: w(r.agg.ci_low), width: `calc(${w(r.agg.ci_high)} - ${w(r.agg.ci_low)})` }} transition={{ duration: 0.6, ease }}>
         <span className="absolute -top-[3px] left-0 h-[7px] w-px bg-ink" />
         <span className="absolute -top-[3px] right-0 h-[7px] w-px bg-ink" />
       </motion.span>
@@ -430,11 +508,11 @@ function ScoreBar({ r, max, color, muted }: { r: PickerRow; max: number; color: 
   );
 }
 
-function Status({ r, pick }: { r: PickerRow; pick?: PickerRow }) {
-  if (r === pick) return <Badge tone="good">Pick</Badge>;
+function Status({ r, best }: { r: PickRow; best?: PickRow }) {
+  if (r === best) return <Badge tone="good">Top pick</Badge>;
   if (r.excluded.length)
     return (
-      <span className="flex flex-wrap justify-end gap-1">
+      <span className="flex flex-wrap gap-1">
         {r.excluded.map((x) => (
           <Badge key={x} tone="outline">
             {x}
@@ -442,6 +520,6 @@ function Status({ r, pick }: { r: PickerRow; pick?: PickerRow }) {
         ))}
       </span>
     );
-  if (r.vsPick?.tied) return <Badge tone="ins">Tied with pick</Badge>;
-  return <span className="num text-[12px] text-ink-3">{r.vsPick ? `${signedPts(r.vsPick.diff)} vs pick` : ""}</span>;
+  if (r.vsPick?.tied) return <Badge tone="ins">Tied with top pick</Badge>;
+  return <span className="num text-[12px] text-ink-3">{r.vsPick ? signedPts(r.vsPick.diff) : ""}</span>;
 }

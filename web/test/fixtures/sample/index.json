@@ -64,5 +64,22 @@
         "model-e"
       ]
     }
+  ],
+  "languages": [
+    {
+      "lang": "ja",
+      "verified_clips": 150,
+      "providers_ok": 6,
+      "published": true,
+      "channels": 8,
+      "categories": [
+        "comedy_skit",
+        "gaming",
+        "cooking_tutorial",
+        "talking_head",
+        "vlog_music",
+        "news_explainer"
+      ]
+    }
   ]
 }

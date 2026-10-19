@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { ArrowRight, ArrowUpRight, GitCompareArrows, Star } from "lucide-react";
-import type { Run, Tier } from "@/lib/types";
+import type { Aggregate, Run, SliceKind, Tier } from "@/lib/types";
 import { useAllRuns, useRun } from "@/lib/data";
 import {
   LANGUAGE_NAME,
@@ -23,8 +23,9 @@ import {
   youtubeUrl,
   type RankPoint,
 } from "@/lib/analysis";
-import { date, ms, pct, pValue, signedPts, usdPerHour } from "@/lib/format";
+import { date, int, ms, pct, pValue, signedPts, usdPerHour } from "@/lib/format";
 import { useWatch } from "@/lib/watch";
+import { CAPTION_METRICS, SLICE_KIND_LABEL, hasCaptionMetrics, metricN, metricValue, sliceLabel } from "@/lib/metrics";
 import { ACCOUNTS } from "@/lib/flags";
 import { useWidth } from "@/lib/useWidth";
 import { cn } from "@/lib/cn";
@@ -199,6 +200,7 @@ function Body({ run, id, tier, metric, history }: { run: Run; id: string; tier: 
 
       <RankHistory n={fig()} run={run} id={id} points={hist} color={color} tier={tier} metric={metric} loading={!history} />
       <ByType n={fig()} run={run} id={id} tier={tier} metric={metric} />
+      {hasCaptionMetrics(run) && <CaptionQuality n={fig()} id={id} rows={rows} tier={tier} metric={metric} />}
       <Paired n={fig()} run={run} id={id} tier={tier} metric={metric} />
       <Breaks n={fig()} run={run} id={id} tier={tier} />
       <div className="grid gap-8 lg:grid-cols-2">
@@ -348,7 +350,9 @@ function niceStep(max: number) {
 // ---------------------------------------------------------------- by clip type
 
 function ByType({ n, run, id, tier, metric }: { n: number; run: Run; id: string; tier: Tier; metric: string }) {
-  const [kind, setKind] = useState<"tag" | "duration">(() => (tagProfile(run, id, tier, metric, "tag").length ? "tag" : "duration"));
+  type K = Exclude<SliceKind, "all">;
+  const kinds = (["audio_condition", "category", "tag", "duration"] as K[]).filter((k) => tagProfile(run, id, tier, metric, k).length > 0);
+  const [kind, setKind] = useState<K>(() => kinds[0] ?? "duration");
   const rows = tagProfile(run, id, tier, metric, kind);
   const max = Math.max(0.01, ...rows.flatMap((r) => r.rows.map((a) => a.ci_high))) * 1.04;
   const color = providerColor(run, id);
@@ -356,17 +360,14 @@ function ByType({ n, run, id, tier, metric }: { n: number; run: Run; id: string;
   return (
     <Figure
       n={n}
-      title={kind === "tag" ? "Error rate by clip type, against the field" : "Error rate by clip length, against the field"}
+      title={`Error rate by ${SLICE_KIND_LABEL[kind].toLowerCase()}, against the field`}
       caption="Bars are this model with its 95% interval. The grey tick is the median of the other models; the right column is the gap to it."
       controls={
         <Segmented
           label="Slice by"
           value={kind}
           onChange={setKind}
-          options={[
-            { value: "tag", label: "Clip type" },
-            { value: "duration", label: "Length" },
-          ]}
+          options={kinds.map((k) => ({ value: k, label: SLICE_KIND_LABEL[k] }))}
         />
       }
       source={`source: aggregates, tier=${tier}, metric=${metric}, slice_kind=${kind}`}
@@ -379,7 +380,7 @@ function ByType({ n, run, id, tier, metric }: { n: number; run: Run; id: string;
       ) : (
         <div className="grid gap-1">
           <div className="hidden grid-cols-[150px_minmax(0,1fr)_60px_76px_44px] gap-3 pb-1 sm:grid">
-            <span className="label">{kind === "tag" ? "Clip type" : "Length"}</span>
+            <span className="label">{SLICE_KIND_LABEL[kind]}</span>
             <span />
             <span className="label text-right">Rate</span>
             <span className="label text-right">vs median</span>
@@ -391,7 +392,7 @@ function ByType({ n, run, id, tier, metric }: { n: number; run: Run; id: string;
             return (
               <div key={r.slice} className="grid grid-cols-[minmax(0,1fr)_56px_64px] items-center gap-x-3 gap-y-1.5 border-t border-line py-2.5 sm:grid-cols-[150px_minmax(0,1fr)_60px_76px_44px]">
                 <span className="col-span-3 flex items-center gap-2 text-[13.5px] text-ink sm:col-span-1">
-                  {kind === "tag" ? TAG_LABEL[r.slice] ?? r.slice : r.slice}
+                  {sliceLabel(kind, r.slice)}
                   {m.too_small && <Badge tone="warn">n={m.n_clips}</Badge>}
                 </span>
                 <span className="relative h-6" role="img" aria-label={`${pct(m.error_rate)}, interval ${pct(m.ci_low)} to ${pct(m.ci_high)}; others' median ${pct(r.fieldMedian)}`}>
@@ -576,6 +577,43 @@ function Breaks({ n, run, id, tier }: { n: number; run: Run; id: string; tier: T
           )}
         </div>
       </div>
+    </Figure>
+  );
+}
+
+// ---------------------------------------------------------------- caption quality
+
+function CaptionQuality({ n, id, rows, tier, metric }: { n: number; id: string; rows: Aggregate[]; tier: Tier; metric: string }) {
+  const me = rows.find((r) => r.provider === id);
+  return (
+    <Figure
+      n={n}
+      title="Caption quality"
+      caption="What a caption product ships besides the text. Each row ranks this model among those that can be scored on it; n/a means it cannot (for example, no word timings returned)."
+      source={`source: aggregates, tier=${tier}, metric=${metric}, slice=all`}
+      bodyClassName="p-0 sm:p-0"
+    >
+      <dl>
+        {CAPTION_METRICS.map((m) => {
+          const v = metricValue(me, m);
+          const scored = rows.filter((r) => metricValue(r, m) != null).sort((a, b) => (m.better === "higher" ? metricValue(b, m)! - metricValue(a, m)! : metricValue(a, m)! - metricValue(b, m)!));
+          const rank = scored.findIndex((r) => r.provider === id) + 1;
+          const nn = metricN(me, m);
+          return (
+            <div key={m.key} className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] items-baseline gap-4 border-b border-line px-4 py-3 last:border-b-0 sm:px-5">
+              <dt>
+                <span className="block text-[13.5px] text-ink">{m.label}</span>
+                <span className="block text-[12px] text-ink-3">{m.help}</span>
+              </dt>
+              <dd className="num text-right text-[14px] text-ink">
+                {v == null ? <span className="text-[12.5px] text-ink-3">n/a</span> : m.fmt(v)}
+                {v != null && nn != null && <span className="block text-[10.5px] text-ink-3">n={int(nn)}</span>}
+              </dd>
+              <dd className="num w-14 text-right text-[12.5px] text-ink-3">{v == null || !rank ? "" : `#${rank}/${scored.length}`}</dd>
+            </div>
+          );
+        })}
+      </dl>
     </Figure>
   );
 }

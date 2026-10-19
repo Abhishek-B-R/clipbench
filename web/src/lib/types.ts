@@ -1,7 +1,7 @@
 // Types for the run export. Source of truth: docs/WEB.md ("Run data") and docs/INTERFACES.md ("Scores").
 
 export type Tier = "verified" | "creator";
-export type SliceKind = "all" | "tag" | "duration";
+export type SliceKind = "all" | "tag" | "duration" | "category" | "audio_condition";
 export type Verdict = "a_better" | "b_better" | "no_difference";
 
 export interface RunSummary {
@@ -76,6 +76,23 @@ export interface Aggregate {
   latency_p50: number | null;
   latency_p95: number | null;
   rtf: number | null;
+  // v2 caption metrics (docs/methodology_v2_metrics.md). Optional until the exporter writes them; null = n/a, never 0.
+  /** Median across clips of the per-clip median word start offset, ms. */
+  timing_median_ms?: number | null;
+  timing_p90_ms?: number | null;
+  /** Share 0..1 of matched words starting within 200 ms of the reference (word weighted). */
+  timing_within_200ms?: number | null;
+  timing_n_clips?: number | null;
+  /** Words emitted over non-speech, per minute of non-speech audio. */
+  halluc_per_nonspeech_min?: number | null;
+  nonspeech_n_clips?: number | null;
+  /** Punctuation F1 0..1 on clips marked punctuated. */
+  punct_f1?: number | null;
+  casing_acc?: number | null;
+  punct_n_clips?: number | null;
+  /** Error rate on tagged code-switch spans, 0..1. */
+  codeswitch_error_rate?: number | null;
+  codeswitch_n_clips?: number | null;
 }
 
 export interface Paired {
@@ -107,6 +124,27 @@ export interface Finding {
   tier: Tier;
   text: string;
   source: string;
+}
+
+/**
+ * v2 findings file: /data/findings/<lang>.json (written by the exporter). Every sentence is generated from
+ * numbers that survived the paired test, with a structured pointer to the table it came from.
+ */
+export interface FindingV2 {
+  id: string;
+  slug: string;
+  text: string;
+  status: "draft" | "verified" | string;
+  source: { table: "aggregates" | "paired" | string; filters: Record<string, string | number | boolean | null> };
+  numbers?: Record<string, number | null>;
+}
+
+export interface FindingsFile {
+  lang: string;
+  run_id?: string;
+  created_at?: string;
+  published?: boolean;
+  findings: FindingV2[];
 }
 
 export interface ProviderErrors {

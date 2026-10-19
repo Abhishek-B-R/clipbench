@@ -83,7 +83,9 @@ function clipId(r: () => number) {
 
 const CHANNELS = ["Demo channel 1", "Demo channel 2", "Demo channel 3", "Demo channel 4", "Demo channel 5", "Demo channel 6", "Demo channel 7", "Demo channel 8"];
 
-type Clip = { video_id: string; tier: string; duration_s: number; channel: string; tags: Tag[]; kind: "short" | "window"; start_s: number | null };
+type Clip = { video_id: string; tier: string; duration_s: number; channel: string; tags: Tag[]; kind: "short" | "window"; start_s: number | null; category: string; audio_condition: "music" | "no_music"; punctuated: boolean };
+
+const CATS = ["talking_head", "vlog_music", "gaming", "comedy_skit", "cooking_tutorial", "news_explainer", "other"];
 
 function makeClips(r: () => number, tier: string, n: number): Clip[] {
   const clips: Clip[] = [];
@@ -95,7 +97,9 @@ function makeClips(r: () => number, tier: string, n: number): Clip[] {
     const duration_s = Math.round((d < 0.18 ? 8 + r() * 7 : d < 0.62 ? 15 + r() * 15 : d < 0.9 ? 30 + r() * 30 : 60 + r() * 28) * 10) / 10;
     const kind = rk() < 0.22 ? "window" : "short";
     const start_s = kind === "window" ? Math.round(30 + rk() * 600) : null;
-    clips.push({ video_id: clipId(r), tier, duration_s, channel: CHANNELS[Math.floor(r() * CHANNELS.length)]!, tags, kind, start_s });
+    const category = tags.includes("background_music") && rk() < 0.6 ? "vlog_music" : CATS[Math.floor(rk() * CATS.length)]!;
+    const audio_condition = tags.includes("background_music") || category === "vlog_music" ? "music" : "no_music";
+    clips.push({ video_id: clipId(r), tier, duration_s, channel: CHANNELS[Math.floor(r() * CHANNELS.length)]!, tags, kind, start_s, category, audio_condition, punctuated: rk() < 0.45 });
   }
   return clips;
 }
@@ -133,7 +137,24 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
   const clipsC = makeClips(r, "creator", 240);
   const allClips = [...clipsV, ...clipsC];
 
-  type Row = { provider: PId; video_id: string; tier: string; metric: string; error_rate: number; hallucination_rate: number; latency_ms: number; clip: Clip };
+  type V2 = { timing_med: number | null; within: number | null; nonspeech_min: number; halluc_words: number | null; punct: number | null; casing: number | null; cs: number | null };
+  type Row = { provider: PId; video_id: string; tier: string; metric: string; error_rate: number; hallucination_rate: number; latency_ms: number; clip: Clip; v2: V2 };
+  // Synthetic v2 caption metrics (docs/methodology_v2_metrics.md). Model B returns no word timings, to exercise n/a.
+  const r2v = rng(seed * 31 + 5);
+  const TIMING: Record<PId, number | null> = { "model-a": 70, "model-b": null, "model-c": 120, "model-d": 180, "model-e": 95, "model-f": 240 };
+  const HALL: Record<PId, number> = { "model-a": 0.4, "model-b": 0.3, "model-c": 0.25, "model-d": 0.6, "model-e": 2.4, "model-f": 3.6 };
+  const PUNCT: Record<PId, number> = { "model-a": 0.82, "model-b": 0.74, "model-c": 0.86, "model-d": 0.7, "model-e": 0.66, "model-f": 0.58 };
+  const v2For = (p: PId, clip: Clip, cer: number): V2 => {
+    const base = TIMING[p];
+    const timing_med = base == null ? null : Math.round(base * Math.exp(normal(r2v) * 0.3) * (clip.audio_condition === "music" ? 1.3 : 1));
+    const within = timing_med == null ? null : Math.max(0, Math.min(1, 1 - timing_med / 600 + normal(r2v) * 0.05));
+    const nonspeech_min = (clip.duration_s / 60) * (clip.audio_condition === "music" ? 0.35 : 0.12) * (0.6 + r2v() * 0.8);
+    const halluc_words = base == null ? null : Math.max(0, Math.round(HALL[p] * nonspeech_min * (clip.audio_condition === "music" ? 1.5 : 0.6) * Math.exp(normal(r2v) * 0.5)));
+    const punct = clip.punctuated ? Math.max(0, Math.min(1, PUNCT[p] + normal(r2v) * 0.08)) : null;
+    const casing = clip.punctuated ? Math.max(0, Math.min(1, PUNCT[p] + 0.1 + normal(r2v) * 0.05)) : null;
+    const cs = clip.tags.includes("code_switching") ? Math.min(0.95, cer * (1.4 + r2v() * 0.8)) : null;
+    return { timing_med, within, nonspeech_min, halluc_words, punct, casing, cs };
+  };
   const rows: Row[] = [];
   for (const clip of allClips) {
     const difficulty = Math.exp(normal(r) * 0.25);
@@ -145,8 +166,9 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
       const reading = Math.max(0, cer * (0.78 + r() * 0.08));
       const halluc = p.id === "model-e" || p.id === "model-f" ? (r() < 0.12 ? r() * 0.08 : 0) : r() < 0.03 ? r() * 0.03 : 0;
       const latency = Math.round(p.lat * (0.6 + clip.duration_s / 40) * Math.exp(normal(r) * 0.2));
-      rows.push({ provider: p.id, video_id: clip.video_id, tier: clip.tier, metric: "cer", error_rate: cer, hallucination_rate: halluc, latency_ms: latency, clip });
-      rows.push({ provider: p.id, video_id: clip.video_id, tier: clip.tier, metric: "cer_reading", error_rate: reading, hallucination_rate: halluc, latency_ms: latency, clip });
+      const v2 = v2For(p.id, clip, cer);
+      rows.push({ provider: p.id, video_id: clip.video_id, tier: clip.tier, metric: "cer", error_rate: cer, hallucination_rate: halluc, latency_ms: latency, clip, v2 });
+      rows.push({ provider: p.id, video_id: clip.video_id, tier: clip.tier, metric: "cer_reading", error_rate: reading, hallucination_rate: halluc, latency_ms: latency, clip, v2: { ...v2, cs: v2.cs == null ? null : v2.cs * 0.85 } });
     }
   }
 
@@ -154,7 +176,29 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
     { kind: "all", name: "all", test: () => true },
     ...(Object.keys(TAG_SHARE) as Tag[]).map((t) => ({ kind: "tag", name: t, test: (c: Clip) => c.tags.includes(t) })),
     ...BUCKETS.map((b) => ({ kind: "duration", name: b, test: (c: Clip) => bucket(c.duration_s) === b })),
+    ...CATS.map((k) => ({ kind: "category", name: k, test: (c: Clip) => c.category === k })),
+    ...["music", "no_music"].map((k) => ({ kind: "audio_condition", name: k, test: (c: Clip) => c.audio_condition === k })),
   ];
+  const v2agg = (g: Row[]) => {
+    const t = g.filter((x) => x.v2.timing_med != null);
+    const ns = g.filter((x) => x.v2.halluc_words != null && x.v2.nonspeech_min > 0);
+    const pu = g.filter((x) => x.v2.punct != null);
+    const cs = g.filter((x) => x.v2.cs != null);
+    const nsMin = ns.reduce((a, x) => a + x.v2.nonspeech_min, 0);
+    return {
+      timing_median_ms: t.length ? Math.round(pct(t.map((x) => x.v2.timing_med!), 0.5)) : null,
+      timing_p90_ms: t.length ? Math.round(pct(t.map((x) => x.v2.timing_med! * 2.1), 0.9)) : null,
+      timing_within_200ms: t.length ? round(mean(t.map((x) => x.v2.within!))) : null,
+      timing_n_clips: t.length,
+      halluc_per_nonspeech_min: ns.length && nsMin > 0 ? round(ns.reduce((a, x) => a + x.v2.halluc_words!, 0) / nsMin, 3) : null,
+      nonspeech_n_clips: ns.length,
+      punct_f1: pu.length ? round(mean(pu.map((x) => x.v2.punct!))) : null,
+      casing_acc: pu.length ? round(mean(pu.map((x) => x.v2.casing!))) : null,
+      punct_n_clips: pu.length,
+      codeswitch_error_rate: cs.length ? round(mean(cs.map((x) => x.v2.cs!))) : null,
+      codeswitch_n_clips: cs.length,
+    };
+  };
 
   const aggregates: Record<string, unknown>[] = [];
   const paired: Record<string, unknown>[] = [];
@@ -178,6 +222,7 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
             cost_usd_total: round(audioH * p.usd_per_hour, 4), audio_hours: round(audioH, 4), cost_per_hour: p.usd_per_hour,
             latency_p50: Math.round(pct(lat, 0.5)), latency_p95: Math.round(pct(lat, 0.95)),
             rtf: round(mean(g.map((x) => x.latency_ms / 1000 / x.clip.duration_s)), 3),
+            ...v2agg(g),
           });
         }
         const ids = [...PROVIDERS.map((p) => p.id)].sort();
@@ -256,7 +301,8 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
       { tier: "verified", text: "DRAFT: verify. Synthetic demo finding: the local model is free but makes about twice the errors of the best paid model.", source: "aggregates, tier=verified, slice=all" },
     ],
     errors: { providers: errorsProviders, examples },
-    clips: allClips.map((c) => ({ video_id: c.video_id, tier: c.tier, duration_s: c.duration_s, channel: c.channel, tags: c.tags, kind: c.kind, start_s: c.start_s })),
+    clips: allClips.map((c) => ({ video_id: c.video_id, tier: c.tier, duration_s: c.duration_s, channel: c.channel, tags: c.tags, kind: c.kind, start_s: c.start_s, category: c.category, audio_condition: c.audio_condition })),
+    languages: [{ lang: "ja", verified_clips: clipsV.length, providers_ok: PROVIDERS.length, published: clipsV.length >= 100 && PROVIDERS.length >= 6, channels: new Set(clipsV.map((c) => c.channel)).size, categories: [...new Set(clipsV.map((c) => c.category))].filter((c) => c !== "other") }],
     per_clip,
     limitations: [
       "This is synthetic demo data. Model names and clip ids are placeholders, not results.",
@@ -275,14 +321,66 @@ const RUNS = [
 ] as const;
 
 mkdirSync(join(OUT, "runs"), { recursive: true });
-const index = { demo: true, latest: RUNS[RUNS.length - 1]!.id, runs: [] as unknown[] };
+mkdirSync(join(OUT, "findings"), { recursive: true });
+const index = { demo: true, latest: RUNS[RUNS.length - 1]!.id, runs: [] as unknown[], languages: [] as unknown[] };
 for (const run of RUNS) {
   const data = makeRun(run.id, run.at, run.seed, run.drift, run.include, run.versions);
+  if (run.id === index.latest) {
+    index.languages = data.languages;
+    writeFileSync(join(OUT, "findings", "ja.json"), JSON.stringify(makeFindings(data), null, 2));
+  }
   writeFileSync(join(OUT, "runs", `${run.id}.json`), JSON.stringify(data));
   const n_clips: Record<string, number> = {};
   for (const c of data.clips) n_clips[c.tier] = (n_clips[c.tier] ?? 0) + 1;
   index.runs.push({ run_id: run.id, created_at: run.at, language: "ja", tiers: ["verified", "creator"], n_clips, providers: data.providers.map((p) => p.id) });
 }
 index.runs.reverse();
+
+/**
+ * Synthetic findings in the shape the exporter writes (findings/<lang>.json): only claims the paired test backs,
+ * each with a structured source pointing at the table and filters it came from.
+ */
+function makeFindings(data: ReturnType<typeof makeRun>) {
+  type A = { provider: string; tier: string; metric: string; slice_kind: string; slice: string; error_rate: number; too_small: boolean; timing_within_200ms: number | null; halluc_per_nonspeech_min: number | null };
+  type P = { tier: string; metric: string; slice_kind: string; slice: string; provider_a: string; provider_b: string; diff: number; p_value: number; verdict: string };
+  const aggs = data.aggregates as unknown as A[];
+  const pairs = data.paired as unknown as P[];
+  const label = (id: string) => data.providers.find((p) => p.id === id)!.label;
+  const rows = (kind: string, slice: string) => aggs.filter((a) => a.tier === "verified" && a.metric === "cer" && a.slice_kind === kind && a.slice === slice).sort((a, b) => a.error_rate - b.error_rate);
+  const test = (kind: string, slice: string, a: string, b: string) => pairs.find((p) => p.tier === "verified" && p.metric === "cer" && p.slice_kind === kind && p.slice === slice && ((p.provider_a === a && p.provider_b === b) || (p.provider_a === b && p.provider_b === a)));
+  const out: unknown[] = [];
+  const lead = (kind: string, slice: string, what: string, slug: string) => {
+    const [w, r] = rows(kind, slice);
+    const t = w && r ? test(kind, slice, w.provider, r.provider) : undefined;
+    if (!w || !r || !t || t.verdict === "no_difference") return;
+    out.push({
+      id: `f-${slug}`, slug, status: "draft",
+      text: `${label(w.provider)} makes the fewest errors ${what}: ${(w.error_rate * 100).toFixed(1)}% against ${(r.error_rate * 100).toFixed(1)}% for ${label(r.provider)}, the runner-up (${t.p_value < 0.001 ? "p < 0.001" : `p = ${t.p_value.toFixed(3)}`}).`,
+      source: { table: "paired", filters: { tier: "verified", metric: "cer", slice_kind: kind, slice, provider_a: w.provider, provider_b: r.provider } },
+      numbers: { error_rate: w.error_rate, runner_up_error_rate: r.error_rate, p_value: t.p_value },
+    });
+  };
+  lead("all", "all", "overall", "lowest-error-overall");
+  lead("audio_condition", "music", "on clips with music", "lowest-error-with-music");
+  lead("category", "gaming", "on gaming clips", "lowest-error-gaming");
+  const all = rows("all", "all");
+  const timing = all.filter((a) => a.timing_within_200ms != null).sort((a, b) => b.timing_within_200ms! - a.timing_within_200ms!)[0];
+  if (timing)
+    out.push({
+      id: "f-best-word-timing", slug: "best-word-timing", status: "draft",
+      text: `${label(timing.provider)} places the most words within 200 ms of when they are said: ${(timing.timing_within_200ms! * 100).toFixed(1)}% of matched words.`,
+      source: { table: "aggregates", filters: { tier: "verified", metric: "cer", slice_kind: "all", slice: "all", sort: "timing" } },
+      numbers: { timing_within_200ms: timing.timing_within_200ms },
+    });
+  const music = rows("audio_condition", "music").filter((a) => a.halluc_per_nonspeech_min != null).sort((a, b) => b.halluc_per_nonspeech_min! - a.halluc_per_nonspeech_min!)[0];
+  if (music)
+    out.push({
+      id: "f-most-hallucination-music", slug: "most-hallucination-over-music", status: "draft",
+      text: `${label(music.provider)} invents the most words over music and silence: ${music.halluc_per_nonspeech_min!.toFixed(2)} words per minute of non-speech audio on clips with music.`,
+      source: { table: "aggregates", filters: { tier: "verified", metric: "cer", slice_kind: "audio_condition", slice: "music", sort: "halluc" } },
+      numbers: { halluc_per_nonspeech_min: music.halluc_per_nonspeech_min },
+    });
+  return { lang: "ja", run_id: data.run_id, created_at: data.created_at, published: data.languages[0]!.published, findings: out };
+}
 writeFileSync(join(OUT, "index.json"), JSON.stringify(index, null, 2));
 console.log("wrote", OUT);

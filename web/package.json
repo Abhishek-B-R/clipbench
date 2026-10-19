@@ -4,11 +4,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p tsconfig.json && vite build",
+    "build": "tsc -p tsconfig.json && vite build && bun run scripts/og-routes.ts",
     "typecheck": "tsc -p tsconfig.json",
     "preview": "vite preview",
     "sample": "bun run scripts/gen-sample.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "og": "bun run scripts/og-routes.ts"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.3.0",

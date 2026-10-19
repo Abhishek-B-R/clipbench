@@ -13,7 +13,8 @@ const COLS = [
     links: [
       { to: "/leaderboard", label: "Leaderboard" },
       { to: "/compare", label: "Compare models" },
-      { to: "/picker", label: "Model picker" },
+      { to: "/picker", label: "Pick a provider" },
+      { to: "/findings/en", label: "Findings" },
       { to: "/clips", label: "Clip set" },
       { to: "/changelog", label: "Changelog" },
     ],

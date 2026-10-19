@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Run, RunIndex } from "./types";
+import type { FindingsFile, Run, RunIndex } from "./types";
 
 /**
  * Data layer. Reads only the static export written by `clipbench export` (docs/WEB.md, docs/V2.md):
@@ -153,4 +153,20 @@ export async function loadRunFor(lang?: string | null): Promise<{ run: Run | nul
 
 export function useRunFor(lang?: string | null) {
   return useAsync(() => loadRunFor(lang), [lang]);
+}
+
+/** Findings for a language (/data/findings/<lang>.json). null when the file does not exist yet. */
+export async function loadFindings(lang: string): Promise<FindingsFile | null> {
+  const source = await loadSource();
+  try {
+    const raw = await getJSON<FindingsFile | FindingsFile["findings"]>(`${source.base}/findings/${encodeURIComponent(lang)}.json`);
+    // Accept a bare array too, defensively.
+    return Array.isArray(raw) ? { lang, findings: raw } : { ...raw, findings: raw.findings ?? [] };
+  } catch {
+    return null;
+  }
+}
+
+export function useFindings(lang: string) {
+  return useAsync(() => loadFindings(lang), [lang]);
 }

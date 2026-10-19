@@ -15,7 +15,7 @@ function earlyRun(): Run {
   const ids = new Set(clips.map((c) => c.video_id));
   const providers = full.providers.slice(0, 2);
   const keep = new Set(providers.map((p) => p.id));
-  return { ...full, providers, clips, per_clip: full.per_clip.filter((r) => ids.has(r.video_id) && keep.has(r.provider)) };
+  return { ...full, languages: undefined, providers, clips, per_clip: full.per_clip.filter((r) => ids.has(r.video_id) && keep.has(r.provider)) };
 }
 
 describe("publication gate", () => {

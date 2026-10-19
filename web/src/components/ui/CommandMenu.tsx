@@ -52,7 +52,7 @@ function useOpen() {
 const PAGES = [
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy, hint: "Every model ranked, with intervals" },
   { to: "/compare", label: "Compare", icon: GitCompareArrows, hint: "Pick models, clip types and a metric" },
-  { to: "/picker", label: "Model picker", icon: Sparkles, hint: "Which model for my clips" },
+  { to: "/picker", label: "Pick a provider", icon: Sparkles, hint: "Which speech-to-text for my app" },
   { to: "/clips", label: "Clips", icon: LayoutList, hint: "Browse the clip set" },
   { to: "/methodology", label: "Methodology", icon: FlaskConical, hint: "How scoring works" },
   ...(ACCOUNTS ? [{ to: "/requests", label: "Requests", icon: Vote, hint: "Vote for the next model or language" }] : []),
@@ -65,6 +65,7 @@ const PAGES = [
       ]
     : []),
   ...LANGUAGES.map((l) => ({ to: `/lang/${l}`, label: LANGUAGE_NAME[l] ?? l, icon: Globe, hint: "Progress and results for this language" })),
+  ...LANGUAGES.map((l) => ({ to: `/findings/${l}`, label: `${LANGUAGE_NAME[l] ?? l} findings`, icon: Sparkles, hint: "Shareable findings, each linked to its table" })),
   { to: "/", label: "Overview", icon: Home, hint: "The landing page" },
 ];
 

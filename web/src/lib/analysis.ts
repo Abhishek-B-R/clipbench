@@ -53,6 +53,12 @@ export function primaryMetric(run: Run) {
   return run.metrics.find((m) => m.primary) ?? run.metrics[0]!;
 }
 
+/** Use a metric from the URL only if the run has it, else the primary one (a stale or edited link never shows n/a everywhere). */
+export function pickMetric(run: Run | undefined, wanted: string | null): string {
+  if (!run) return wanted || "cer";
+  return run.metrics.some((m) => m.name === wanted) ? wanted! : primaryMetric(run).name;
+}
+
 /** Stable provider order (sorted ids) so a provider keeps one colour everywhere. Max 6 categorical slots, then grey. */
 export function providerOrder(run: Run): string[] {
   return [...run.providers.map((p) => p.id)].sort();

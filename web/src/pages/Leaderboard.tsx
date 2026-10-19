@@ -7,7 +7,7 @@ import { SLICE_KIND_LABEL, hasCaptionMetrics, sliceKindsIn, sliceLabel, slicesOf
 import { CaptionMetricsTable } from "@/components/charts/CaptionMetrics";
 import { loadRun, runUrl, useRunFor } from "@/lib/data";
 import { Gated } from "@/components/ui/Gate";
-import { LANGUAGE_NAME, TIER_LABEL, aggregatesFor, isPublished, pickTier, pair, primaryMetric, providerColor, providerLabel } from "@/lib/analysis";
+import { LANGUAGE_NAME, TIER_LABEL, aggregatesFor, isPublished, pickMetric, pickTier, pair, providerColor, providerLabel } from "@/lib/analysis";
 import { date, ms, pct, usdPerHour } from "@/lib/format";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Figure } from "@/components/ui/Card";
@@ -32,7 +32,7 @@ export default function Leaderboard() {
   const run = state.data ? state.data.run : undefined;
   const published = run ? isPublished(run) : run === undefined;
   const tier = pickTier(run ?? undefined, params.get("tier"));
-  const metric = params.get("metric") || (run ? primaryMetric(run).name : "cer");
+  const metric = pickMetric(run ?? undefined, params.get("metric"));
   const kinds = run ? sliceKindsIn(run, tier) : (["all"] as SliceKind[]);
   const kind = (kinds.includes(params.get("slice_kind") as SliceKind) ? params.get("slice_kind") : "all") as SliceKind;
   const values = run ? slicesOf(run, tier, kind) : ["all"];

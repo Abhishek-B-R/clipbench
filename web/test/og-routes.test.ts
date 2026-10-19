@@ -14,6 +14,7 @@ describe("og-routes", () => {
     writeFileSync(join(dist, "index.html"), `<!doctype html><html><head><title>x</title><meta name="description" content="x" /></head><body><div id="root"></div></body></html>`);
     mkdirSync(join(dist, "data", "findings"), { recursive: true });
     cpSync(join(FIX, "index.json"), join(dist, "data", "index.json"));
+    cpSync(join(FIX, "runs"), join(dist, "data", "runs"), { recursive: true });
     cpSync(join(FIX, "findings", "ja.json"), join(dist, "data", "findings", "ja.json"));
     mkdirSync(join(dist, "og"), { recursive: true });
     writeFileSync(join(dist, "og", "home.png"), "");
@@ -30,5 +31,17 @@ describe("og-routes", () => {
     expect(page).toContain("twitter:card");
     expect(existsSync(join(dist, "lang", "ja.html"))).toBe(true);
     expect(existsSync(join(dist, "findings", "en.html"))).toBe(true);
+
+    // Every top-level page and every model page gets its own canonical, so a shared link never previews as "/".
+    for (const route of ["leaderboard", "compare", "picker", "clips", "methodology", "changelog", "docs/api"]) {
+      const html = readFileSync(join(dist, `${route}.html`), "utf8");
+      expect(html).toContain(`<link rel="canonical" href="https://bench.test/${route}" />`);
+      expect(html).toContain(`<meta property="og:url" content="https://bench.test/${route}" />`);
+    }
+    const run = JSON.parse(readFileSync(join(FIX, "runs", `${JSON.parse(readFileSync(join(FIX, "index.json"), "utf8")).latest}.json`), "utf8")) as { providers: { id: string; label: string }[] };
+    const p = run.providers[0]!;
+    const model = readFileSync(join(dist, "providers", `${p.id}.html`), "utf8");
+    expect(model).toContain(`<title>${p.label} | clipbench</title>`);
+    expect(model).not.toMatch(/\d+(\.\d+)?%/);
   });
 });

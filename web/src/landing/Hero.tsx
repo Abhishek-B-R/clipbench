@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import { ArrowRight } from "lucide-react";
 import type { Run } from "@/lib/types";
 import { LANGUAGE_NAME, overall, providerLabel, defaultTier, type LanguageProgress } from "@/lib/analysis";
@@ -30,22 +30,22 @@ export function Hero({ run, progress, published }: { run: Run | undefined; progr
     <section aria-labelledby="hero-title" className="relative overflow-hidden">
       <div className="frame frame-lines grid gap-12 pt-10 pb-16 sm:pt-16 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-14 lg:pt-20 lg:pb-24">
         <div className="flex min-w-0 flex-col">
-          <motion.div {...anim(0)} className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <m.div {...anim(0)} className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1 pr-3 pl-1.5 text-[12px] text-ink-2">
               <span className="rounded-full bg-ink px-2 py-0.5 font-mono text-[10.5px] tracking-wide text-paper uppercase">{published ? "Latest run" : "First results"}</span>
               {published && run ? date(run.created_at) : "in progress"}
             </span>
             <span className="label">Independent / open source / no provider funding</span>
-          </motion.div>
+          </m.div>
 
-          <motion.h1 {...anim(0.06)} id="hero-title" className="display mt-7 max-w-[17ch] text-[44px] leading-[1.02] text-ink sm:text-[60px] xl:text-[68px]">
+          <m.h1 {...anim(0.06)} id="hero-title" className="display mt-7 max-w-[17ch] text-[44px] leading-[1.02] text-ink sm:text-[60px] xl:text-[68px]">
             Which speech-to-text should your <Underlined>video app</Underlined> use?
-          </motion.h1>
-          <motion.p {...anim(0.14)} className="mt-6 max-w-[54ch] text-[17px] leading-relaxed text-ink-2 sm:text-[18px]">
+          </m.h1>
+          <m.p {...anim(0.14)} className="mt-6 max-w-[54ch] text-[17px] leading-relaxed text-ink-2 sm:text-[18px]">
             The independent benchmark for captions on real short-form video: accuracy, word timing, hallucination over music, and cost, in {countWord(n).toLowerCase()} languages.
-          </motion.p>
+          </m.p>
 
-          <motion.div {...anim(0.22)} className="mt-9 flex flex-wrap items-center gap-3">
+          <m.div {...anim(0.22)} className="mt-9 flex flex-wrap items-center gap-3">
             {published ? (
               <Link to="/leaderboard" className={buttonClass("primary", "lg", "group")}>
                 See the leaderboard
@@ -58,12 +58,12 @@ export function Hero({ run, progress, published }: { run: Run | undefined; progr
               </Link>
             )}
             <CopyCommand command={`git clone https://github.com/${REPO_SLUG}`} display={`git clone github.com/${REPO_SLUG}`} />
-          </motion.div>
+          </m.div>
         </div>
 
-        <motion.div {...anim(0.3)} className="min-w-0 self-end">
+        <m.div {...anim(0.3)} className="min-w-0 self-end">
           <ProgressCard progress={progress} published={published} />
-        </motion.div>
+        </m.div>
       </div>
       {published && run && <StatStrip run={run} />}
     </section>
@@ -119,7 +119,7 @@ function Underlined({ children }: { children: React.ReactNode }) {
     <span className="relative whitespace-nowrap">
       {children}
       <svg aria-hidden viewBox="0 0 300 12" preserveAspectRatio="none" className="absolute -bottom-[0.12em] left-0 h-[0.2em] w-full overflow-visible">
-        <motion.path
+        <m.path
           d="M2 8 C 60 3, 120 3, 170 6 S 260 10, 298 4"
           fill="none"
           stroke="var(--signal)"

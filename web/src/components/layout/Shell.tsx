@@ -1,14 +1,23 @@
+import { useEffect } from "react";
 import { Link, Outlet, ScrollRestoration, useLocation } from "react-router";
 import { FlaskConical } from "lucide-react";
 import { setDemo, useSource } from "@/lib/data";
 import { languageProgress } from "@/lib/analysis";
 import { Nav } from "./Nav";
 import { Footer } from "./Footer";
-import { CommandMenu } from "../ui/CommandMenu";
+import { CommandMenuHost } from "../ui/CommandMenuHost";
 import { Toaster } from "../ui/Toast";
 
 /** App shell: demo banner (only on synthetic data), nav, page, footer, command menu, toasts. */
 export function Shell() {
+  const { pathname } = useLocation();
+  // index.html is also the fallback for every route without its own file (scripts/og-routes.ts), and its
+  // canonical and og:url point at "/". Keep them on the current page after client-side navigation too.
+  useEffect(() => {
+    const url = `${window.location.origin}${pathname}`;
+    document.querySelector('link[rel="canonical"]')?.setAttribute("href", url);
+    document.querySelector('meta[property="og:url"]')?.setAttribute("content", url);
+  }, [pathname]);
   return (
     <div className="flex min-h-dvh flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-sm focus:bg-ink focus:px-3 focus:py-2 focus:text-paper">
@@ -20,7 +29,7 @@ export function Shell() {
         <Outlet />
       </main>
       <Footer />
-      <CommandMenu />
+      <CommandMenuHost />
       <Toaster />
       <ScrollRestoration />
     </div>

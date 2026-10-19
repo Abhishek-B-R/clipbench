@@ -2,9 +2,9 @@
 # In production set each one with `wrangler secret put NAME` (from web/). Never commit real values.
 # Empty optional values switch the matching feature off; GET /api/auth-providers reports what is on.
 
-# Required. Signs session cookies and tokens. Generate: openssl rand -base64 32
+# Required with accounts on. Signs session cookies and tokens. Generate: openssl rand -base64 32
 BETTER_AUTH_SECRET=
-# Required. Public origin of the site, no trailing slash. OAuth callbacks are <this>/api/auth/callback/<provider>.
+# Required with accounts on. Public origin of the site, no trailing slash. OAuth callbacks are <this>/api/auth/callback/<provider>.
 BETTER_AUTH_URL=http://localhost:8787
 
 # Optional. GitHub OAuth app (github.com/settings/developers). Callback: <BETTER_AUTH_URL>/api/auth/callback/github
@@ -22,10 +22,13 @@ RESEND_API_KEY=
 # Sender for all email, on a domain verified in Resend, e.g. clipbench <hello@mail.example.com>
 EMAIL_FROM=
 
-# Required for POST /api/admin/notify-new-run (Authorization: Bearer <token>). Generate: openssl rand -hex 32
+# Optional. Needed for POST /api/admin/notify-new-run (Authorization: Bearer <token>). Generate: openssl rand -hex 32
 ADMIN_TOKEN=
 
 # Plain vars (wrangler.jsonc "vars"); override here for local dev if needed.
+# "true" turns the account routes on (wrangler.jsonc default "false": only /api/v1 answers). Build the SPA with
+# VITE_ACCOUNTS=1 to match.
+ACCOUNTS=false
 # Extra comma separated origins allowed on mutating routes, e.g. a Vite dev server: http://localhost:5173
 TRUSTED_ORIGINS=http://localhost:5173
 # "true" lets the hourly cron email watchers about a new latest run once.

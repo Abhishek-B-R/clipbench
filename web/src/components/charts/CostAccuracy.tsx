@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { maxOf, minOf } from "@/lib/scale";
-import { motion, useInView, useReducedMotion } from "motion/react";
+import { m, useInView, useReducedMotion } from "motion/react";
 import type { Aggregate, Run } from "@/lib/types";
 import { frontier, providerColor, providerLabel } from "@/lib/analysis";
 import { pct, usdPerHour } from "@/lib/format";
@@ -110,7 +110,7 @@ export function CostAccuracy({ run, rows, height = 360 }: { run: Run; rows: Aggr
         </text>
 
         {/* frontier */}
-        <motion.path
+        <m.path
           d={path}
           fill="none"
           stroke="var(--ink-3)"
@@ -130,7 +130,7 @@ export function CostAccuracy({ run, rows, height = 360 }: { run: Run; rows: Aggr
           const dim = hover && hover !== r.provider;
           const lab = labels[r.provider]!;
           return (
-            <motion.g
+            <m.g
               key={r.provider}
               initial={reduce ? false : { opacity: 0, y: 8 }}
               animate={inView ? { opacity: dim ? 0.35 : 1, y: 0 } : undefined}
@@ -150,7 +150,7 @@ export function CostAccuracy({ run, rows, height = 360 }: { run: Run; rows: Aggr
               <text x={lab.x} y={lab.y} dy="0.32em" textAnchor={lab.anchor} className="fill-[var(--ink)] text-[12px] font-medium">
                 {providerLabel(run, r.provider)}
               </text>
-            </motion.g>
+            </m.g>
           );
         })}
       </svg>

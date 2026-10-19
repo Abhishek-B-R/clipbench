@@ -1,11 +1,11 @@
 import { useMemo, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { ArrowRight, Check, Clock, Cpu, Minus, Scale, Timer, Wallet, X } from "lucide-react";
 import type { Run } from "@/lib/types";
 import { useRunFor, useSource } from "@/lib/data";
 import { LANGUAGE_NAME, isPublished, languageProgress, providerById, providerColor, providerLabel } from "@/lib/analysis";
-import { pick, type LatencyNeed, type PickInput, type PickRow } from "@/lib/picker";
+import { parsePickParams, pick, type PickInput, type PickRow } from "@/lib/picker";
 import { sliceLabel } from "@/lib/metrics";
 import { LANGUAGES } from "@/lib/config";
 import { ms, pct, pValue, signedPts, usdPerHour } from "@/lib/format";
@@ -38,11 +38,8 @@ export default function Picker() {
   const lang = params.get("lang") || firstPublished || latestLang || "en";
   const state = useRunFor(src.data ? lang : null);
   const run = state.data?.run ?? null;
-  const audio = (params.get("audio") as PickInput["audio"]) || "any";
-  const budgetRaw = params.get("budget");
-  const budget = budgetRaw == null || budgetRaw === "" ? null : Number(budgetRaw);
+  const { audio, budget, latency } = parsePickParams(params);
   const timing = params.get("timing") === "1";
-  const latency = (params.get("lat") as LatencyNeed) || "any";
   const local = params.get("local") === "1";
   const set = (patch: Record<string, string | null>) => {
     const p = new URLSearchParams(params);
@@ -233,7 +230,7 @@ function Budget({ run, value, onChange }: { run: Run; value: number | null; onCh
         </span>
         <span className="absolute right-0">No limit</span>
       </div>
-      <p className="mt-2 text-[12px] text-ink-3">Dots are each model's list price. Free models run on your own machine.</p>
+      <p className="mt-2 text-[12px] text-ink-3">Dots are each model's list price per hour of audio; a dot at $0 is free to run.</p>
     </div>
   );
 }
@@ -362,7 +359,7 @@ function Recommendation({ run, result, input, lang, onRelax }: { run: Run; resul
             <span className="text-signal-ink">Top pick</span> / for {LANGUAGE_NAME[lang] ?? lang}, {where}
           </div>
           <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={best.provider} initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={reduce ? undefined : { opacity: 0, y: -8 }} transition={{ duration: 0.35, ease }}>
+            <m.div key={best.provider} initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={reduce ? undefined : { opacity: 0, y: -8 }} transition={{ duration: 0.35, ease }}>
               <h2 id="pick-title" className={cn("display mt-4 text-ink", p.label.length > 14 ? "text-[34px] sm:text-[40px]" : "text-[44px] sm:text-[56px]")}>
                 {p.label}
               </h2>
@@ -380,7 +377,7 @@ function Recommendation({ run, result, input, lang, onRelax }: { run: Run; resul
                   See the evidence
                 </Link>
               </div>
-            </motion.div>
+            </m.div>
           </AnimatePresence>
         </div>
         <div className="md:border-l md:border-line md:pl-10">
@@ -460,7 +457,7 @@ function Ranked({ run, result, input, lang }: { run: Run; result: Result; input:
     >
       <ol>
         {rows.map((r, i) => (
-          <motion.li layout transition={{ type: "spring", stiffness: 400, damping: 38 }} key={r.provider} className={cn("grid gap-x-4 gap-y-2 border-b border-line px-4 py-3.5 last:border-b-0 sm:px-5 md:grid-cols-[28px_120px_minmax(140px,1fr)_minmax(0,230px)_130px] md:items-center", r.excluded.length && "bg-sunken/40")}>
+          <m.li layout transition={{ type: "spring", stiffness: 400, damping: 38 }} key={r.provider} className={cn("grid gap-x-4 gap-y-2 border-b border-line px-4 py-3.5 last:border-b-0 sm:px-5 md:grid-cols-[28px_120px_minmax(140px,1fr)_minmax(0,230px)_130px] md:items-center", r.excluded.length && "bg-sunken/40")}>
             <span className={cn("num hidden text-[12.5px] md:block", r === best ? "text-signal-ink" : "text-ink-3")}>{r.excluded.length ? "" : String(i + 1).padStart(2, "0")}</span>
             <Link to={`/providers/${r.provider}`} className={cn("flex min-w-0 items-center gap-2 hover:underline", r.excluded.length ? "text-ink-3" : "text-ink")}>
               <SeriesDot color={providerColor(run, r.provider)} className={r.excluded.length ? "opacity-40" : ""} />
@@ -479,7 +476,7 @@ function Ranked({ run, result, input, lang }: { run: Run; result: Result; input:
             <span className="flex justify-start md:justify-end">
               <Status r={r} best={best} />
             </span>
-          </motion.li>
+          </m.li>
         ))}
       </ol>
     </Figure>
@@ -499,11 +496,11 @@ function ScoreBar({ r, max, color, muted }: { r: PickRow; max: number; color: st
   return (
     <span className={cn("relative h-5 flex-1", muted && "opacity-35")} role="img" aria-label={`${pct(r.agg.error_rate)}, interval ${pct(r.agg.ci_low)} to ${pct(r.agg.ci_high)}`}>
       <span className="absolute inset-y-0 left-0 w-px bg-line-strong" />
-      <motion.span className="absolute top-[3px] bottom-[3px] left-0 rounded-r-[4px]" style={{ background: color }} initial={false} animate={{ width: w(r.agg.error_rate) }} transition={{ duration: 0.6, ease }} />
-      <motion.span className="absolute top-1/2 h-px -translate-y-1/2 bg-ink" initial={false} animate={{ left: w(r.agg.ci_low), width: `calc(${w(r.agg.ci_high)} - ${w(r.agg.ci_low)})` }} transition={{ duration: 0.6, ease }}>
+      <m.span className="absolute top-[3px] bottom-[3px] left-0 rounded-r-[4px]" style={{ background: color }} initial={false} animate={{ width: w(r.agg.error_rate) }} transition={{ duration: 0.6, ease }} />
+      <m.span className="absolute top-1/2 h-px -translate-y-1/2 bg-ink" initial={false} animate={{ left: w(r.agg.ci_low), width: `calc(${w(r.agg.ci_high)} - ${w(r.agg.ci_low)})` }} transition={{ duration: 0.6, ease }}>
         <span className="absolute -top-[3px] left-0 h-[7px] w-px bg-ink" />
         <span className="absolute -top-[3px] right-0 h-[7px] w-px bg-ink" />
-      </motion.span>
+      </m.span>
     </span>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { cn } from "@/lib/cn";
 
 /**
@@ -64,7 +64,7 @@ export function Tabs<T extends string>({
           >
             {t.label}
             {t.count != null && <span className="num rounded-xs bg-sunken px-1.5 text-[11px] text-ink-3">{t.count}</span>}
-            {on && <motion.span layoutId={`tabs-${id}`} transition={{ type: "spring", stiffness: 500, damping: 40 }} className="absolute right-2 bottom-0 left-2 h-[2px] rounded-full bg-ink" />}
+            {on && <m.span layoutId={`tabs-${id}`} transition={{ type: "spring", stiffness: 500, damping: 40 }} className="absolute right-2 bottom-0 left-2 h-[2px] rounded-full bg-ink" />}
           </button>
         );
       })}

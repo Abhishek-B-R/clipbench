@@ -20,7 +20,7 @@ type RunJson = {
   aggregates?: { provider: string; tier: string; metric: string; slice_kind: string; error_rate: number | null }[];
 };
 
-const LANGUAGES: Record<string, string> = { ja: "Japanese", es: "Spanish", ko: "Korean" };
+const LANGUAGES: Record<string, string> = { en: "English", ja: "Japanese", ko: "Korean", es: "Spanish", hi: "Hindi" };
 
 export function summarize(runId: string, run: RunJson): RunSummary {
   const metric = run.metrics?.find((m) => m.primary)?.name ?? null;
@@ -47,7 +47,8 @@ const pct = (x: number | null) => (x === null || !Number.isFinite(x) ? "n/a" : `
 
 export function newRunEmail(s: RunSummary, watched: string[], siteUrl: string): Omit<Email, "to"> {
   const lang = LANGUAGES[s.language] ?? s.language;
-  const runUrl = `${siteUrl}/leaderboard?run=${encodeURIComponent(s.run_id)}`;
+  // The leaderboard selects a run by language (?lang=), the latest run for it.
+  const runUrl = `${siteUrl}/leaderboard?lang=${encodeURIComponent(s.language)}`;
   const accountUrl = `${siteUrl}/account`;
   const subject = `New clipbench run: ${lang} speech-to-text results`;
   const mine = watched

@@ -9,7 +9,15 @@ export type NotifyResult = {
   logged: number;
   failed: number;
   already_sent?: boolean;
+  /** The run's language has not passed the publication gate, so nothing was sent. */
+  unpublished?: boolean;
 };
+
+/** True when the exporter marked the run's own language published (languages[] in the run JSON). */
+export function isPublishedRun(run: unknown): boolean {
+  const r = run as { language?: string; languages?: { lang?: string; published?: boolean }[] };
+  return Boolean(r?.languages?.some((l) => l.lang === r.language && l.published === true));
+}
 
 async function loadRun(env: Env, origin: string, runId: string): Promise<unknown | null> {
   const res = await env.ASSETS.fetch(new URL(`/data/runs/${runId}.json`, origin));
@@ -24,6 +32,8 @@ async function loadRun(env: Env, origin: string, runId: string): Promise<unknown
 export async function notifyNewRun(env: Env, origin: string, runId: string, force = false): Promise<NotifyResult | null> {
   const run = await loadRun(env, origin, runId);
   if (!run) return null;
+  // The email carries ranks, so it only goes out for a language that passed the publication gate (docs/V2.md).
+  if (!isPublishedRun(run)) return { run_id: runId, recipients: 0, sent: 0, logged: 0, failed: 0, unpublished: true };
   if (!force) {
     const done = await env.DB.prepare("SELECT recipients FROM run_notifications WHERE run_id = ?").bind(runId).first<number>("recipients");
     if (done !== null) return { run_id: runId, recipients: done, sent: 0, logged: 0, failed: 0, already_sent: true };

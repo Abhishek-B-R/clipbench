@@ -8,6 +8,10 @@
  *   /lang/<code>               dist/lang/<code>.html
  *   /findings/<code>           dist/findings/<code>.html
  *   /findings/<code>/<slug>    dist/findings/<code>/<slug>.html   (the SPA opens that finding highlighted)
+ *   /leaderboard, /compare, /picker, /clips, /methodology, /changelog, /docs/api   dist/<page>.html
+ *   /providers/<id>            dist/providers/<id>.html           (every provider in any exported run)
+ * Without its own file a route falls back to index.html, whose canonical and og:url point at "/": a shared link
+ * would preview as the homepage and crawlers would fold the page into it.
  * Files are "<route>.html" rather than "<route>/index.html" because Workers static assets
  * (html_handling: auto-trailing-slash) serve /lang/ja from lang/ja.html without redirecting to /lang/ja/.
  *
@@ -21,7 +25,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { LANGUAGES, POSITIONING, RULES } from "../src/lib/config";
 import { LANGUAGE_NAME, languageProgress } from "../src/lib/analysis";
-import type { FindingsFile, RunIndex } from "../src/lib/types";
+import type { FindingsFile, Run, RunIndex } from "../src/lib/types";
 
 const DIST = process.env.OG_DIST ?? join(import.meta.dir, "..", "dist");
 const SITE = (process.env.SITE_URL ?? "https://clipbench.example").replace(/\/$/, "");
@@ -109,6 +113,30 @@ for (const lang of LANGUAGES) {
     if (!/^[a-z0-9-]+$/.test(f.slug)) continue;
     metas.push({ route: `/findings/${lang}/${f.slug}`, title: `${clip(f.text, 90)} | clipbench`, description: clip(f.text, 200), image: image(`og/${lang}/${f.slug}.png`, `og/${lang}.png`) });
   }
+}
+
+// Static pages. Descriptions state what the page is; no numbers, so they hold whether or not a language is published.
+const PAGES: [string, string, string][] = [
+  ["/leaderboard", "Leaderboard", "Speech-to-text models ranked per language on real short-form video, with 95% intervals, once a language passes the publication gate."],
+  ["/compare", "Compare models", "Compare speech-to-text models on the same short-form clips. Verdicts come from a paired test, not from the gap between two numbers."],
+  ["/picker", "Which speech-to-text for my app?", "Pick a speech-to-text provider for your clips: music, budget per audio hour, word timing, latency and local-only constraints."],
+  ["/clips", "Clip set", "Every clip in the benchmark by its public id, with tags. Captions are never published; anyone can rebuild the set."],
+  ["/methodology", "Methodology", "How clipbench scores speech-to-text on short-form video: references, normalisation, metrics, intervals and paired tests."],
+  ["/changelog", "Changelog", "Every clipbench run over time."],
+  ["/docs/api", "Data API", "Every published clipbench run as JSON: the same numbers the site shows, with intervals, paired tests and per-clip scores."],
+];
+for (const [route, title, description] of PAGES) metas.push({ route, title: `${title} | clipbench`, description, image: image() });
+
+// Model pages: one per provider id in any exported run, labelled from the first run in index.json that has it.
+const labels = new Map<string, string>();
+for (const r of index?.runs ?? []) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(r.run_id)) continue;
+  const run = readJSON<Run>(join(DIST, "data", "runs", `${r.run_id}.json`));
+  for (const p of run?.providers ?? []) if (!labels.has(p.id)) labels.set(p.id, p.label || p.id);
+}
+for (const [id, label] of labels) {
+  if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(id)) continue;
+  metas.push({ route: `/providers/${id}`, title: `${label} | clipbench`, description: `${label} on real short-form video: accuracy, word timing, hallucination over music and cost, per language.`, image: image() });
 }
 
 for (const m of metas) write(m.route, render(base, m));

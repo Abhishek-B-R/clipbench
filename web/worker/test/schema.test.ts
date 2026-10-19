@@ -26,7 +26,7 @@ describe("new run email", () => {
     });
     const mail = newRunEmail(s, ["a"], "https://clipbench.example");
     expect(mail.text).toContain("#2 Model A: 20.0%");
-    expect(mail.text).toContain("https://clipbench.example/leaderboard?run=r1");
+    expect(mail.text).toContain("https://clipbench.example/leaderboard?lang=ja");
     expect(mail.html).toContain("Model A");
     expect(mail.html).not.toMatch(/<script|<img/);
     expect(mail.text + mail.html).not.toMatch(/[\u2013\u2014]/);

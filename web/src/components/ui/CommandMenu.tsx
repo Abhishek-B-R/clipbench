@@ -1,5 +1,5 @@
 import { Command } from "cmdk";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowRight,
@@ -30,24 +30,7 @@ import { ACCOUNTS } from "@/lib/flags";
 import { SeriesDot } from "./Badge";
 import { Kbd } from "./Kbd";
 import { toast } from "./Toast";
-
-// Tiny global store so any button can open the menu.
-let open = false;
-const subs = new Set<() => void>();
-export function setCommandMenuOpen(v: boolean) {
-  open = v;
-  subs.forEach((s) => s());
-}
-function useOpen() {
-  return useSyncExternalStore(
-    (cb) => {
-      subs.add(cb);
-      return () => subs.delete(cb);
-    },
-    () => open,
-    () => false,
-  );
-}
+import { setCommandMenuOpen, useCommandMenuOpen } from "./commandMenuStore";
 
 const PAGES = [
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy, hint: "Every model ranked, with intervals" },
@@ -71,26 +54,15 @@ const PAGES = [
 
 /**
  * Cmd+K / Ctrl+K command menu (cmdk). Groups: Pages, Models (from the latest run), Actions.
- * Footer shows the key legend (Supabase / Vapi pattern). Mounted once in the shell.
+ * Footer shows the key legend (Supabase / Vapi pattern). Loaded by CommandMenuHost on the first open.
  */
-export function CommandMenu() {
-  const isOpen = useOpen();
+export default function CommandMenu() {
+  const isOpen = useCommandMenuOpen();
   const navigate = useNavigate();
   const { resolved } = useTheme();
   const run = useRun();
   const src = useSource();
   const [q, setQ] = useState("");
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setCommandMenuOpen(!open);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   useEffect(() => {
     if (!isOpen) setQ("");

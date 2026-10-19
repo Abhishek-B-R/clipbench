@@ -1,4 +1,5 @@
-import { env } from "cloudflare:test";
+import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
+import { app } from "../src/index";
 import { describe, expect, it } from "vitest";
 import { sha256Hex } from "../src/crypto";
 import { d1FixedWindow } from "../src/ratelimit";
@@ -216,6 +217,12 @@ describe("public data API", () => {
     expect(missing.status).toBe(404);
     expect((await json(missing)).error.code).toBe("not_found");
     expect((await anon("/api/v1/runs/..%2Fsecret")).status).toBe(400);
+    // Conditional GET with the ETag the docs promise.
+    const tag = index.headers.get("etag");
+    expect(tag).toBeTruthy();
+    const again = await anon("/api/v1/runs", { headers: { "if-none-match": tag! } });
+    expect(again.status).toBe(304);
+    expect(again.headers.get("etag")).toBe(tag);
   });
 
   it("rate limit kicks in for anonymous callers, not for an API key", async () => {
@@ -285,5 +292,57 @@ describe("admin notify", () => {
       headers: { authorization: "Bearer test-admin-token" },
     });
     expect(missing.status).toBe(404);
+  });
+
+  it("never emails ranks for a run whose language is not published", async () => {
+    const res = await anon("/api/admin/notify-new-run", {
+      method: "POST",
+      json: { run_id: "r2-unpublished" },
+      headers: { authorization: "Bearer test-admin-token" },
+    });
+    expect(res.status).toBe(200);
+    expect(await json(res)).toMatchObject({ unpublished: true, recipients: 0, sent: 0, logged: 0 });
+  });
+});
+
+describe("accounts off (ACCOUNTS unset, no auth secrets)", () => {
+  // The production default: only the public data API answers, and it must not need Better Auth or its secrets.
+  const offEnv = { ...env, ACCOUNTS: "false", BETTER_AUTH_SECRET: undefined, BETTER_AUTH_URL: undefined } as unknown as Env;
+  const call = async (path: string, init: RequestInit = {}) => {
+    const ctx = createExecutionContext();
+    const res = await app.request(`${ORIGIN}${path}`, { ...init, headers: { "cf-connecting-ip": "198.51.100.9", ...(init.headers ?? {}) } }, offEnv, ctx);
+    await waitOnExecutionContext(ctx);
+    return res;
+  };
+
+  it("serves /api/v1 with CORS and JSON 404s", async () => {
+    const index = await call("/api/v1/runs");
+    expect(index.status).toBe(200);
+    expect(index.headers.get("access-control-allow-origin")).toBe("*");
+    expect(index.headers.get("cache-control")).toBe("public, max-age=300");
+    expect((await json(index)).latest).toBe("r1");
+    expect((await call("/api/v1/runs/r1")).status).toBe(200);
+    const missing = await call("/api/v1/runs/nope");
+    expect(missing.status).toBe(404);
+    expect((await json(missing)).error.code).toBe("not_found");
+    const pre = await call("/api/v1/runs", { method: "OPTIONS", headers: { origin: "https://example.org", "access-control-request-method": "GET" } });
+    expect(pre.status).toBeLessThan(300);
+    expect(pre.headers.get("access-control-allow-origin")).toBe("*");
+  });
+
+  it("every account route is a JSON 404", async () => {
+    for (const [method, path] of [
+      ["GET", "/api/me"],
+      ["GET", "/api/auth/get-session"],
+      ["GET", "/api/auth-providers"],
+      ["GET", "/api/requests"],
+      ["GET", "/api/comparisons/x/public"],
+      ["POST", "/api/admin/notify-new-run"],
+    ] as const) {
+      const res = await call(path, { method, headers: { origin: ORIGIN } });
+      expect(res.status, `${method} ${path}`).toBe(404);
+      expect((await json(res)).error.code).toBe("not_found");
+      expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    }
   });
 });

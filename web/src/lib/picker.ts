@@ -30,6 +30,26 @@ export interface PickRow {
   vsPick?: { diff: number; ci_low: number; ci_high: number; p: number; n: number; tied: boolean } | null;
 }
 
+const AUDIO = ["any", "music", "no_music"] as const;
+const LATENCY = ["any", "3000", "1500"] as const;
+
+/**
+ * Read the picker inputs from the URL. Hand-edited or stale links fall back to the defaults instead of
+ * leaking into the page ("Up to n/a", no option selected): unknown audio or latency values become "any",
+ * and a budget that is not a finite number of dollars at or above zero means no limit.
+ */
+export function parsePickParams(params: URLSearchParams): Pick<PickInput, "audio" | "budget" | "latency"> {
+  const a = params.get("audio");
+  const l = params.get("lat");
+  const b = params.get("budget");
+  const n = b == null || b.trim() === "" ? NaN : Number(b);
+  return {
+    audio: (AUDIO as readonly string[]).includes(a ?? "") ? (a as PickInput["audio"]) : "any",
+    latency: (LATENCY as readonly string[]).includes(l ?? "") ? (l as LatencyNeed) : "any",
+    budget: Number.isFinite(n) && n >= 0 ? n : null,
+  };
+}
+
 const TIMING = CAPTION_METRICS.find((m) => m.key === "timing_within_200ms")!;
 const HALLUC = CAPTION_METRICS.find((m) => m.key === "halluc_per_nonspeech_min")!;
 

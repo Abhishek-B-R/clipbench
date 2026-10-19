@@ -20,9 +20,9 @@ export default function Changelog() {
   return (
     <>
       <PageHeader
-        eyebrow={state.data ? `${runs.length} published ${runs.length === 1 ? "run" : "runs"}` : "Changelog"}
+        eyebrow={state.data ? `${runs.length} exported ${runs.length === 1 ? "run" : "runs"}` : "Changelog"}
         title="Changelog"
-        description="Every published run and what changed: models added or re-versioned, who leads, and how each model's error rate moved. Each run is a fresh draw of clips, so small moves are within noise."
+        description="Every exported run and what changed: models added or re-versioned, and, once a language passes the publication gate, who leads and how each model's error rate moved. Each run is a fresh draw of clips, so small moves are within noise."
       />
       <div className="frame py-10">
         {state.status === "error" && <ErrorState title="Could not load the runs." body="The results files did not load. Check your connection and try again." onRetry={() => location.reload()} />}

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { FindingsFile, Run, RunIndex } from "@/lib/types";
 import { findingHref } from "@/lib/metrics";
-import { pick } from "@/lib/picker";
+import { parsePickParams, pick } from "@/lib/picker";
 
 const fixture = <T>(p: string): T => JSON.parse(readFileSync(join(__dirname, "fixtures", "sample", p), "utf8"));
 const index = fixture<RunIndex>("index.json");
@@ -55,5 +55,18 @@ describe("pick a provider", () => {
   it("flags statistical ties against the top pick from the paired table", () => {
     const r = pick(run, base);
     for (const t of r.tied) expect(t.vsPick?.tied).toBe(true);
+  });
+});
+
+describe("picker URL inputs", () => {
+  const parse = (q: string) => parsePickParams(new URLSearchParams(q));
+  it("keeps valid values", () => {
+    expect(parse("audio=music&lat=1500&budget=0.5")).toEqual({ audio: "music", latency: "1500", budget: 0.5 });
+    expect(parse("budget=0")).toEqual({ audio: "any", latency: "any", budget: 0 });
+  });
+  it("falls back to defaults for hand-edited links, never NaN or an unknown option", () => {
+    for (const q of ["audio=bad&lat=bad&budget=abc", "budget=-5", "budget=Infinity", "budget=", "budget=%20"]) {
+      expect(parse(q)).toEqual({ audio: "any", latency: "any", budget: null });
+    }
   });
 });

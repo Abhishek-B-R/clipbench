@@ -1,6 +1,6 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { ArrowRight, ArrowUpRight, GitCompareArrows, Star } from "lucide-react";
+import { ArrowRight, ArrowUpRight, GitCompareArrows } from "lucide-react";
 import type { Aggregate, Run, SliceKind, Tier } from "@/lib/types";
 import { useAllRuns, useRun } from "@/lib/data";
 import {
@@ -12,8 +12,8 @@ import {
   overall,
   isPublished,
   pairsFor,
+  pickMetric,
   pickTier,
-  primaryMetric,
   providerById,
   providerColor,
   providerLabel,
@@ -24,7 +24,6 @@ import {
   type RankPoint,
 } from "@/lib/analysis";
 import { date, int, ms, pct, pValue, signedPts, usdPerHour } from "@/lib/format";
-import { useWatch } from "@/lib/watch";
 import { CAPTION_METRICS, SLICE_KIND_LABEL, hasCaptionMetrics, metricN, metricValue, sliceLabel } from "@/lib/metrics";
 import { ACCOUNTS } from "@/lib/flags";
 import { useWidth } from "@/lib/useWidth";
@@ -36,10 +35,13 @@ import { DataTable, type Column } from "@/components/ui/Table";
 import { Badge, SeriesDot } from "@/components/ui/Badge";
 import { DiffBar, Verdict } from "@/components/ui/DiffBar";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Button, buttonClass } from "@/components/ui/Button";
+import { buttonClass } from "@/components/ui/Button";
 import { EmptyState, ErrorState } from "@/components/ui/State";
 import { TierControl, TierNote } from "@/components/ui/TierControl";
 import { Gated } from "@/components/ui/Gate";
+
+// Only with accounts on; it carries the Better Auth client, so the public build never loads it.
+const WatchButton = ACCOUNTS ? lazy(() => import("@/components/accounts/WatchButton")) : null;
 
 /**
  * One model in depth: headline numbers with intervals, rank across runs, clip types against the field,
@@ -52,7 +54,7 @@ export default function Provider() {
   const [params, setParams] = useSearchParams();
   const run = state.data?.run;
   const tier = pickTier(run, params.get("tier"));
-  const metric = params.get("metric") || (run ? primaryMetric(run).name : "cer");
+  const metric = pickMetric(run ?? undefined, params.get("metric"));
   const p = run ? providerById(run, id) : undefined;
   const set = (k: string, v: string) => {
     const q = new URLSearchParams(params);
@@ -140,7 +142,6 @@ function Summary({ run, id, tier, metric }: { run: Run; id: string; tier: Tier; 
 }
 
 function Actions({ run, id }: { run: Run; id: string }) {
-  const { signedIn, watching, toggle } = useWatch(id);
   const leader = overall(run)[0]?.provider;
   const other = leader && leader !== id ? leader : overall(run)[1]?.provider;
   return (
@@ -148,15 +149,10 @@ function Actions({ run, id }: { run: Run; id: string }) {
       <Link to={`/compare?m=${[id, other].filter(Boolean).join(",")}`} className={buttonClass("secondary", "sm")}>
         <GitCompareArrows size={14} /> Compare
       </Link>
-      {!ACCOUNTS ? null : signedIn ? (
-        <Button variant={watching ? "secondary" : "primary"} size="sm" onClick={toggle} disabled={watching === null} aria-pressed={Boolean(watching)}>
-          <Star size={14} className={watching ? "fill-[var(--warn)] text-warn" : ""} />
-          {watching ? "Watching" : "Watch"}
-        </Button>
-      ) : (
-        <Link to={`/sign-in?next=${encodeURIComponent(`/providers/${id}`)}`} className={buttonClass("primary", "sm")}>
-          <Star size={14} /> Watch
-        </Link>
+      {WatchButton && (
+        <Suspense fallback={null}>
+          <WatchButton id={id} />
+        </Suspense>
       )}
     </>
   );

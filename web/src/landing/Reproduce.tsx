@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
-import { motion, useInView, useReducedMotion } from "motion/react";
+import { m, useInView, useReducedMotion } from "motion/react";
 import { Check, Copy } from "lucide-react";
 import { REPO_SLUG, RULES } from "@/lib/config";
 import type { Run } from "@/lib/types";
-import { primaryMetric, totalClips } from "@/lib/analysis";
+import { defaultTier, primaryMetric, totalClips } from "@/lib/analysis";
 import { toast } from "@/components/ui/Toast";
 
 const STEPS = [
@@ -24,7 +24,10 @@ export function Reproduce({ run }: { run?: Run }) {
   const reduce = useReducedMotion();
   const [copied, setCopied] = useState(false);
   const spent = run
-    ? run.aggregates.filter((a) => a.slice_kind === "all" && a.metric === primaryMetric(run).name).reduce((t, a) => t + a.cost_usd_total, 0)
+    ? // One tier only: the same clip can be scored under both tiers, and summing them would double count its cost.
+      run.aggregates
+        .filter((a) => a.slice_kind === "all" && a.metric === primaryMetric(run).name && a.tier === defaultTier(run))
+        .reduce((t, a) => t + (Number.isFinite(a.cost_usd_total) ? a.cost_usd_total : 0), 0)
     : null;
   const all = STEPS.map((s) => s.cmd).join("\n");
   const copy = async () => {
@@ -56,7 +59,7 @@ export function Reproduce({ run }: { run?: Run }) {
         </div>
         <ol className="grid gap-1 p-4 font-mono text-[12.5px] leading-6 sm:p-5 sm:text-[13px]">
           {STEPS.map((s, i) => (
-            <motion.li
+            <m.li
               key={s.cmd}
               initial={reduce ? false : { opacity: 0, x: -6 }}
               animate={inView ? { opacity: 1, x: 0 } : undefined}
@@ -68,9 +71,9 @@ export function Reproduce({ run }: { run?: Run }) {
                 <span className="text-[oklch(0.72_0.15_36)] select-none">$ </span>
                 {s.cmd}
               </span>
-            </motion.li>
+            </m.li>
           ))}
-          <motion.li
+          <m.li
             initial={reduce ? false : { opacity: 0 }}
             animate={inView ? { opacity: 1 } : undefined}
             transition={{ delay: reduce ? 0 : 0.15 + STEPS.length * 0.32 }}
@@ -85,7 +88,7 @@ export function Reproduce({ run }: { run?: Run }) {
             <span className="mt-1 text-[oklch(0.93_0.005_85)]">
               $ <span className="inline-block h-4 w-2 translate-y-0.5 animate-blink bg-[oklch(0.93_0.005_85)]" />
             </span>
-          </motion.li>
+          </m.li>
         </ol>
       </div>
       <ol className="grid content-start border-t border-line">

@@ -57,13 +57,21 @@ async function asset(c: Parameters<MiddlewareHandler<AppEnv>>[0], path: string):
   return res;
 }
 
-function passThrough(res: Response): Response {
+function passThrough(c: Parameters<MiddlewareHandler<AppEnv>>[0], res: Response): Response {
   const headers = new Headers({
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "public, max-age=300",
   });
   const etag = res.headers.get("etag");
-  if (etag) headers.set("ETag", etag);
+  if (etag) {
+    headers.set("ETag", etag);
+    // The docs promise an ETag, so honour it: a client sending it back gets an empty 304.
+    const sent = c.req.header("if-none-match");
+    if (sent && sent.split(",").some((t) => t.trim().replace(/^W\//, "") === etag.replace(/^W\//, ""))) {
+      headers.delete("Content-Type");
+      return new Response(null, { status: 304, headers });
+    }
+  }
   return new Response(res.body, { status: 200, headers });
 }
 
@@ -71,12 +79,12 @@ data.get("/runs", async (c) => {
   // Only real exports are served; there is no demo fallback.
   const res = await asset(c, "/data/index.json");
   if (!res) throw new ApiError(404, "not_found", "No runs published yet.");
-  return passThrough(res);
+  return passThrough(c, res);
 });
 
 data.get("/runs/:runId", async (c) => {
   const id = parse(runId, c.req.param("runId"));
   const res = await asset(c, `/data/runs/${id}.json`);
   if (!res) throw new ApiError(404, "not_found", `Run ${id} not found.`);
-  return passThrough(res);
+  return passThrough(c, res);
 });

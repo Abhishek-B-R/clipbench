@@ -2,13 +2,19 @@ import { useEffect } from "react";
 import { Link, useLocation } from "react-router";
 import { buttonClass } from "@/components/ui/Button";
 import { Kbd, modKey } from "@/components/ui/Kbd";
-import { setCommandMenuOpen } from "@/components/ui/CommandMenu";
+import { setCommandMenuOpen } from "@/components/ui/commandMenuStore";
 
 /** 404, told as a transcript diff: the page you asked for was dropped. */
 export default function NotFound() {
   const { pathname } = useLocation();
   useEffect(() => {
     document.title = "Not found | clipbench";
+    // The Worker answers unknown paths with the SPA (status 200), so tell crawlers not to index this one.
+    const robots = document.createElement("meta");
+    robots.name = "robots";
+    robots.content = "noindex";
+    document.head.appendChild(robots);
+    return () => robots.remove();
   }, []);
   return (
     <div className="frame frame-lines grid min-h-[60vh] content-center py-20">

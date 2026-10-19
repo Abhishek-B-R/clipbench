@@ -1,0 +1,75 @@
+{
+ "run_id": "r2-unpublished",
+ "created_at": "2026-10-19T10:00:00Z",
+ "language": "ja",
+ "git_commit": "abc1234",
+ "sample_seed": 7,
+ "metrics": [
+  {
+   "name": "cer",
+   "primary": true,
+   "label": "Character error rate"
+  }
+ ],
+ "providers": [
+  {
+   "id": "model-a",
+   "model_id": "a-1",
+   "label": "Model A",
+   "pricing_checked_on": "2026-10-19",
+   "usd_per_hour": 0.2,
+   "paid": true,
+   "uploads_audio": true
+  },
+  {
+   "id": "model-b",
+   "model_id": "b-1",
+   "label": "Model B",
+   "pricing_checked_on": "2026-10-19",
+   "usd_per_hour": 0.0,
+   "paid": false,
+   "uploads_audio": false
+  }
+ ],
+ "aggregates": [
+  {
+   "provider": "model-a",
+   "tier": "verified",
+   "metric": "cer",
+   "slice_kind": "all",
+   "slice": "all",
+   "n_clips": 3,
+   "error_rate": 0.1
+  },
+  {
+   "provider": "model-b",
+   "tier": "verified",
+   "metric": "cer",
+   "slice_kind": "all",
+   "slice": "all",
+   "n_clips": 3,
+   "error_rate": 0.2
+  }
+ ],
+ "paired": [],
+ "stability": [],
+ "findings": [],
+ "errors": {
+  "providers": {},
+  "examples": []
+ },
+ "clips": [],
+ "per_clip": [],
+ "limitations": [],
+ "languages": [
+  {
+   "lang": "ja",
+   "verified_clips": 3,
+   "providers_ok": 2,
+   "published": false,
+   "channels": 2,
+   "categories": [],
+   "largest_channel_share": 0.5
+  }
+ ]
+}

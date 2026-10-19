@@ -25,6 +25,7 @@ export default defineConfig(async () => {
             ADMIN_TOKEN: "test-admin-token",
             TRUSTED_ORIGINS: "",
             AUTO_NOTIFY: "false",
+            ACCOUNTS: "true",
           },
           // Fixture run data instead of the real dist/ build.
           assets: {

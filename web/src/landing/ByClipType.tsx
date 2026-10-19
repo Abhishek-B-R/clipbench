@@ -1,5 +1,5 @@
 import { useId, useState, type KeyboardEvent } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import type { Run } from "@/lib/types";
 import { TAG_LABEL, TAG_PHRASE, aggregatesFor, pair, primaryMetric, providerColor, providerLabel, winnersByTag, defaultTier } from "@/lib/analysis";
 import { pct, pValue } from "@/lib/format";
@@ -82,7 +82,7 @@ export function ByClipType({ run }: { run: Run }) {
                   <span className="num">{w.first?.n_clips ?? 0} clips</span>
                 </span>
               </span>
-              {on && <motion.span layoutId={`${id}-mark`} className="absolute top-3 bottom-3 left-0 w-[2px] rounded-full bg-signal" />}
+              {on && <m.span layoutId={`${id}-mark`} className="absolute top-3 bottom-3 left-0 w-[2px] rounded-full bg-signal" />}
             </button>
           );
         })}
@@ -100,21 +100,21 @@ export function ByClipType({ run }: { run: Run }) {
           {rows.map((r, i) => {
             const w = (v: number) => `${(v / max) * 100}%`;
             return (
-              <motion.div key={r.provider} layout transition={{ type: "spring", stiffness: 300, damping: 34 }} className="grid grid-cols-[88px_minmax(0,1fr)_56px] items-center gap-3 sm:grid-cols-[108px_minmax(0,1fr)_64px]">
+              <m.div key={r.provider} layout transition={{ type: "spring", stiffness: 300, damping: 34 }} className="grid grid-cols-[88px_minmax(0,1fr)_56px] items-center gap-3 sm:grid-cols-[108px_minmax(0,1fr)_64px]">
                 <span className="flex items-center gap-2 truncate text-[13px] text-ink">
                   <SeriesDot color={providerColor(run, r.provider)} />
                   {providerLabel(run, r.provider)}
                 </span>
                 <span className="relative h-6" role="img" aria-label={`${providerLabel(run, r.provider)}: ${pct(r.error_rate)}, 95% interval ${pct(r.ci_low)} to ${pct(r.ci_high)}`}>
                   <span className="absolute inset-y-0 left-0 w-px bg-line-strong" />
-                  <motion.span
+                  <m.span
                     className={cn("absolute top-1 bottom-1 left-0 rounded-r-[4px]", r.too_small && "hatch")}
                     style={{ background: r.too_small ? undefined : providerColor(run, r.provider), opacity: i === 0 ? 1 : 0.8 }}
                     initial={false}
                     animate={{ width: w(r.error_rate) }}
                     transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                   />
-                  <motion.span
+                  <m.span
                     className="absolute top-1/2 h-px -translate-y-1/2 bg-ink"
                     initial={false}
                     animate={{ left: w(r.ci_low), width: `calc(${w(r.ci_high)} - ${w(r.ci_low)})` }}
@@ -122,10 +122,10 @@ export function ByClipType({ run }: { run: Run }) {
                   >
                     <span className="absolute -top-[4px] left-0 h-[9px] w-px bg-ink" />
                     <span className="absolute -top-[4px] right-0 h-[9px] w-px bg-ink" />
-                  </motion.span>
+                  </m.span>
                 </span>
                 <span className={cn("num text-right text-[13px]", i === 0 ? "font-medium text-ink" : "text-ink-2")}>{pct(r.error_rate)}</span>
-              </motion.div>
+              </m.div>
             );
           })}
           <div className="mt-2 flex items-center justify-between text-[11px] text-ink-3">

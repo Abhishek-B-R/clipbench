@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { Link, useLocation, useSearchParams } from "react-router";
-import { Bookmark, Link2, Loader2 } from "lucide-react";
+import { lazy, Suspense, useEffect, useMemo, type ReactNode } from "react";
+import { Link, useSearchParams } from "react-router";
+import { Link2 } from "lucide-react";
 import type { Run, SliceKind, Tier } from "@/lib/types";
 import { CAPTION_METRICS, metricValue, sliceLabel } from "@/lib/metrics";
 import { useRun } from "@/lib/data";
-import { TAG_LABEL, TAG_PHRASE, isPublished, pickTier, aggregatesFor, overall, pair, primaryMetric, providerColor, providerLabel, providerOrder, tagsInRun, type SliceQuery } from "@/lib/analysis";
+import { TAG_LABEL, TAG_PHRASE, isPublished, pickMetric, pickTier, aggregatesFor, overall, pair, providerColor, providerLabel, providerOrder, tagsInRun, type SliceQuery } from "@/lib/analysis";
 import { ms, pct, pValue, pts, usdPerHour, words } from "@/lib/format";
-import { api, ApiError, type SavedComparison } from "@/lib/api";
-import { useSession } from "@/lib/auth";
+import { api, type SavedComparison } from "@/lib/api";
 import { ACCOUNTS } from "@/lib/flags";
 import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -17,14 +16,14 @@ import { Chip } from "@/components/ui/Chip";
 import { Badge, SeriesDot } from "@/components/ui/Badge";
 import { CIBar } from "@/components/ui/CIBar";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Button, buttonClass } from "@/components/ui/Button";
-import { Dialog } from "@/components/ui/Dialog";
-import { Field, Input } from "@/components/ui/Input";
-import { Switch } from "@/components/ui/Switch";
+import { Button } from "@/components/ui/Button";
 import { EmptyState, ErrorState } from "@/components/ui/State";
 import { TierControl, TierNote } from "@/components/ui/TierControl";
 import { Gated } from "@/components/ui/Gate";
 import { toast } from "@/components/ui/Toast";
+
+// Save needs an account; it carries the Better Auth client, so it loads only when ACCOUNTS is on.
+const SaveComparison = ACCOUNTS ? lazy(() => import("@/components/accounts/SaveComparison")) : null;
 
 const MIN = 2;
 const MAX = 4;
@@ -40,21 +39,26 @@ export default function Compare() {
   const [params, setParams] = useSearchParams();
   const tier = pickTier(run, params.get("tier"));
   const published = run ? isPublished(run) : true;
-  const metric = params.get("metric") || (run ? primaryMetric(run).name : "cer");
+  const metric = pickMetric(run ?? undefined, params.get("metric"));
   // A focus slice from a findings deep link (?slice_kind=audio_condition&slice=music), shown first.
   const focusKind = params.get("slice_kind");
   const focus = focusKind && focusKind !== "all" && params.get("slice") ? { kind: focusKind as SliceKind, slice: params.get("slice")! } : null;
   const tagsParam = params.get("tags");
-  const tags = tagsParam ? tagsParam.split(",").filter(Boolean) : [];
+  // Only clip types this run and tier have; an unknown tag would add an empty "x" row and count as picked.
+  const tags = useMemo(() => {
+    const known = run ? new Set(tagsInRun(run, tier)) : null;
+    return [...new Set((tagsParam ?? "").split(",").filter((t) => t && (!known || known.has(t))))];
+  }, [run, tier, tagsParam]);
   const mParam = params.get("m");
   const models = useMemo(() => {
     if (!run) return [];
     const valid = new Set(run.providers.map((p) => p.id));
-    const fromUrl = (mParam ?? "").split(",").filter((x) => valid.has(x));
-    if (fromUrl.length >= 1) return fromUrl.slice(0, MAX);
-    return overall(run, tier, metric)
-      .slice(0, 2)
-      .map((a) => a.provider);
+    // Known ids, each once, at most MAX; topped up from the ranking so a link always compares at least MIN models.
+    const fromUrl = [...new Set((mParam ?? "").split(",").filter((x) => valid.has(x)))].slice(0, MAX);
+    const fill = overall(run, tier, metric)
+      .map((a) => a.provider)
+      .filter((x) => !fromUrl.includes(x));
+    return [...fromUrl, ...fill].slice(0, Math.max(MIN, fromUrl.length));
   }, [run, mParam, tier, metric]);
 
   const update = (patch: Record<string, string | null>) => {
@@ -150,7 +154,8 @@ export default function Compare() {
 
 function useSharedComparison(id: string | null, apply: (c: SavedComparison) => void) {
   useEffect(() => {
-    if (!id) return;
+    // Saved comparisons live in the account database, so with accounts off ?c= is ignored and no /api call is made.
+    if (!id || !ACCOUNTS) return;
     api<{ comparison: SavedComparison }>(`/api/comparisons/${encodeURIComponent(id)}/public`).then(
       (r) => {
         apply(r.comparison);
@@ -165,13 +170,6 @@ function useSharedComparison(id: string | null, apply: (c: SavedComparison) => v
 // ---------------------------------------------------------------- share and save
 
 function ShareSave({ run, models, tier, metric, tags }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[] }) {
-  // ACCOUNTS is a build-time constant: with accounts off there is no Save and no session request.
-  const data = ACCOUNTS ? useSession().data : null;
-  const loc = useLocation();
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [pub, setPub] = useState(true);
-  const [busy, setBusy] = useState(false);
   const share = async () => {
     const url = `${location.origin}/compare?${new URLSearchParams({ m: models.join(","), tier, metric, ...(tags.length ? { tags: tags.join(",") } : {}) })}`;
     try {
@@ -181,73 +179,18 @@ function ShareSave({ run, models, tier, metric, tags }: { run: Run; models: stri
       toast.error("Could not copy. Copy the address bar instead.");
     }
   };
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      await api("/api/comparisons", { method: "POST", body: { name: name.trim() || defaultName(run, models), providers: models, tier, metric, tags, public: pub } });
-      toast.success("Comparison saved", { description: "Find it under Account, Saved comparisons." });
-      setOpen(false);
-    } catch (err) {
-      toast.error("Could not save the comparison", { description: err instanceof ApiError && !err.unavailable ? err.message : "The account service did not answer. Try again in a minute." });
-    } finally {
-      setBusy(false);
-    }
-  };
   return (
     <>
       <Button variant="secondary" size="sm" onClick={share}>
         <Link2 size={14} /> Share
       </Button>
-      {!ACCOUNTS ? null : data?.user ? (
-        <Dialog
-          open={open}
-          onOpenChange={(o) => {
-            setOpen(o);
-            if (o) setName(defaultName(run, models));
-          }}
-          title="Save this comparison"
-          description="Keeps the models, tier, metric and clip types. Open it again from your account."
-          trigger={
-            <Button size="sm">
-              <Bookmark size={14} /> Save
-            </Button>
-          }
-        >
-          <form onSubmit={save} className="grid gap-4">
-            <Field label="Name" htmlFor="cmp-name">
-              <Input id="cmp-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoFocus />
-            </Field>
-            <div className="flex items-start justify-between gap-4">
-              <span>
-                <span id="cmp-public" className="block text-[13px] font-medium text-ink">
-                  Public link
-                </span>
-                <span className="block text-[12px] text-ink-3">Anyone with the link can open it. Your name is never shown.</span>
-              </span>
-              <Switch checked={pub} onChange={setPub} labelledBy="cmp-public" />
-            </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button variant="ghost" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={busy}>
-                {busy && <Loader2 size={14} className="animate-spin" />} Save
-              </Button>
-            </div>
-          </form>
-        </Dialog>
-      ) : (
-        <Link to={`/sign-in?next=${encodeURIComponent(loc.pathname + loc.search)}`} className={buttonClass("primary", "sm")}>
-          <Bookmark size={14} /> Save
-        </Link>
+      {SaveComparison && (
+        <Suspense fallback={null}>
+          <SaveComparison run={run} models={models} tier={tier} metric={metric} tags={tags} />
+        </Suspense>
       )}
     </>
   );
-}
-
-function defaultName(run: Run, models: string[]) {
-  return models.map((m) => providerLabel(run, m)).join(" vs ");
 }
 
 // ---------------------------------------------------------------- side by side
@@ -275,7 +218,7 @@ function SideBySide({ run, models, tier, metric, tags, focus }: { run: Run; mode
             <Td key={models[i]}>
               <span className="flex items-center justify-end gap-3">
                 {big && <CIBar value={a.error_rate} low={a.ci_low} high={a.ci_high} max={max} color={providerColor(run, a.provider)} width={96} className="hidden md:inline-block" />}
-                <span className={cn("num", big ? "text-[15px]" : "text-[13px]", a.error_rate === lo ? "font-semibold text-ink" : "text-ink-2", a.too_small && "text-ink-3")}>{pct(a.error_rate)}</span>
+                <span className={cn("num", big ? "text-[15px]" : "text-[13px]", a.too_small ? "text-ink-3" : a.error_rate === lo ? "font-semibold text-ink" : "text-ink-2")}>{pct(a.error_rate)}</span>
               </span>
               <span className="mt-0.5 block text-right text-[11px] text-ink-3">
                 {a.too_small ? `n=${a.n_clips}, too small` : big ? `${pct(a.ci_low)} to ${pct(a.ci_high)}` : `${a.n_clips} clips`}

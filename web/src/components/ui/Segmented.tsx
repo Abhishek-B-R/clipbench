@@ -1,5 +1,5 @@
 import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { cn } from "@/lib/cn";
 
 export interface SegmentedOption<T extends string> {
@@ -71,7 +71,7 @@ export function Segmented<T extends string>({
             )}
           >
             {on && (
-              <motion.span
+              <m.span
                 layoutId={`seg-${id}`}
                 transition={{ type: "spring", stiffness: 500, damping: 40 }}
                 className="absolute inset-0 -z-10 rounded-[5px] border border-line bg-surface shadow-card"

@@ -117,8 +117,10 @@ export function DataTable<T>({
                     className={cn(
                       "border-b border-line px-3 whitespace-nowrap first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5",
                       dense ? "py-2" : "py-3",
-                      "bg-surface transition-colors group-hover:bg-sunken/60",
-                      hi && "bg-signal-soft/40",
+                      // One background class per state: two bg-* utilities on one cell resolve by CSS order, not class
+                      // order, so the highlight was never visible. Opaque mix, since the first column is sticky.
+                      hi ? "bg-[color-mix(in_oklab,var(--signal-soft)_55%,var(--surface))]" : "bg-surface group-hover:bg-sunken/60",
+                      "transition-colors",
                       c.align === "right" && "text-right",
                       c.align === "center" && "text-center",
                       c.sticky && "sticky left-0 z-[1]",

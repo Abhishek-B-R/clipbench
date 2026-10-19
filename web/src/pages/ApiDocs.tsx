@@ -1,15 +1,16 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { ChevronDown } from "lucide-react";
 import { useActiveHeading } from "@/lib/useActiveHeading";
-import { useSession } from "@/lib/auth";
 import { ACCOUNTS } from "@/lib/flags";
 import { useRun, useSource } from "@/lib/data";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui/Badge";
-import { buttonClass } from "@/components/ui/Button";
 import { CodeBlock, type CodeSample } from "@/components/ui/CodeBlock";
 import { Rule } from "@/components/layout/Section";
+
+// Account-aware key link; it carries the Better Auth client, so it loads only when ACCOUNTS is on.
+const KeysLink = ACCOUNTS ? lazy(() => import("@/components/accounts/KeysLink")) : null;
 
 const NAV = [
   { group: "Overview", items: [
@@ -35,7 +36,6 @@ const NAV = [
 export default function ApiDocs() {
   const origin = typeof window === "undefined" ? "https://clipbench.dev" : window.location.origin;
   const active = useActiveHeading(NAV.flatMap((g) => g.items.map((i) => i.id)), 160);
-  const data = ACCOUNTS ? useSession().data : null;
   useEffect(() => {
     document.title = "Data API | clipbench";
   }, []);
@@ -70,20 +70,12 @@ export default function ApiDocs() {
             <p>
               Requests work without a key at a low rate limit. Send a key as a bearer token to raise it. Keys start with <Mono>cb_</Mono>, are shown once when created, and are stored only as a hash.
             </p>
-            {!ACCOUNTS ? (
-              <p className="text-ink-3">Keys are not being issued yet: accounts are switched off while the first results are collected. Anonymous requests work in the meantime.</p>
+            {KeysLink ? (
+              <Suspense fallback={null}>
+                <KeysLink />
+              </Suspense>
             ) : (
-            <p>
-              {data?.user ? (
-                <Link to="/account#keys" className={buttonClass("secondary", "sm")}>
-                  Manage your keys
-                </Link>
-              ) : (
-                <Link to="/sign-in?next=/account%23keys" className={buttonClass("secondary", "sm")}>
-                  Sign in to create a key
-                </Link>
-              )}
-            </p>
+              <p className="text-ink-3">Keys are not being issued yet: accounts are switched off while the first results are collected. Anonymous requests work in the meantime.</p>
             )}
           </Section>
           <Section id="rate-limits" title="Rate limits" code={<CodeBlock samples={ex.limit} />}>
@@ -249,7 +241,7 @@ function Section({ id, title, method, path, children, code, response, last }: { 
 }
 
 function Mono({ children }: { children: ReactNode }) {
-  return <code className="rounded-[4px] border border-line bg-sunken px-1 py-px font-mono text-[0.86em] text-ink">{children}</code>;
+  return <code className="rounded-[4px] border border-line bg-sunken px-1 py-px font-mono text-[0.86em] text-ink [overflow-wrap:anywhere]">{children}</code>;
 }
 
 function Fields({ head, rows }: { head: string[]; rows: string[][] }) {

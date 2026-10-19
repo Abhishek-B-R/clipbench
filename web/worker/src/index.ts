@@ -39,7 +39,14 @@ function getAuth(env: Env): Auth {
   return auth;
 }
 
+/** Accounts (sign-in, watchlist, alerts, comparisons, requests, keys) are off unless ACCOUNTS is "true" (docs/V2.md, Web flags). */
+export const accountsOn = (env: Env) => env.ACCOUNTS === "true" || env.ACCOUNTS === "1";
+
 app.use("/api/*", async (c, next) => {
+  // The public data API never touches Better Auth, so it works without auth secrets and with accounts off.
+  if (c.req.path === "/api/v1" || c.req.path.startsWith("/api/v1/")) return next();
+  // With accounts off every other API route is absent: no auth instance is built and no secret is needed.
+  if (!accountsOn(c.env)) throw new ApiError(404, "not_found", "No such API route.");
   const auth = getAuth(c.env);
   // Finish Better Auth's async init inside this request, so no later request waits on it.
   await auth.$context;

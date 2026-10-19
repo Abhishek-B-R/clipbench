@@ -116,7 +116,7 @@ export function inline(text: string): ReactNode[] {
     if (m.index > last) out.push(text.slice(last, m.index));
     if (m[1] != null)
       out.push(
-        <code key={k++} className="rounded-[4px] border border-line bg-sunken px-1 py-px font-mono text-[0.86em] text-ink">
+        <code key={k++} className="rounded-[4px] border border-line bg-sunken px-1 py-px font-mono text-[0.86em] text-ink [overflow-wrap:anywhere]">
           {m[1]}
         </code>,
       );

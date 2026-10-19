@@ -74,7 +74,7 @@ export default function Streaming() {
               run && st && (
                 <div className="grid grid-cols-1 gap-8">
                   <TierNote tier={tier} />
-                  <Board run={run} st={st} tier={tier} kind={kind} slice={slice} />
+                  <StreamingBoard run={run} st={st} tier={tier} kind={kind} slice={slice} />
                   <Timeline run={run} rows={inSlice(st.rows, tier, kind, slice)} kind={kind} slice={slice} />
                 </div>
               )
@@ -86,7 +86,7 @@ export default function Streaming() {
   );
 }
 
-function Board({ run, st, tier, kind, slice }: { run: Run; st: StreamingData; tier: Tier; kind: SliceKind; slice: string }) {
+export function StreamingBoard({ run, st, tier, kind, slice }: { run: Run; st: StreamingData; tier: Tier; kind: SliceKind; slice: string }) {
   const rows = [...inSlice(st.rows, tier, kind, slice)].sort((a, b) => (a.error_rate ?? 9) - (b.error_rate ?? 9));
   const leader = rows[0];
   const max = maxOf(rows.map((r) => r.ci_high ?? r.error_rate ?? 0), 0.1) * 1.08;
@@ -118,8 +118,8 @@ function Board({ run, st, tier, kind, slice }: { run: Run; st: StreamingData; ti
         return t.tied ? <span className="text-[12.5px] text-ink-2">No detectable difference</span> : <span className="num text-[12.5px] text-ink-2">{signedPts(t.diff)}</span>;
       },
     },
-    { key: "ttfp", header: <Help label="First partial" help="Time from the first audio sent to the first partial word back, median (p95 below). Lower is better." />, align: "right", sort: (r) => r.ttfp_p50_ms, cell: (r) => <Lat p50={r.ttfp_p50_ms} p95={r.ttfp_p95_ms} best={bestBy(rows, (q) => q.ttfp_p50_ms, "lower") === r.provider} /> },
-    { key: "ttfs", header: <Help label="Final segment" help="Time from the end of a spoken segment to its final transcript (TTFS), median (p95 below). Lower is better." />, align: "right", sort: (r) => r.ttfs_p50_ms, cell: (r) => <Lat p50={r.ttfs_p50_ms} p95={r.ttfs_p95_ms} best={bestBy(rows, (q) => q.ttfs_p50_ms, "lower") === r.provider} /> },
+    { key: "ttfp", header: <Help label="First partial" help="Time from the first audio sent to the first partial word back, median (the tail percentile below). Lower is better." />, align: "right", sort: (r) => r.ttfp_p50_ms, cell: (r) => <Lat tail={r.tail} p50={r.ttfp_p50_ms} p95={r.ttfp_p95_ms} best={bestBy(rows, (q) => q.ttfp_p50_ms, "lower") === r.provider} /> },
+    { key: "ttfs", header: <Help label="Final segment" help="Time from the end of a spoken segment to its final transcript (TTFS), median (the tail percentile below). Lower is better." />, align: "right", sort: (r) => r.ttfs_p50_ms, cell: (r) => <Lat tail={r.tail} p50={r.ttfs_p50_ms} p95={r.ttfs_p95_ms} best={bestBy(rows, (q) => q.ttfs_p50_ms, "lower") === r.provider} /> },
     { key: "stab", header: <Help label="Partial stability" help="Share of partial words that reach the final transcript unchanged. Higher means captions flicker less." />, align: "right", sort: (r) => r.stability, cell: (r) => <ValueCell v={r.stability} fmt={(x) => pct(x)} lo={r.stability_ci_low} hi={r.stability_ci_high} best={bestBy(rows, (q) => q.stability, "higher") === r.provider} /> },
     {
       key: "n",
@@ -149,12 +149,12 @@ function Board({ run, st, tier, kind, slice }: { run: Run; st: StreamingData; ti
   );
 }
 
-function Lat({ p50, p95, best }: { p50: number | null; p95: number | null; best: boolean }) {
+function Lat({ p50, p95, best, tail = "p95" }: { p50: number | null; p95: number | null; best: boolean; tail?: string }) {
   if (p50 == null) return <span className="text-[12.5px] text-ink-3">n/a</span>;
   return (
     <span className="inline-flex flex-col items-end leading-tight">
       <span className={best ? "num text-[13px] font-semibold text-ink" : "num text-[13px] text-ink-2"}>{ms(p50)}</span>
-      {p95 != null && <span className="num text-[10.5px] text-ink-3">p95 {ms(p95)}</span>}
+      {p95 != null && <span className="num text-[10.5px] text-ink-3">{tail} {ms(p95)}</span>}
     </span>
   );
 }

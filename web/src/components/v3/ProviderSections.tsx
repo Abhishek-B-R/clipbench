@@ -77,8 +77,16 @@ export function CanaryHistory({ run, id, metric, n }: P) {
             <li key={e.date} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px] text-ink-2">
               <time className="num text-signal-ink">{date(e.date)}</time>
               <span>
-                {e.direction === "worse" ? "Got worse" : e.direction === "better" ? "Got better" : "Moved"}: <span className="num text-ink">{pct(e.before)}</span> to <span className="num text-ink">{pct(e.after)}</span>
-                {e.ci_low != null && e.ci_high != null && (
+                {e.kind && e.kind !== "score" ? (
+                  <>
+                    New model: <span className="font-mono text-[12px] text-ink">{e.model_before ?? "n/a"}</span> to <span className="font-mono text-[12px] text-ink">{e.model_after ?? e.model_id ?? "n/a"}</span>
+                  </>
+                ) : (
+                  <>
+                    {e.direction === "worse" ? "Got worse" : e.direction === "better" ? "Got better" : "Moved"}: <span className="num text-ink">{pct(e.before)}</span> to <span className="num text-ink">{pct(e.after)}</span>
+                  </>
+                )}
+                {(!e.kind || e.kind === "score") && e.ci_low != null && e.ci_high != null && (
                   <span className="text-ink-3">
                     {" "}
                     (its interval was {pct(e.ci_low)} to {pct(e.ci_high)})
@@ -185,7 +193,9 @@ export function EveryMeasure({ run, id, tier, metric, n }: P) {
     if (x.captions) {
       const rows = inSlice(x.captions.rows, tier);
       const me = rows.find((r) => r.provider === id);
-      out.push({ group: "Caption files", label: "Readable cues", value: me?.readable == null ? null : pct(me.readable), rank: rankOf(rows, id, (r) => r.readable, "higher"), view: "captions" }, { group: "Caption files", label: "Cues on time", value: me?.cue_within_200ms == null ? null : pct(me.cue_within_200ms), rank: rankOf(rows, id, (r) => r.cue_within_200ms, "higher"), view: "captions" });
+      if (rows.some((r) => r.readable != null)) out.push({ group: "Caption files", label: "Readable cues", value: me?.readable == null ? null : pct(me.readable), rank: rankOf(rows, id, (r) => r.readable, "higher"), view: "captions" });
+      if (rows.some((r) => r.overlap != null)) out.push({ group: "Caption files", label: "Time overlap with the reference cues", value: me?.overlap == null ? null : pct(me.overlap), rank: rankOf(rows, id, (r) => r.overlap, "higher"), view: "captions" });
+      if (rows.some((r) => r.cps_over != null)) out.push({ group: "Caption files", label: "Cues too fast to read", value: me?.cps_over == null ? null : pct(me.cps_over), rank: rankOf(rows, id, (r) => r.cps_over, "lower"), view: "captions" });
     }
     if (x.diarization) {
       const rows = inSlice(x.diarization.rows, tier);
@@ -207,7 +217,7 @@ export function EveryMeasure({ run, id, tier, metric, n }: P) {
       );
     }
     if (x.longform) {
-      const rows = inSlice(x.longform.rows, tier);
+      const rows = x.longform.rows.filter((r) => r.slice_kind === "all");
       const me = rows.find((r) => r.provider === id);
       out.push(
         { group: "Long-form", label: "Error rate on full videos", value: me?.error_rate == null ? null : pct(me.error_rate), rank: rankOf(rows, id, (r) => r.error_rate, "lower"), view: "longform" },

@@ -63,8 +63,16 @@ export function DriftPanel({ run }: { run: Run }) {
                     <SeriesDot color={providerColor(run, e.provider)} size={7} />
                     {providerLabel(run, e.provider)}
                   </Link>{" "}
-                  {e.direction === "worse" ? "got worse" : e.direction === "better" ? "got better" : "moved"}: <span className="num text-ink">{pct(e.before)}</span> to <span className="num text-ink">{pct(e.after)}</span>
-                  {e.ci_low != null && e.ci_high != null && (
+                  {e.kind && e.kind !== "score" ? (
+                    <>
+                      switched model: <span className="font-mono text-[12px] text-ink">{e.model_before ?? "n/a"}</span> to <span className="font-mono text-[12px] text-ink">{e.model_after ?? e.model_id ?? "n/a"}</span>
+                    </>
+                  ) : (
+                    <>
+                      {e.direction === "worse" ? "got worse" : e.direction === "better" ? "got better" : "moved"}: <span className="num text-ink">{pct(e.before)}</span> to <span className="num text-ink">{pct(e.after)}</span>
+                    </>
+                  )}
+                  {(!e.kind || e.kind === "score") && e.ci_low != null && e.ci_high != null && (
                     <span className="text-ink-3">
                       , outside its interval of {pct(e.ci_low)} to {pct(e.ci_high)}
                     </span>

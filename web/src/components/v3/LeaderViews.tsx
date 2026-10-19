@@ -121,40 +121,51 @@ function CaptionFilesView({ run, tier, kind, slice, n }: ViewProps) {
         rule.max_chars_per_line != null && `at most ${int(rule.max_chars_per_line)} characters a line`,
         rule.max_lines != null && `${int(rule.max_lines)} lines a cue`,
         rule.max_cps != null && `${int(rule.max_cps)} characters a second`,
-        rule.min_duration_ms != null && `on screen for at least ${ms(rule.min_duration_ms)}`,
+        rule.pause_ms != null && `a new cue after a ${ms(rule.pause_ms)} pause`,
+        rule.max_duration_ms != null && `no cue longer than ${ms(rule.max_duration_ms)}`,
       ]
         .filter(Boolean)
         .join(", ")
     : null;
-  const col = (key: keyof CaptionsRow, label: string, help: string, fmt: (x: number) => string, better: "lower" | "higher" | null, hide?: string): Column<CaptionsRow> => ({
-    key,
-    header: <Help label={label} help={help} />,
-    align: "right",
-    sort: (r) => r[key] as number | null,
-    cell: (r) => <ValueCell v={r[key] as number | null} fmt={fmt} best={better ? bestBy(rows, (q) => q[key] as number | null, better) === r.provider : false} />,
-    headerClassName: hide,
-    className: hide,
-  });
+  const has = (key: keyof CaptionsRow) => rows.some((r) => r[key] != null);
+  const col = (key: keyof CaptionsRow, label: string, help: string, fmt: (x: number) => string, better: "lower" | "higher" | null, hide?: string): Column<CaptionsRow>[] =>
+    has(key)
+      ? [
+          {
+            key,
+            header: <Help label={label} help={help} />,
+            align: "right",
+            sort: (r) => r[key] as number | null,
+            cell: (r) => <ValueCell v={r[key] as number | null} fmt={fmt} best={better ? bestBy(rows, (q) => q[key] as number | null, better) === r.provider : false} lo={key === "overlap" ? r.overlap_ci_low : undefined} hi={key === "overlap" ? r.overlap_ci_high : undefined} />,
+            headerClassName: hide,
+            className: hide,
+          },
+        ]
+      : [];
   const columns: Column<CaptionsRow>[] = [
     { key: "model", header: "Model", sticky: true, sort: (r) => providerLabel(run, r.provider), cell: (r) => <ModelCell run={run} id={r.provider} /> },
-    col("readable", "Readable cues", "Share of cues that meet every rule of the line-break rule. Higher is better.", (x) => pct(x), "higher"),
-    col("cue_within_200ms", "Cues on time", "Share of cues that appear within 200 ms of the speech they show. Higher is better.", (x) => pct(x), "higher"),
-    col("cue_start_median_ms", "Cue offset", "Median distance between when a cue appears and when its first word is said.", (x) => ms(x), "lower"),
-    col("cps_median", "Reading speed", "Median characters per second a viewer has to read.", (x) => `${x.toFixed(1)} cps`, null, "hidden md:table-cell"),
-    col("cps_over", "Too fast", "Share of cues faster than the reading-speed limit. Lower is better.", (x) => pct(x), "lower", "hidden md:table-cell"),
-    col("line_over", "Lines too long", "Share of lines over the character limit. Lower is better.", (x) => pct(x), "lower", "hidden lg:table-cell"),
-    { key: "n", header: "Cues", align: "right", sort: (r) => r.n_cues, cell: (r) => <span className="num text-ink-3">{r.n_cues == null ? "n/a" : int(r.n_cues)}</span>, headerClassName: "hidden sm:table-cell", className: "hidden sm:table-cell" },
+    ...col("overlap", "Time overlap", "How much of the time the provider's cues and the reference cues are on screen together (intersection over union). Higher is better.", (x) => pct(x), "higher"),
+    ...col("readable", "Readable cues", "Share of cues that meet every rule of the line-break rule. Higher is better.", (x) => pct(x), "higher"),
+    ...col("cue_within_200ms", "Cues on time", "Share of cues that appear within 200 ms of the speech they show. Higher is better.", (x) => pct(x), "higher"),
+    ...col("cue_start_median_ms", "Start error", "Median distance between when a cue appears and when the matching reference cue appears.", (x) => ms(x), "lower"),
+    ...col("cue_end_median_ms", "End error", "Median distance between when a cue leaves the screen and when the reference cue does.", (x) => ms(x), "lower", "hidden md:table-cell"),
+    ...col("cps_median", "Reading speed", "Median characters per second a viewer has to read.", (x) => `${x.toFixed(1)} cps`, null, "hidden md:table-cell"),
+    ...col("cps_over", "Too fast", "Share of cues faster than the reading-speed limit. Lower is better.", (x) => pct(x), "lower", "hidden md:table-cell"),
+    ...col("line_over", "Lines too long", "Share of lines over the character limit. Lower is better.", (x) => pct(x), "lower", "hidden lg:table-cell"),
+    ...col("cue_count_ratio", "Cues per reference cue", "How many cues the provider's text makes for each reference cue. Near 1 means the breaks land in the same places.", (x) => x.toFixed(2), null, "hidden lg:table-cell"),
+    { key: "n", header: "Clips", align: "right", sort: (r) => r.n_clips, cell: (r) => <span className="num text-ink-3">{r.n_clips == null ? "n/a" : int(r.n_clips)}</span>, headerClassName: "hidden sm:table-cell", className: "hidden sm:table-cell" },
   ];
+  const sortKey = has("overlap") ? "overlap" : "readable";
   return (
     <Figure
       n={n}
-      title={`Caption files${cap?.formats.length ? `, ${cap.formats.map((f) => f.toUpperCase()).join(" and ")}` : ""}`}
-      caption={<>Each model's output turned into caption files with one fixed line-break rule{ruleText ? `: ${ruleText}` : ""}, then scored as a viewer sees them. Best value per column in bold.</>}
+      title={`Caption files${cap?.formats.length ? `, ${cap.formats.map((f) => f.toUpperCase()).join(" and ")}` : ", SRT and VTT"}`}
+      caption={<>Each model's timed words turned into caption cues with one fixed line-break rule{ruleText ? `: ${ruleText}` : ""}, the same rule applied to the reference, then compared as a viewer sees them. Best value per column in bold.</>}
       source={src(run, "captions", tier, s.kind, s.slice)}
       bodyClassName="p-0 sm:p-0"
     >
       {s.fellBack && <FellBack kind={kind} slice={slice} />}
-      {rows.length ? <DataTable columns={columns} rows={[...rows].sort((a, b) => (b.readable ?? -1) - (a.readable ?? -1))} rowKey={(r) => r.provider} caption="Caption files" /> : <div className="p-4 sm:p-5"><Empty /></div>}
+      {rows.length ? <DataTable columns={columns} rows={[...rows].sort((a, b) => ((b[sortKey] as number | null) ?? -1) - ((a[sortKey] as number | null) ?? -1))} rowKey={(r) => r.provider} caption="Caption files" /> : <div className="p-4 sm:p-5"><Empty /></div>}
     </Figure>
   );
 }
@@ -165,7 +176,7 @@ function NotOffered({ run, ids, what }: { run: Run; ids: string[]; what: string 
   if (!ids.length) return null;
   return (
     <p className="border-t border-line px-4 py-3 text-[12.5px] text-ink-3 sm:px-5">
-      Not offered, so not scored: {ids.map((id) => providerLabel(run, id)).join(", ")}. {what}
+      No speaker labels returned, so not scored: {ids.map((id) => providerLabel(run, id)).join(", ")}. {what}
     </p>
   );
 }
@@ -207,7 +218,7 @@ function SpeakersView({ run, tier, kind, slice, n }: ViewProps) {
     <Figure n={n} title="Who spoke when" caption="Speaker labels on clips with more than one speaker, against turns a person tagged by ear. Lower diarization error is better." source={src(run, "diarization", tier, s.kind, s.slice)} bodyClassName="p-0 sm:p-0">
       {s.fellBack && <FellBack kind={kind} slice={slice} />}
       {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.provider} caption="Diarization" /> : <div className="p-4 sm:p-5"><Empty /></div>}
-      <NotOffered run={run} ids={d?.unsupported ?? []} what="The run asked every provider for speaker labels." />
+      <NotOffered run={run} ids={d?.unsupported.length ? d.unsupported : run.providers.map((p) => p.id).filter((id) => !rows.some((r) => r.provider === id))} what="The run asked every provider for speaker labels." />
     </Figure>
   );
 }
@@ -227,12 +238,27 @@ function LidView({ run, tier, kind, slice, n }: ViewProps) {
       key: "cost",
       header: <Help label="Cost of no hint" help="Error rate with auto-detect minus error rate with the hint." />,
       align: "right",
-      sort: (r) => (r.error_rate_auto != null && r.error_rate_hint != null ? r.error_rate_auto - r.error_rate_hint : null),
-      cell: (r) => (r.error_rate_auto != null && r.error_rate_hint != null ? <span className="num text-[12.5px] text-ink-2">{signedPts(r.error_rate_auto - r.error_rate_hint)}</span> : <span className="text-ink-3">n/a</span>),
+      sort: (r) => r.diff ?? (r.error_rate_auto != null && r.error_rate_hint != null ? r.error_rate_auto - r.error_rate_hint : null),
+      cell: (r) => {
+        const d = r.diff ?? (r.error_rate_auto != null && r.error_rate_hint != null ? r.error_rate_auto - r.error_rate_hint : null);
+        if (d == null) return <span className="text-ink-3">n/a</span>;
+        if (r.verdict === "no_difference") return <span className="text-[12.5px] text-ink-2">No detectable difference</span>;
+        return (
+          <span className="inline-flex flex-col items-end leading-tight">
+            <span className="num text-[12.5px] text-ink-2">{signedPts(d)}</span>
+            {r.diff_ci_low != null && r.diff_ci_high != null && <span className="num text-[10.5px] text-ink-3">{signedPts(r.diff_ci_low)} to {signedPts(r.diff_ci_high)}</span>}
+          </span>
+        );
+      },
       headerClassName: "hidden md:table-cell",
       className: "hidden md:table-cell",
     },
-    { key: "conf", header: "Often picks", align: "right", cell: (r) => <span className="text-[12.5px] text-ink-2">{r.top_confusion ? (LANGUAGE_NAME[r.top_confusion] ?? r.top_confusion) : "n/a"}</span>, headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
+    ...(rows.some((r) => r.top_confusion)
+      ? [{ key: "conf", header: "Often picks", align: "right" as const, cell: (r: LidRow) => <span className="text-[12.5px] text-ink-2">{r.top_confusion ? (LANGUAGE_NAME[r.top_confusion] ?? r.top_confusion) : "n/a"}</span>, headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" }]
+      : []),
+    ...(rows.some((r) => r.wrong_language_error_rate != null)
+      ? [{ key: "wrong", header: <Help label="Error when wrong" help="Error rate on the clips where it picked the wrong language." />, align: "right" as const, sort: (r: LidRow) => r.wrong_language_error_rate, cell: (r: LidRow) => <ValueCell v={r.wrong_language_error_rate} fmt={(x) => pct(x)} />, headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" }]
+      : []),
   ];
   return (
     <Figure n={n} title="Language identification" caption={`With language auto-detect on and no hint: how often each model recognises ${LANGUAGE_NAME[run.language] ?? run.language}, and how much accuracy that costs.`} source={src(run, "lid", tier, s.kind, s.slice)} bodyClassName="p-0 sm:p-0">
@@ -271,7 +297,14 @@ function EntitiesView({ run, tier, kind, slice, n }: ViewProps) {
       header: "Gain",
       align: "right",
       sort: (r) => (r.keyterms?.acc != null && r.plain.acc != null ? r.keyterms.acc - r.plain.acc : null),
-      cell: (r) => (r.keyterms?.acc != null && r.plain.acc != null ? <span className={cn("num text-[12.5px]", r.keyterms.acc > r.plain.acc ? "text-good" : "text-ink-2")}>{signedPts(r.keyterms.acc - r.plain.acc)}</span> : <span className="text-ink-3">n/a</span>),
+      cell: (r) =>
+        r.paired?.verdict === "no_difference" ? (
+          <span className="text-[12.5px] text-ink-2">No detectable difference</span>
+        ) : r.keyterms?.acc != null && r.plain.acc != null ? (
+          <span className={cn("num text-[12.5px]", r.keyterms.acc > r.plain.acc && r.paired?.verdict !== "b_better" ? "text-good" : "text-ink-2")}>{signedPts(r.keyterms.acc - r.plain.acc)}</span>
+        ) : (
+          <span className="text-ink-3">n/a</span>
+        ),
     },
     { key: "n", header: "Spans", align: "right", cell: (r) => <span className="num text-ink-3">{r.plain.n_spans == null ? "n/a" : int(r.plain.n_spans)}</span>, headerClassName: "hidden sm:table-cell", className: "hidden sm:table-cell" },
   ];
@@ -279,7 +312,7 @@ function EntitiesView({ run, tier, kind, slice, n }: ViewProps) {
     <Figure
       n={n}
       title="Names and brands"
-      caption={<>Proper nouns and brand names tagged in the references, written exactly right. Each provider gets the same term list{e?.n_terms != null ? ` (${int(e.n_terms)} terms)` : ""} through its own custom vocabulary feature, where it has one.</>}
+      caption={<>Proper nouns and brand names tagged in the references{e?.n_entities != null ? ` (${int(e.n_entities)} in all)` : ""}, written exactly right. Each provider gets the same term list{e?.n_terms != null ? ` (${int(e.n_terms)} terms)` : ""} through its own custom vocabulary feature, where it has one. Gain is paired on the same names; a provider that ignores the list shows no difference.</>}
       source={src(run, "entities", tier, s.kind, s.slice)}
       bodyClassName="p-0 sm:p-0"
     >
@@ -395,7 +428,9 @@ function SweepView({ run, tier, n }: ViewProps) {
     const all = [...(clean?.error_rate != null ? [{ x: cleanX, y: clean.error_rate, lo: clean.ci_low, hi: clean.ci_high }] : []), ...pts.map((p) => ({ x: p.snr_db!, y: p.error_rate!, lo: p.ci_low, hi: p.ci_high }))];
     return { id, label: providerLabel(run, id), color: providerColor(run, id), points: all };
   });
-  const falls = ids.map((id) => ({ id, at: fallsApartAt(sw, id, bed, tier), ...sweepCurve(sw, id, bed, tier) }));
+  const falls = ids.map((id) => ({ id, at: fallsApartAt(sw, id, bed, tier), censored: sw.falls_apart.find((f) => f.provider === id && f.bed === bed)?.censored ?? null, ...sweepCurve(sw, id, bed, tier) }));
+  const doubling = sw.falls_apart.some((f) => f.rule === "doubling");
+  const lowest = snrs[snrs.length - 1] ?? 0;
   const reverb = sw.points.filter((p) => p.bed === "reverb" && p.error_rate != null);
   const levels = [...new Set(reverb.map((p) => p.level ?? ""))];
   return (
@@ -403,9 +438,9 @@ function SweepView({ run, tier, n }: ViewProps) {
       <Figure
         n={n}
         title={`Error rate as the ${bed} gets louder`}
-        caption={`Verified clean-speech clips mixed with ${bed} at fixed speech-to-${bed} ratios, louder ${bed} to the right. Bands are 95% intervals. A ring marks where a model falls apart: the first level whose interval sits wholly above its clean-speech interval.`}
+        caption={`Verified clean-speech clips mixed with ${bed} at fixed speech-to-${bed} ratios, louder ${bed} to the right. Bands are 95% intervals. A ring marks where a model falls apart: ${doubling ? "where its error rate reaches double its clean-speech rate (interpolated between the levels tested)" : "the first level whose interval sits wholly above its clean-speech interval"}.`}
         controls={snrBeds.length > 1 ? <Segmented label="Background" value={bed} onChange={setBed} options={snrBeds.map((b) => ({ value: b, label: b[0]!.toUpperCase() + b.slice(1) }))} /> : undefined}
-        source={`source: sweeps${sw.sweep_id ? ` ${sw.sweep_id}` : ""}, bed=${bed}; mix recipes are public, mixed audio is not`}
+        source={`source: sweeps${sw.sweep_id ? ` ${sw.sweep_id}` : ""}, bed=${bed}${sw.licences.length ? `; beds: ${sw.licences.join(", ")}` : ""}; mix recipes are public, mixed audio is not`}
       >
         {snrs.length === 0 ? (
           <Empty />
@@ -417,20 +452,32 @@ function SweepView({ run, tier, n }: ViewProps) {
             xFormat={(v) => (v === cleanX ? "clean" : db(v))}
             yFormat={(v) => pct(v, v < 0.1 ? 1 : 0)}
             yLabel="Error rate"
-            markers={falls.filter((f) => f.at != null).map((f) => ({ series: f.id, x: f.at!, label: "" }))}
+            markers={falls.filter((f) => f.at != null && !f.censored).map((f) => ({ series: f.id, x: f.at!, label: "" }))}
             label={`Error rate against speech-to-${bed} ratio for ${ids.length} models`}
             height={300}
           />
         )}
       </Figure>
-      <Figure n={n + 1} title="Where each model falls apart" caption="The ratio at which errors first rise clear of clean speech, and the error rate at the loudest level tested." source={`source: sweeps, bed=${bed}`} bodyClassName="p-0 sm:p-0">
+      <Figure n={n + 1} title="Where each model falls apart" caption={doubling ? "The ratio at which the error rate doubles from clean speech, and the error rate at the loudest level tested." : "The ratio at which errors first rise clear of clean speech, and the error rate at the loudest level tested."} source={`source: sweeps, bed=${bed}`} bodyClassName="p-0 sm:p-0">
         <DataTable
-          rows={[...falls].sort((a, b) => (a.at ?? -99) - (b.at ?? -99))}
+          rows={[...falls].sort((a, b) => (a.censored === "below" ? -99 : a.censored === "above" ? 99 : (a.at ?? -99)) - (b.censored === "below" ? -99 : b.censored === "above" ? 99 : (b.at ?? -99)))}
           rowKey={(r) => r.id}
           caption="Falls apart at"
           columns={[
             { key: "model", header: "Model", sticky: true, cell: (r) => <ModelCell run={run} id={r.id} /> },
-            { key: "at", header: "Falls apart at", align: "right", cell: (r) => (r.at == null ? <span className="text-[12.5px] text-ink-2">Holds up to {db(snrs[snrs.length - 1] ?? 0)}</span> : <span className="num text-signal-ink">{db(r.at)}</span>) },
+            {
+              key: "at",
+              header: doubling ? "Errors double at" : "Falls apart at",
+              align: "right",
+              cell: (r) =>
+                r.censored === "above" ? (
+                  <span className="text-[12.5px] text-signal-ink">Already at {db(snrs[0] ?? 0)}</span>
+                ) : r.censored === "below" || r.at == null ? (
+                  <span className="text-[12.5px] text-ink-2">Holds to {db(lowest)}</span>
+                ) : (
+                  <span className="num text-signal-ink">{db(Math.round(r.at * 10) / 10)}</span>
+                ),
+            },
             { key: "clean", header: "Clean", align: "right", cell: (r) => <ValueCell v={r.clean?.error_rate ?? null} fmt={(x) => pct(x)} /> },
             { key: "worst", header: `At ${db(snrs[snrs.length - 1] ?? 0)}`, align: "right", cell: (r) => <ValueCell v={r.pts[r.pts.length - 1]?.error_rate ?? null} fmt={(x) => pct(x)} lo={r.pts[r.pts.length - 1]?.ci_low} hi={r.pts[r.pts.length - 1]?.ci_high} /> },
           ]}
@@ -463,9 +510,11 @@ function SweepView({ run, tier, n }: ViewProps) {
 
 // ---------------------------------------------------------------- A8 long-form
 
-function LongformView({ run, tier, n }: ViewProps) {
+function LongformView({ run, n }: ViewProps) {
   const lf = v3(run).longform!;
-  const rows = [...lf.rows.filter((r) => r.tier == null || r.tier === tier)].sort((a, b) => (a.error_rate ?? 9) - (b.error_rate ?? 9));
+  // Long-form has its own reference (creator captions on full videos), so the page's tier does not filter it.
+  const rows = [...lf.rows].sort((a, b) => (a.error_rate ?? 9) - (b.error_rate ?? 9));
+  const hasDup = rows.some((r) => r.dup_per_hour != null);
   const ids = [...new Set(lf.by_minute.map((p) => p.provider))].sort();
   const minutes = [...new Set(lf.by_minute.map((p) => p.minute))].sort((a, b) => a - b);
   const series: LineSeries[] = ids.map((id) => ({ id, label: providerLabel(run, id), color: providerColor(run, id), points: lf.by_minute.filter((p) => p.provider === id && p.offset_median_ms != null).map((p) => ({ x: p.minute, y: p.offset_median_ms! })) }));
@@ -473,14 +522,22 @@ function LongformView({ run, tier, n }: ViewProps) {
     { key: "model", header: "Model", sticky: true, sort: (r) => providerLabel(run, r.provider), cell: (r) => <ModelCell run={run} id={r.provider} /> },
     { key: "err", header: "Error rate", align: "right", sort: (r) => r.error_rate, cell: (r) => <ValueCell v={r.error_rate} fmt={(x) => pct(x)} lo={r.ci_low} hi={r.ci_high} best={bestBy(rows, (q) => q.error_rate, "lower") === r.provider} /> },
     { key: "done", header: <Help label="Handled" help="Share of videos transcribed end to end, with no failure or cut-off." />, align: "right", sort: (r) => r.completed, cell: (r) => <ValueCell v={r.completed} fmt={(x) => pct(x, 0)} best={bestBy(rows, (q) => q.completed, "higher") === r.provider} /> },
-    { key: "chunk", header: <Help label="Join errors" help="Text dropped or repeated where the provider splits long audio into chunks, per video. Lower is better." />, align: "right", sort: (r) => r.chunk_errors_per_video, cell: (r) => <ValueCell v={r.chunk_errors_per_video} fmt={(x) => x.toFixed(1)} best={bestBy(rows, (q) => q.chunk_errors_per_video, "lower") === r.provider} /> },
+    hasDup
+      ? { key: "dup", header: <Help label="Repeats / h" help="Stretches of text written twice where the provider stitches chunks of a long file together, per hour of audio. Lower is better." />, align: "right", sort: (r) => r.dup_per_hour, cell: (r) => <ValueCell v={r.dup_per_hour} fmt={(x) => x.toFixed(1)} best={bestBy(rows, (q) => q.dup_per_hour, "lower") === r.provider} /> }
+      : { key: "chunk", header: <Help label="Join errors" help="Text dropped or repeated where the provider splits long audio into chunks, per video. Lower is better." />, align: "right", sort: (r) => r.chunk_errors_per_video, cell: (r) => <ValueCell v={r.chunk_errors_per_video} fmt={(x) => x.toFixed(1)} best={bestBy(rows, (q) => q.chunk_errors_per_video, "lower") === r.provider} /> },
+    ...(rows.some((r) => r.gaps_per_hour != null)
+      ? [{ key: "gaps", header: <Help label="Gaps / h" help="Stretches of speech with no text at all, per hour of audio. Lower is better." />, align: "right" as const, sort: (r: LongformRow) => r.gaps_per_hour, cell: (r: LongformRow) => <ValueCell v={r.gaps_per_hour} fmt={(x) => x.toFixed(1)} />, headerClassName: "hidden md:table-cell", className: "hidden md:table-cell" }]
+      : []),
+    ...(rows.some((r) => r.timing_after5_ms != null)
+      ? [{ key: "t5", header: <Help label="Offset, then after min 5" help="Median word timing offset in the first five minutes, then after minute five." />, align: "right" as const, cell: (r: LongformRow) => <span className="num text-[12.5px] text-ink-2">{ms(r.timing_first5_ms)} / {ms(r.timing_after5_ms)}</span>, headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" }]
+      : []),
     { key: "drift", header: <Help label="Timing drift" help="How much the median word timing offset grows per minute of audio. Lower is better." />, align: "right", sort: (r) => r.drift_ms_per_min, cell: (r) => <ValueCell v={r.drift_ms_per_min} fmt={(x) => `${x.toFixed(1)} ms/min`} best={bestBy(rows, (q) => q.drift_ms_per_min, "lower") === r.provider} /> },
     { key: "n", header: "Videos", align: "right", cell: (r) => <span className="num text-ink-3">{r.n_videos ?? "n/a"}</span>, headerClassName: "hidden sm:table-cell", className: "hidden sm:table-cell" },
   ];
   const totalMin = maxOf(rows.map((r) => r.minutes ?? 0), 0);
   return (
     <div className="grid grid-cols-1 gap-8">
-      <Figure n={n} title="Long-form: full videos" caption={`Whole videos instead of short clips${totalMin ? `, ${int(totalMin)} minutes of audio` : ""}. Accuracy, whether the provider copes with the length, and errors where it stitches chunks together.`} source={`source: longform, run=${run.run_id}, tier=${tier}`} bodyClassName="p-0 sm:p-0">
+      <Figure n={n} title="Long-form: full videos" caption={`Whole videos instead of short clips${totalMin ? `, ${int(totalMin)} minutes of audio per model` : ""}. Accuracy, whether the provider copes with the length, and errors where it stitches chunks together.${lf.reference ? ` Reference: ${lf.reference}.` : ""}`} source={`source: longform, run=${run.run_id}`} bodyClassName="p-0 sm:p-0">
         {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.provider} caption="Long-form" /> : <div className="p-4 sm:p-5"><Empty /></div>}
       </Figure>
       {series.length > 0 && minutes.length > 1 && (

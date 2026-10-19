@@ -144,7 +144,8 @@ export function LineChart({
           })}
           {markers.map((m, i) => {
             const s = series.find((q) => q.id === m.series);
-            const p = s?.points.find((q) => q.x === m.x);
+            // A marker may sit between tested points (an interpolated SNR): place it on the line.
+            const p = s ? (s.points.find((q) => q.x === m.x) ?? between(s.points, m.x)) : undefined;
             if (!s || !p) return null;
             return (
               <g key={`m${i}`}>
@@ -208,6 +209,15 @@ export function LineChart({
       </div>
     </div>
   );
+}
+
+function between(pts: LinePoint[], x: number): LinePoint | undefined {
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]!;
+    const b = pts[i]!;
+    if ((x - a.x) * (x - b.x) <= 0 && a.x !== b.x) return { x, y: a.y + ((x - a.x) / (b.x - a.x)) * (b.y - a.y) };
+  }
+  return undefined;
 }
 
 /** A round step giving three to five gridlines, for rates (0..1) and for milliseconds alike. */

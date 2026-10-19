@@ -177,6 +177,7 @@ export interface StreamRow extends BaseRow {
   ci_high: number | null;
   /** Time to first partial, ms after the first audio byte was sent. */
   ttfp_p50_ms: number | null;
+  /** Tail of time to first partial: p95, or p90 when that is what the export has (see `tail`). */
   ttfp_p95_ms: number | null;
   /** Time to final segment: ms from the end of a spoken segment to its final transcript. */
   ttfs_p50_ms: number | null;
@@ -185,6 +186,11 @@ export interface StreamRow extends BaseRow {
   stability: number | null;
   stability_ci_low: number | null;
   stability_ci_high: number | null;
+  /** Which percentile the *_p95_ms fields hold: "p95" or "p90" (clipbench.streaming writes p90). */
+  tail: "p95" | "p90";
+  /** Word timing of the final transcript (share within 200 ms), when given. */
+  timing_within_200ms: number | null;
+  usd_per_minute: number | null;
 }
 
 export interface StreamPaired {
@@ -216,18 +222,24 @@ function parseStreaming(section: unknown): Streaming | null {
     const ci = interval(o);
     const st = interval(o, "stability_");
     const rewrite = share(n(o, "rewrite_rate", "partial_rewrite_rate", "rewrites"));
+    const rw = interval(o, "rewrite_");
+    const p95 = n(o, "ttfp_p95_ms", "ttfp_ms_p95", "ttf_partial_ms_p95", "time_to_first_partial_ms_p95", "ttfs_p95_ms");
     return {
       metric: s(o, "metric"),
       error_rate: n(o, "error_rate", "final_error_rate", "cer", "wer"),
       ci_low: ci.low,
       ci_high: ci.high,
       ttfp_p50_ms: n(o, "ttfp_p50_ms", "ttfp_ms_p50", "ttf_partial_ms_p50", "time_to_first_partial_ms_p50", "ttfp_ms", "ttf_partial_ms"),
-      ttfp_p95_ms: n(o, "ttfp_p95_ms", "ttfp_ms_p95", "ttf_partial_ms_p95", "time_to_first_partial_ms_p95"),
+      ttfp_p95_ms: n(o, "ttfp_p95_ms", "ttfp_ms_p95", "ttf_partial_ms_p95", "time_to_first_partial_ms_p95", "ttfp_p90_ms"),
       ttfs_p50_ms: n(o, "ttfs_p50_ms", "ttfs_ms_p50", "time_to_final_ms_p50", "ttfs_ms", "ttfs"),
-      ttfs_p95_ms: n(o, "ttfs_p95_ms", "ttfs_ms_p95", "time_to_final_ms_p95"),
+      ttfs_p95_ms: n(o, "ttfs_p95_ms", "ttfs_ms_p95", "time_to_final_ms_p95", "ttfs_p90_ms"),
       stability: share(n(o, "stability", "partial_stability", "stability_rate")) ?? (rewrite != null ? 1 - rewrite : null),
-      stability_ci_low: share(st.low),
-      stability_ci_high: share(st.high),
+      // An interval on the rewrite rate flips into one on stability.
+      stability_ci_low: share(st.low) ?? (rw.high != null ? 1 - share(rw.high)! : null),
+      stability_ci_high: share(st.high) ?? (rw.low != null ? 1 - share(rw.low)! : null),
+      tail: (p95 == null && n(o, "ttfp_p90_ms", "ttfs_p90_ms") != null ? "p90" : "p95") as "p95" | "p90",
+      timing_within_200ms: share(n(o, "timing_within_200ms")),
+      usd_per_minute: n(o, "usd_per_minute"),
     };
   });
   if (!rows.length) return null;
@@ -242,7 +254,10 @@ function parseStreaming(section: unknown): Streaming | null {
     const tier = s(o, "tier");
     paired.push({ tier: tier === "verified" || tier === "creator" ? tier : null, slice_kind: s(o, "slice_kind") ?? "all", slice: s(o, "slice") ?? "all", provider_a: a, provider_b: bb, diff: d, ci_low: ci.low, ci_high: ci.high, p_value: n(o, "p_value", "p"), n_clips: n(o, "n_clips"), verdict: s(o, "verdict") });
   }
-  return { rows, paired, run_id: s(m, "run_id"), created_at: s(m, "created_at"), pace: s(m, "pace", "feed"), note: s(m, "note") };
+  const rt = b(m, "real_time");
+  const speed = n(m, "speed");
+  const pace = s(m, "pace", "feed") ?? (rt === true || speed === 1 ? "real-time" : speed != null ? `${speed}x real-time` : null);
+  return { rows, paired, run_id: s(m, "run_id"), created_at: s(m, "created_at"), pace, note: s(m, "note") };
 }
 
 /** Paired streaming result oriented as x minus y, or null when the export has no paired streaming table. */
@@ -285,6 +300,8 @@ export interface Calibration {
   min_pairs: number | null;
   min_spearman: number | null;
   max_mae: number | null;
+  /** The exporter's own verdict on the gate, when given. */
+  passes: boolean | null;
 }
 
 export interface Semantic {
@@ -315,6 +332,7 @@ function parseCalibration(raw: unknown, lang?: string): Calibration | null {
     agreement_rule: s(v, "agreement_rule", "rule", "definition"),
     labelled_on: s(v, "labelled_on", "checked_on", "date", "calibrated_on"),
     spearman: n(v, "spearman", "spearman_rho", "rho"),
+    passes: b(v, "passes", "passed"),
     mae: n(v, "mae", "mean_absolute_error"),
     min_pairs: n(th, "min_pairs", "min_n_pairs"),
     min_spearman: n(th, "min_spearman"),
@@ -326,6 +344,7 @@ function parseCalibration(raw: unknown, lang?: string): Calibration | null {
 /** The METHODOLOGY.md gate, when the thresholds are known: enough pairs, Spearman high enough, error low enough. */
 export function calibrationPasses(c: Calibration | null): boolean | null {
   if (!c) return null;
+  if (c.passes != null) return c.passes;
   if (c.spearman != null && c.min_spearman != null && c.mae != null && c.max_mae != null) {
     return c.spearman >= c.min_spearman && c.mae <= c.max_mae && (c.min_pairs == null || (c.n_pairs ?? 0) >= c.min_pairs);
   }
@@ -341,9 +360,11 @@ function parseSemantic(section: unknown, lang?: string): Semantic | null {
     const err = share(n(o, "semantic_wer", "semantic_error", "semantic_error_rate"));
     const ci = interval(o);
     // An interval given on the score flips into an interval on the error.
-    const onScore = err == null && score != null;
-    const lo = share(ci.low);
-    const hi = share(ci.high);
+    // clipbench writes the interval on the score (semantic_ci_low/high); flip it onto the error.
+    const sci = interval(o, "semantic_");
+    const onScore = sci.low != null || sci.high != null || (err == null && score != null);
+    const lo = share(sci.low ?? ci.low);
+    const hi = share(sci.high ?? ci.high);
     return {
       score,
       error: err ?? (score != null ? 1 - score : null),
@@ -380,6 +401,10 @@ export interface DriftEvent {
   direction: "worse" | "better" | null;
   tier: Tier | null;
   language: string | null;
+  /** "score" (moved beyond its interval) or "model" / "version" (the provider changed what it serves). */
+  kind: string | null;
+  model_before: string | null;
+  model_after: string | null;
 }
 
 function parseDrift(section: unknown): DriftEvent[] | null {
@@ -396,7 +421,7 @@ function parseDrift(section: unknown): DriftEvent[] | null {
     const tier = s(o, "tier");
     out.push({
       provider,
-      model_id: s(o, "model_id"),
+      model_id: s(o, "model_id", "model_id_after"),
       date,
       metric: s(o, "metric"),
       before,
@@ -406,6 +431,9 @@ function parseDrift(section: unknown): DriftEvent[] | null {
       direction: dir === "worse" || dir === "better" ? dir : before != null && after != null ? (after > before ? "worse" : "better") : null,
       tier: tier === "verified" || tier === "creator" ? tier : null,
       language: s(o, "language", "lang"),
+      kind: s(o, "kind"),
+      model_before: s(o, "model_id_before"),
+      model_after: s(o, "model_id_after"),
     });
   }
   out.sort((a, c) => a.date.localeCompare(c.date));
@@ -479,33 +507,64 @@ export interface SweepPoint extends BaseRow {
   ci_low: number | null;
   ci_high: number | null;
   halluc_per_nonspeech_min: number | null;
+  /** clipbench.sweeps: the SNR at which the error rate doubles from clean, and whether it is censored ("above" / "below" the tested range). */
+  doubling_snr_db: number | null;
+  doubling_censored: string | null;
 }
 
 export interface Sweeps {
   points: SweepPoint[];
+  /** Bed ids and licences, for the source line. */
+  licences: string[];
   /** Exporter-computed "falls apart at" SNRs, when given. */
-  falls_apart: { provider: string; bed: string; snr_db: number | null }[];
+  falls_apart: { provider: string; bed: string; snr_db: number | null; censored?: string | null; rule?: "doubling" }[];
   sweep_id: string | null;
   beds: string[];
 }
 
-function parseSweeps(section: unknown): Sweeps | null {
+function parseSweeps(raw: unknown): Sweeps | null {
+  // clipbench.sweeps exports a list of sweeps, newest first, each with its rows: read the newest.
+  let section: unknown = raw;
+  let licences: string[] = [];
+  if (Array.isArray(raw) && raw.some((x) => isObj(x) && Array.isArray(x.rows))) {
+    const first = raw.find((x): x is Obj => isObj(x) && Array.isArray(x.rows))!;
+    section = { ...first, rows: rowsOf(first.rows).filter((r) => r.is_primary !== false) };
+    licences = rowsOf(first.beds).map((bd) => [s(bd, "id"), s(bd, "license")].filter(Boolean).join(" ")).filter(Boolean);
+  }
   const points = baseRows(section, (o) => {
     const ci = interval(o);
     const snr = n(o, "snr_db", "snr");
-    const level = s(o, "level", "rt60_s", "reverb");
-    const rawBed = s(o, "bed", "kind", "noise", "mix", "condition") ?? (snr == null && level == null ? "clean" : "noise");
-    return { bed: rawBed, snr_db: snr, level, error_rate: n(o, "error_rate", "cer", "wer"), ci_low: ci.low, ci_high: ci.high, halluc_per_nonspeech_min: n(o, "halluc_per_nonspeech_min", "hallucination_per_min") };
+    const reverb = b(o, "reverb") === true;
+    const level = s(o, "level", "rt60_s") ?? (reverb ? "reverb" : null);
+    const cond = s(o, "condition");
+    const kind = s(o, "bed", "bed_kind", "kind", "noise", "mix");
+    const rawBed = cond === "clean" || kind === "none" ? "clean" : reverb && snr == null ? "reverb" : (kind ?? (snr == null && level == null ? "clean" : "noise"));
+    return {
+      bed: rawBed,
+      snr_db: snr,
+      level,
+      error_rate: n(o, "error_rate", "cer", "wer"),
+      ci_low: ci.low,
+      ci_high: ci.high,
+      halluc_per_nonspeech_min: n(o, "halluc_per_nonspeech_min", "hallucination_per_min"),
+      doubling_snr_db: n(o, "doubling_snr_db"),
+      doubling_censored: s(o, "doubling_censored"),
+    };
   }, ["points", "rows", "aggregates"]);
   if (!points.length) return null;
   const m = meta(section);
   const falls: Sweeps["falls_apart"] = [];
   for (const o of rowsOf(m.falls_apart ?? m.breakpoints)) {
     const provider = s(o, "provider");
-    if (provider) falls.push({ provider, bed: s(o, "bed") ?? "music", snr_db: n(o, "snr_db", "snr") });
+    if (provider) falls.push({ provider, bed: s(o, "bed") ?? "music", snr_db: n(o, "snr_db", "snr"), censored: s(o, "censored") });
   }
   const beds = [...new Set(points.map((p) => p.bed).filter((x) => x !== "clean"))];
-  return { points, falls_apart: falls, sweep_id: s(m, "sweep_id"), beds };
+  // The exporter's doubling SNR, one per provider and bed, is the "falls apart at" when the explicit list is absent.
+  if (!falls.length)
+    for (const p of points)
+      if (p.bed !== "clean" && (p.doubling_snr_db != null || p.doubling_censored) && !falls.some((f) => f.provider === p.provider && f.bed === p.bed))
+        falls.push({ provider: p.provider, bed: p.bed, snr_db: p.doubling_snr_db, censored: p.doubling_censored, rule: "doubling" });
+  return { points, falls_apart: falls, sweep_id: s(m, "sweep_id"), beds, licences };
 }
 
 /** A provider's curve on one bed, loudest speech first (high SNR to low), with its clean baseline if any. */
@@ -550,6 +609,7 @@ export interface FormattingRow extends BaseRow {
   itn_ci_high: number | null;
   itn_n_spans: number | null;
   itn_by_kind: Record<string, { acc: number | null; n: number | null }>;
+  punct_n_clips: number | null;
 }
 
 export const ITN_KINDS = ["number", "date", "time", "currency", "percent", "unit"] as const;
@@ -572,10 +632,11 @@ function parseFormatting(section: unknown): FormattingRow[] | null {
       punct_ci_low: share(p.low ?? per.low),
       punct_ci_high: share(p.high ?? per.high),
       casing_acc: share(n(o, "casing_acc", "casing_accuracy")),
-      itn_acc: share(n(o, "itn_acc", "itn_accuracy", "formatting_acc")),
+      itn_acc: share(n(o, "itn_acc", "itn_form_acc", "itn_accuracy", "formatting_acc")),
       itn_ci_low: share(itn.low),
       itn_ci_high: share(itn.high),
       itn_n_spans: n(o, "itn_n_spans", "itn_n", "n_spans"),
+      punct_n_clips: n(o, "punct_n_clips"),
       itn_by_kind: byKind,
     };
   });
@@ -594,8 +655,9 @@ export interface LatticeRow extends BaseRow {
 function parseLattice(section: unknown): LatticeRow[] | null {
   const rows = baseRows(section, (o) => {
     const ci = interval(o, "", "_lattice");
+    const pre = interval(o, "lattice_");
     const plain = interval(o);
-    return { metric: s(o, "metric"), error_rate: n(o, "error_rate_lattice", "lattice_error_rate", "error_rate"), ci_low: ci.low ?? plain.low, ci_high: ci.high ?? plain.high };
+    return { metric: s(o, "metric"), error_rate: n(o, "error_rate_lattice", "lattice_error_rate", "error_rate"), ci_low: ci.low ?? pre.low ?? plain.low, ci_high: ci.high ?? pre.high ?? plain.high };
   });
   return rows.length ? rows : null;
 }
@@ -606,7 +668,8 @@ export function latticeFor(run: Run, tier: Tier, metric: string, kind: string, s
   for (const a of run.aggregates) {
     if (a.tier !== tier || a.metric !== metric || a.slice_kind !== kind || a.slice !== slice) continue;
     const v = num(a.error_rate_lattice);
-    if (v != null) out.set(a.provider, { error_rate: v, ci_low: num(a.ci_low_lattice), ci_high: num(a.ci_high_lattice) });
+    const raw = a as unknown as Obj;
+    if (v != null) out.set(a.provider, { error_rate: v, ci_low: num(a.ci_low_lattice) ?? num(raw.lattice_ci_low), ci_high: num(a.ci_high_lattice) ?? num(raw.lattice_ci_high) });
   }
   if (out.size) return out;
   for (const r of inSlice(v3(run).lattice ?? [], tier, kind, slice)) {
@@ -630,6 +693,12 @@ export interface LongformRow extends BaseRow {
   chunk_errors_per_video: number | null;
   /** How much the median word timing offset grows per minute of audio, ms per minute. */
   drift_ms_per_min: number | null;
+  /** clipbench.longform: duplicated chunks and gaps per hour of audio. */
+  dup_per_hour: number | null;
+  gaps_per_hour: number | null;
+  /** Median timing offset before and after minute five. */
+  timing_first5_ms: number | null;
+  timing_after5_ms: number | null;
 }
 
 export interface MinutePoint {
@@ -638,11 +707,14 @@ export interface MinutePoint {
   offset_median_ms: number | null;
   offset_p90_ms: number | null;
   n_words: number | null;
+  error_rate?: number | null;
 }
 
 export interface Longform {
   rows: LongformRow[];
   by_minute: MinutePoint[];
+  /** What the long-form reference is (clipbench uses creator captions, unverified). */
+  reference: string | null;
 }
 
 function parseLongform(section: unknown): Longform | null {
@@ -650,26 +722,31 @@ function parseLongform(section: unknown): Longform | null {
     const ci = interval(o);
     return {
       n_videos: n(o, "n_videos", "videos", "n_clips"),
-      minutes: n(o, "minutes", "audio_minutes"),
+      minutes: n(o, "minutes", "audio_minutes") ?? (n(o, "audio_hours") != null ? n(o, "audio_hours")! * 60 : null),
       error_rate: n(o, "error_rate", "cer", "wer"),
       ci_low: ci.low,
       ci_high: ci.high,
-      completed: share(n(o, "completed", "completed_rate", "completion_rate", "handled_rate")),
+      completed: share(n(o, "completed", "completed_rate", "completion_rate", "handled_rate")) ?? (n(o, "failure_rate") != null ? 1 - n(o, "failure_rate")! : null),
       chunk_errors_per_video: n(o, "chunk_errors_per_video", "chunking_errors", "chunk_errors"),
       drift_ms_per_min: n(o, "drift_ms_per_min", "timing_drift_ms_per_min", "drift_slope_ms_per_min"),
+      dup_per_hour: n(o, "dup_events_per_hour"),
+      gaps_per_hour: n(o, "gaps_per_hour"),
+      timing_first5_ms: n(o, "timing_median_first5_ms"),
+      timing_after5_ms: n(o, "timing_median_after5_ms"),
     };
-  }, ["aggregates", "rows", "videos"], 5);
+  }, ["aggregates", "rows", "videos"], 5).filter((r) => r.slice_kind !== "minute");
   const m = meta(section);
   const by_minute: MinutePoint[] = [];
+  // clipbench.longform: `minutes` holds aggregate rows with slice_kind "minute" and the minute in `slice`.
   for (const o of rowsOf(m.by_minute ?? m.drift_by_minute ?? m.timing_by_minute ?? m.minutes)) {
     const provider = s(o, "provider");
-    const minute = n(o, "minute", "min", "t_min");
+    const minute = n(o, "minute", "min", "t_min") ?? (s(o, "slice_kind") === "minute" ? num(o.slice) : null);
     if (!provider || minute == null) continue;
-    by_minute.push({ provider, minute, offset_median_ms: n(o, "offset_median_ms", "median_offset_ms", "timing_median_ms", "offset_ms"), offset_p90_ms: n(o, "offset_p90_ms", "p90_offset_ms", "timing_p90_ms"), n_words: n(o, "n_words", "words") });
+    by_minute.push({ provider, minute, offset_median_ms: n(o, "offset_median_ms", "median_offset_ms", "timing_median_ms", "offset_ms"), offset_p90_ms: n(o, "offset_p90_ms", "p90_offset_ms", "timing_p90_ms"), n_words: n(o, "n_words", "words", "timing_n_words"), error_rate: n(o, "error_rate") });
   }
   by_minute.sort((a, c) => a.minute - c.minute);
   if (!rows.length && !by_minute.length) return null;
-  return { rows, by_minute };
+  return { rows, by_minute, reference: s(m, "reference") };
 }
 
 // ---------------------------------------------------------------- A9 compute
@@ -684,6 +761,11 @@ export interface ComputeRow {
   model_size_mb: number | null;
   params_m: number | null;
   peak_memory_mb: number | null;
+  /** "api" or "local" (clipbench.compute). */
+  kind: string | null;
+  /** Speed factor from this run's request times (APIs and local). */
+  speed_factor: number | null;
+  usd_per_1000_min: number | null;
 }
 
 export interface Compute {
@@ -702,25 +784,33 @@ function parseCompute(section: unknown): Compute | null {
     const provider = s(o, "provider");
     if (!provider) continue;
     const rtf = n(o, "rtf");
+    const mb = (bytesKey: string) => (n(o, bytesKey) != null ? n(o, bytesKey)! / 2 ** 20 : null);
     out.push({
       provider,
       model_id: s(o, "model_id"),
-      machine: machineName(o.machine) ?? s(o, "host"),
+      machine: machineName(o.machine) ?? s(o, "host") ?? ([s(o, "chip"), s(o, "os")].filter(Boolean).join(", ") || null),
       device: s(o, "device", "backend"),
-      rtfx: n(o, "rtfx", "speed_factor", "inverse_rtf") ?? (rtf && rtf > 0 ? 1 / rtf : null),
-      model_size_mb: n(o, "model_size_mb", "size_mb", "disk_mb"),
+      // RTFx is the declared-machine bench (local models); speed_factor is from the run's own request times.
+      rtfx: n(o, "rtfx", "inverse_rtf") ?? (rtf && rtf > 0 ? 1 / rtf : null),
+      model_size_mb: n(o, "model_size_mb", "size_mb", "disk_mb") ?? mb("model_size_bytes"),
       params_m: n(o, "params_m", "parameters_m"),
-      peak_memory_mb: n(o, "peak_memory_mb", "memory_mb", "peak_rss_mb"),
+      peak_memory_mb: n(o, "peak_memory_mb", "memory_mb", "peak_rss_mb") ?? mb("peak_rss_bytes"),
+      kind: s(o, "kind"),
+      speed_factor: n(o, "speed_factor"),
+      usd_per_1000_min: n(o, "usd_per_1000_min"),
     });
   }
   if (!out.length) return null;
-  return { rows: out, machine: machineName(meta(section).machine) };
+  const mm = rowsOf(meta(section).machines)[0];
+  const machine = machineName(meta(section).machine) ?? (mm ? [s(mm, "chip"), n(mm, "ram_bytes") != null ? `${Math.round(n(mm, "ram_bytes")! / 2 ** 30)} GB` : null, s(mm, "os")].filter(Boolean).join(", ") : null);
+  return { rows: out, machine };
 }
 
 /** Speed factor for any provider: compute's RTFx when measured, else 1 / real-time factor from the aggregates. */
 export function speedFactor(run: Run, provider: string, tier: Tier, metric: string): { value: number | null; source: "compute" | "aggregates" | null } {
   const c = v3(run).compute?.rows.find((r) => r.provider === provider);
   if (c?.rtfx != null) return { value: c.rtfx, source: "compute" };
+  if (c?.speed_factor != null) return { value: c.speed_factor, source: "aggregates" };
   const a = run.aggregates.find((x) => x.provider === provider && x.tier === tier && x.metric === metric && x.slice_kind === "all");
   const rtf = num(a?.rtf);
   return rtf && rtf > 0 ? { value: 1 / rtf, source: "aggregates" } : { value: null, source: null };
@@ -770,9 +860,9 @@ function parseDiarization(section: unknown): Diarization | null {
       speaker_count_acc: share(n(o, "speaker_count_acc", "count_acc", "speaker_count_accuracy")),
       count_ci_low: share(c.low ?? c2.low),
       count_ci_high: share(c.high ?? c2.high),
-      missed: n(o, "missed", "missed_speech"),
-      false_alarm: n(o, "false_alarm"),
-      confusion: n(o, "confusion", "speaker_confusion"),
+      missed: n(o, "missed", "missed_rate", "missed_speech"),
+      false_alarm: n(o, "false_alarm", "false_alarm_rate"),
+      confusion: n(o, "confusion", "confusion_rate", "speaker_confusion"),
     };
   });
   const unsupported = ids(meta(section).unsupported);
@@ -794,6 +884,12 @@ export interface LidRow extends BaseRow {
   auto_ci_high: number | null;
   /** Most common wrong pick, when given. */
   top_confusion: string | null;
+  /** clipbench.scoring.lid: paired auto-detect minus hinted error rate, with its interval and verdict. */
+  diff: number | null;
+  diff_ci_low: number | null;
+  diff_ci_high: number | null;
+  verdict: string | null;
+  wrong_language_error_rate: number | null;
 }
 
 export interface Lid {
@@ -804,16 +900,24 @@ export interface Lid {
 function parseLid(section: unknown): Lid | null {
   const rows = baseRows(section, (o) => {
     const ci = interval(o);
+    const lci = interval(o, "lid_");
     const auto = interval(o, "auto_");
+    const det = interval(o, "error_rate_detect_");
+    const diff = interval(o, "diff_");
     return {
       accuracy: share(n(o, "accuracy", "lid_acc", "lid_accuracy", "correct_rate")),
-      ci_low: share(ci.low),
-      ci_high: share(ci.high),
+      ci_low: share(lci.low ?? ci.low),
+      ci_high: share(lci.high ?? ci.high),
       error_rate_hint: n(o, "error_rate_hint", "error_rate_with_hint", "error_rate_hinted"),
-      error_rate_auto: n(o, "error_rate_auto", "error_rate_no_hint", "error_rate_without_hint"),
-      auto_ci_low: auto.low,
-      auto_ci_high: auto.high,
+      error_rate_auto: n(o, "error_rate_auto", "error_rate_detect", "error_rate_no_hint", "error_rate_without_hint"),
+      auto_ci_low: auto.low ?? det.low,
+      auto_ci_high: auto.high ?? det.high,
       top_confusion: s(o, "top_confusion", "most_confused_with"),
+      diff: n(o, "error_rate_diff"),
+      diff_ci_low: diff.low,
+      diff_ci_high: diff.high,
+      verdict: s(o, "verdict"),
+      wrong_language_error_rate: n(o, "wrong_language_error_rate"),
     };
   });
   const unsupported = ids(meta(section).unsupported);
@@ -836,12 +940,15 @@ export interface EntityRow extends BaseRow {
   /** With the provider's keyterm / custom vocabulary feature and the same term list; null when not run. */
   keyterms: EntityScore | null;
   keyterms_supported: boolean | null;
+  /** Paired test of the miss rate with keyterms minus without (a_better: keyterms helped). */
+  paired?: { diff: number | null; ci_low: number | null; ci_high: number | null; verdict: string | null };
 }
 
 export interface Entities {
   rows: EntityRow[];
   /** Size of the shared term list, when given. */
   n_terms: number | null;
+  n_entities: number | null;
 }
 
 function parseEntities(section: unknown): Entities | null {
@@ -853,11 +960,17 @@ function parseEntities(section: unknown): Entities | null {
     const key = `${bse.provider}\u0000${bse.tier}\u0000${bse.slice_kind}\u0000${bse.slice}`;
     const row = byKey.get(key) ?? { ...bse, plain: { acc: null, ci_low: null, ci_high: null, n_spans: null }, keyterms: null, keyterms_supported: b(o, "keyterms_supported", "custom_vocabulary") };
     const mode = s(o, "mode", "variant", "with");
+    const flag = b(o, "keyterms");
     const read = (suffix: string): EntityScore => {
       const ci = interval(o, "", suffix);
-      return { acc: share(n(o, `entity_acc${suffix}`, `accuracy${suffix}`, `acc${suffix}`)), ci_low: share(ci.low), ci_high: share(ci.high), n_spans: n(o, `n_spans${suffix}`, "n_spans", "n_entities") };
+      const ex = interval(o, "exact_", suffix);
+      return { acc: share(n(o, `entity_acc${suffix}`, `exact_acc${suffix}`, `accuracy${suffix}`, `acc${suffix}`)), ci_low: share(ex.low ?? ci.low), ci_high: share(ex.high ?? ci.high), n_spans: n(o, `n_spans${suffix}`, "n_spans", "n_entities") };
     };
-    if (mode) {
+    if (flag != null) {
+      // clipbench.scoring.entities: one row per provider and keyterms on or off.
+      if (flag) row.keyterms = read("");
+      else row.plain = read("");
+    } else if (mode) {
       const kt = /key|vocab|with|boost/i.test(mode) && !/without|no_|plain|base/i.test(mode);
       if (kt) row.keyterms = read("");
       else row.plain = read("");
@@ -870,8 +983,25 @@ function parseEntities(section: unknown): Entities | null {
     byKey.set(key, row);
   }
   const rows = [...byKey.values()];
+  // The paired keyterms comparison (same entities scored with and without) wins over the per-run rows.
+  for (const o of rowsOf(meta(section).keyterms_comparison)) {
+    const provider = s(o, "provider");
+    const off = share(n(o, "exact_off"));
+    const on = share(n(o, "exact_on"));
+    if (!provider || (off == null && on == null)) continue;
+    const tier = s(o, "tier");
+    let row = rows.find((r) => r.provider === provider && r.slice_kind === "all" && (r.tier == null || r.tier === tier));
+    if (!row) {
+      row = { ...base(o, 15)!, plain: { acc: null, ci_low: null, ci_high: null, n_spans: null }, keyterms: null, keyterms_supported: null };
+      rows.push(row);
+    }
+    const nn = n(o, "n_entities");
+    row.plain = { acc: off, ci_low: null, ci_high: null, n_spans: nn };
+    row.keyterms = { acc: on, ci_low: null, ci_high: null, n_spans: nn };
+    row.paired = { diff: n(o, "diff"), ci_low: n(o, "ci_low"), ci_high: n(o, "ci_high"), verdict: s(o, "verdict") };
+  }
   if (!rows.length) return null;
-  return { rows, n_terms: n(meta(section), "n_terms", "terms") };
+  return { rows, n_terms: n(meta(section), "n_terms", "terms"), n_entities: n(meta(section), "n_entities") };
 }
 
 // ---------------------------------------------------------------- B18 style
@@ -895,11 +1025,11 @@ export const STYLE_PROPS: { key: keyof Pick<StyleRow, "fillers_kept" | "stutters
 
 function parseStyle(section: unknown): StyleRow[] | null {
   const rows = baseRows(section, (o) => ({
-    fillers_kept: share(n(o, "fillers_kept", "filler_kept_rate", "fillers_kept_rate", "fillers")),
-    stutters_kept: share(n(o, "stutters_kept", "stutter_kept_rate", "stutters_kept_rate", "stutters")),
-    profanity_kept: share(n(o, "profanity_kept", "profanity_kept_rate")),
-    profanity_masked: share(n(o, "profanity_masked", "profanity_masked_rate")),
-    bleeps_marked: share(n(o, "bleeps_marked", "bleep_marked_rate", "bleeped_marked")),
+    fillers_kept: share(n(o, "fillers_kept", "filler_keep_rate", "filler_kept_rate", "fillers_kept_rate", "fillers")),
+    stutters_kept: share(n(o, "stutters_kept", "repetition_keep_rate", "stutter_kept_rate", "stutters_kept_rate", "stutters")),
+    profanity_kept: share(n(o, "profanity_kept", "prof_written_share", "profanity_kept_rate")),
+    profanity_masked: share(n(o, "profanity_masked", "prof_masked_share", "profanity_masked_rate")),
+    bleeps_marked: share(n(o, "bleeps_marked", "bleep_masked_share", "bleep_marked_rate", "bleeped_marked")),
   }));
   return rows.length ? rows : null;
 }
@@ -918,6 +1048,9 @@ export interface ReliabilityRow {
   p50_ms: number | null;
   p99_ms: number | null;
   since: string | null;
+  failure_ci_low?: number | null;
+  failure_ci_high?: number | null;
+  rate_limited?: number | null;
 }
 
 function parseReliability(section: unknown): ReliabilityRow[] | null {
@@ -937,7 +1070,10 @@ function parseReliability(section: unknown): ReliabilityRow[] | null {
         retries_per_request: n(o, "retries_per_request", "retry_rate", "retries_mean", "mean_retries"),
         p50_ms: n(o, "p50_ms", "latency_p50", "p50_latency_ms"),
         p99_ms: n(o, "p99_ms", "latency_p99", "p99_latency_ms"),
-        since: s(o, "since", "first_run"),
+        failure_ci_low: share(n(o, "failure_ci_low")),
+        failure_ci_high: share(n(o, "failure_ci_high")),
+        rate_limited: share(n(o, "rate_limited_share")),
+        since: /^\d{4}-\d{2}-\d{2}/.test(s(o, "since") ?? "") ? s(o, "since") : null,
       });
     }
   };
@@ -971,6 +1107,12 @@ export interface CaptionsRow extends BaseRow {
   /** Share 0..1 of cues that meet every readability rule. */
   readable: number | null;
   n_cues: number | null;
+  /** clipbench.scoring.captions: time overlap of provider and reference cues (intersection over union). */
+  overlap: number | null;
+  overlap_ci_low: number | null;
+  overlap_ci_high: number | null;
+  /** Provider cues per reference cue. */
+  cue_count_ratio: number | null;
 }
 
 export interface CaptionRule {
@@ -979,6 +1121,8 @@ export interface CaptionRule {
   max_cps: number | null;
   min_duration_ms: number | null;
   max_duration_ms: number | null;
+  /** A pause this long starts a new cue. */
+  pause_ms?: number | null;
 }
 
 export interface Captions {
@@ -987,22 +1131,39 @@ export interface Captions {
   formats: string[];
 }
 
-function parseCaptions(section: unknown): Captions | null {
+/** A rule value that may be per language ({en: 42, ja: 16}). */
+function perLang(v: unknown, lang?: string): number | null {
+  if (isObj(v)) return lang ? num(v[lang]) : null;
+  return num(v);
+}
+
+function parseCaptions(section: unknown, lang?: string): Captions | null {
   const rows = baseRows(section, (o) => ({
-    cue_start_median_ms: n(o, "cue_start_median_ms", "start_offset_median_ms", "cue_timing_median_ms"),
-    cue_end_median_ms: n(o, "cue_end_median_ms", "end_offset_median_ms"),
+    cue_start_median_ms: n(o, "cue_start_median_ms", "start_error_median_ms", "start_offset_median_ms", "cue_timing_median_ms"),
+    cue_end_median_ms: n(o, "cue_end_median_ms", "end_error_median_ms", "end_offset_median_ms"),
     cue_within_200ms: share(n(o, "cue_within_200ms", "cues_within_200ms", "cue_on_time")),
     cps_median: n(o, "cps_median", "reading_speed_cps"),
-    cps_over: share(n(o, "cps_over", "cps_over_rate", "too_fast_rate")),
-    line_over: share(n(o, "line_over", "line_over_rate", "line_too_long_rate")),
+    cps_over: share(n(o, "cps_over", "cps_over_limit_rate", "cps_over_rate", "too_fast_rate")),
+    line_over: share(n(o, "line_over", "line_over_limit_rate", "line_over_rate", "line_too_long_rate")),
     readable: share(n(o, "readable", "readable_rate", "cue_ok_rate", "readability")),
     n_cues: n(o, "n_cues", "cues"),
+    overlap: share(n(o, "overlap_ratio", "overlap")),
+    overlap_ci_low: share(n(o, "overlap_ci_low")),
+    overlap_ci_high: share(n(o, "overlap_ci_high")),
+    cue_count_ratio: n(o, "cue_count_ratio"),
   }));
   if (!rows.length) return null;
   const m = meta(section);
   const r = isObj(m.rule) ? m.rule : isObj(m.line_rule) ? m.line_rule : null;
   const rule = r
-    ? { max_chars_per_line: n(r, "max_chars_per_line", "max_chars", "chars_per_line"), max_lines: n(r, "max_lines", "lines"), max_cps: n(r, "max_cps", "cps"), min_duration_ms: n(r, "min_duration_ms"), max_duration_ms: n(r, "max_duration_ms") }
+    ? {
+        max_chars_per_line: perLang(r.max_chars_per_line ?? r.max_chars ?? r.chars_per_line, lang),
+        max_lines: perLang(r.max_lines ?? r.lines, lang),
+        max_cps: perLang(r.max_cps ?? r.cps_limit ?? r.cps, lang),
+        min_duration_ms: perLang(r.min_duration_ms, lang),
+        max_duration_ms: perLang(r.max_duration_ms ?? r.max_cue_ms, lang),
+        pause_ms: perLang(r.pause_ms, lang),
+      }
     : null;
   const formats = Array.isArray(m.formats) ? m.formats.map(str).filter((x): x is string => Boolean(x)) : [];
   return { rows, rule, formats };
@@ -1034,6 +1195,8 @@ export interface FeatureCell {
   support: "yes" | "no" | "partial" | null;
   url: string | null;
   checked_on: string | null;
+  /** The doc's own caveat (pricing.toml note), shown with the cell. */
+  note?: string | null;
 }
 
 export interface FeatureProvider {
@@ -1061,7 +1224,7 @@ function cell(o: Obj, key: string): FeatureCell | null {
   const raw = o[key];
   if (raw === undefined && o[`${key}_url`] === undefined) return null;
   if (isObj(raw) && ("value" in raw || "url" in raw || "checked_on" in raw)) {
-    return { value: raw.value ?? null, support: support(raw.value), url: safeUrl(s(raw, "url", "doc_url")), checked_on: s(raw, "checked_on", "checked") };
+    return { value: raw.value ?? null, support: support(raw.value), url: safeUrl(s(raw, "url", "doc_url")), checked_on: s(raw, "checked_on", "checked"), note: s(raw, "note") };
   }
   return { value: raw ?? null, support: support(raw), url: safeUrl(s(o, `${key}_url`)), checked_on: s(o, `${key}_checked_on`, `${key}_checked`, "checked_on") };
 }
@@ -1084,7 +1247,8 @@ function featureProvider(id: string, o: Obj): FeatureProvider {
     const c = cell(src, k) ?? (k === "max_file_minutes" ? cell(src, "max_file_length") : k === "training_opt_out" ? cell(src, "opt_out") : null);
     if (c) cells[k] = c;
   }
-  const price = cell(src, "price") ?? cell(src, "usd_per_hour");
+  const perMin = n(o, "usd_per_minute");
+  const price = cell(src, "price") ?? cell(src, "usd_per_hour") ?? (perMin != null ? { value: perMin * 60, support: null, url: safeUrl(s(o, "price_url")), checked_on: s(o, "price_checked_on") } : null);
   return { id, label: s(o, "label", "name"), cells, price };
 }
 
@@ -1126,7 +1290,8 @@ export function supports(f: Features | null, provider: string, key: FeatureKey):
 
 // ---------------------------------------------------------------- run settings
 
-const SECRET = /key|token|secret|password|auth|credential/i;
+// Credentials only: "keyterms" is a run option, not a secret, so a bare "key" does not match.
+const SECRET = /(^|_)(api_?key|key|token|secret|password|auth|credentials?)($|_)|apikey|access_key|secret_key/i;
 
 function show(v: unknown): string {
   if (v == null) return "null";
@@ -1156,7 +1321,11 @@ export function settingsFor(run: Run, provider: string): [string, string][] {
   };
   put(m.options);
   const per = (isObj(m.providers) && m.providers[provider]) || (isObj(m.settings) && m.settings[provider]) || (isObj(m.provider_settings) && m.provider_settings[provider]);
-  put(per);
+  // clipbench writes {model_id, settings: {...}, settings_hash, usd_per_minute, pricing_checked_on} per provider.
+  if (isObj(per) && isObj(per.settings)) {
+    put(per.settings);
+    if (str(per.settings_hash)) out.set("settings_hash", str(per.settings_hash)!);
+  } else put(per);
   const p = run.providers.find((x) => x.id === provider) as unknown as Obj | undefined;
   if (p) put(p.settings ?? p.options ?? p.params);
   return [...out.entries()];
@@ -1225,7 +1394,7 @@ export function v3(run: Run): V3 {
     entities: safe(parseEntities, run.entities),
     style: safe(parseStyle, run.style),
     reliability: safe(parseReliability, run.reliability),
-    captions: safe(parseCaptions, run.captions),
+    captions: safe((x) => parseCaptions(x, run.language), run.captions),
     features: safe(parseFeatures, run.features),
   };
   memo.set(run, out);

@@ -1,4 +1,125 @@
-# Filled in by the provider adapters. See docs/INTERFACES.md.
+# Provider prices and data terms. See docs/INTERFACES.md and docs/providers.md.
+# Prices are USD, pay-as-you-go, batch / pre-recorded, as checked on `checked_on`.
+# `models` overrides usd_per_minute per model id. Re-check before publishing results.
+
 [fake]
 model_id = "fake-1"
 usd_per_minute = 0.0
+
+# ------------------------------------------------------------------ free / local
+
+[whisper-local]
+model_id = "mlx-community/whisper-large-v3-mlx"
+usd_per_minute = 0.0
+min_billed_seconds = 0
+checked_on = "2026-10-19"
+data_policy = "runs locally, audio never leaves the machine"
+opt_out = "not needed"
+
+[whisper-local-turbo]
+model_id = "mlx-community/whisper-large-v3-turbo"
+usd_per_minute = 0.0
+min_billed_seconds = 0
+checked_on = "2026-10-19"
+data_policy = "runs locally, audio never leaves the machine"
+opt_out = "not needed"
+
+[youtube-auto]
+model_id = "youtube-asr"
+usd_per_minute = 0.0
+min_billed_seconds = 0
+checked_on = "2026-10-19"
+data_policy = "reads auto captions already on disk; nothing is uploaded"
+opt_out = "not needed"
+
+[wayin]
+model_id = "wayin"
+usd_per_minute = 0.0
+min_billed_seconds = 0
+checked_on = "2026-10-19"
+data_policy = "reads existing Wayin output on disk; nothing is uploaded"
+opt_out = "not needed"
+
+# ------------------------------------------------------------------ paid
+
+[groq-whisper]
+model_id = "whisper-large-v3"
+usd_per_minute = 0.00185          # 0.111 USD per hour
+min_billed_seconds = 10           # docs: shorter requests are billed as 10 s
+checked_url = "https://console.groq.com/docs/speech-to-text"
+checked_on = "2026-10-19"
+data_policy = "Groq does not retain inference inputs by default; may log for up to 30 days for abuse or reliability debugging (https://console.groq.com/docs/your-data)"
+opt_out = "none per request; enable Zero Data Retention in console Data Controls (all plans)"
+notes = "whisper-large-v3 chosen over turbo for accuracy on ja/ko. Rate limits on the listed tier: 20 RPM, 7.2k audio seconds per hour."
+[groq-whisper.models]
+"whisper-large-v3" = 0.00185
+"whisper-large-v3-turbo" = 0.000667   # 0.04 USD per hour
+
+[deepgram]
+model_id = "nova-3"
+usd_per_minute = 0.0043           # Nova-3 monolingual pre-recorded (we always pass a language)
+min_billed_seconds = 0            # per-second billing, no minimums
+checked_url = "https://deepgram.com/pricing"
+checked_on = "2026-10-19"
+data_policy = "Model Improvement Program may use request data unless opted out (https://developers.deepgram.com/docs/the-deepgram-model-improvement-partnership-program)"
+opt_out = "mip_opt_out=true (set on every request; API reference notes pricing impacts)"
+notes = "Nova-3 multilingual (language=multi) is 0.0052/min; not used."
+[deepgram.models]
+"nova-3" = 0.0043
+"nova-3-general" = 0.0043
+
+[assemblyai]
+model_id = "universal-3-5-pro"
+usd_per_minute = 0.0035           # 0.21 USD per hour
+min_billed_seconds = 0
+checked_url = "https://www.assemblyai.com/pricing"
+checked_on = "2026-10-19"
+data_policy = "FAQ says AssemblyAI does not currently train on API data but its terms allow it (https://www.assemblyai.com/docs/faq/are-files-submitted-to-the-api-used-for-model-training)"
+opt_out = "none per request; account Data Controls toggle (paid plans only, forfeits MIP discount). Adapter deletes each transcript after reading it."
+notes = "speech_models = [universal-3-5-pro, universal-2]. Universal-3.5 Pro covers ja and es; ko falls back to universal-2. Cost uses speech_model_used."
+[assemblyai.models]
+"universal-3-5-pro" = 0.0035
+"universal-2" = 0.0025            # 0.15 USD per hour
+
+[elevenlabs-scribe]
+model_id = "scribe_v2"
+usd_per_minute = 0.003667         # 0.22 USD per hour
+min_billed_seconds = 0            # none stated; files must be at least 100 ms
+checked_url = "https://elevenlabs.io/pricing/api"
+checked_on = "2026-10-19"
+data_policy = "Logs and transcripts are stored by default; non-enterprise audio may be used for training unless opted out in account settings"
+opt_out = "enable_logging=false (zero retention mode) is Enterprise only; set CLIPBENCH_ELEVENLABS_ZERO_RETENTION=1 if your plan allows it"
+notes = "tag_audio_events=false so (laughter) style tags do not count as insertions."
+[elevenlabs-scribe.models]
+"scribe_v2" = 0.003667
+
+[gemini-flash]
+model_id = "gemini-3.8-flash"
+# Token priced. Estimate: 32 audio tokens per second (1920 per minute) + about 100 prompt tokens
+# at 0.75/M input, plus about 500 output tokens (transcript + low thinking) at 3.75/M output
+# = 0.0015 + 0.0019 = about 0.0034 USD per audio minute. Actual cost comes from usageMetadata.
+usd_per_minute = 0.0034
+min_billed_seconds = 0
+checked_url = "https://ai.google.dev/gemini-api/docs/pricing"
+checked_on = "2026-10-19"
+data_policy = "Paid tier: prompts and responses not used to improve products; logged for a limited time for abuse monitoring. Free tier: used to improve products (https://ai.google.dev/gemini-api/terms)"
+opt_out = "none per request; use a billing-enabled (paid tier) key"
+notes = "Prices for 3.8 Flash double on 2027-01-01 (1.50 input, 7.50 output per M). Thinking cannot be disabled on 3.8 Flash; adapter uses thinkingLevel=low. Audio tokens: https://ai.google.dev/gemini-api/docs/audio"
+[gemini-flash.token_prices."gemini-3.8-flash"]   # USD per 1M tokens
+input = 0.75
+audio_input = 0.75
+output = 3.75
+[gemini-flash.token_prices."gemini-2.5-flash"]
+input = 0.30
+audio_input = 1.00
+output = 2.50
+
+[aws-transcribe]
+model_id = "aws-transcribe-standard"
+usd_per_minute = 0.024            # UNVERIFIED tier 1 rate, see notes
+min_billed_seconds = 0            # official page: one-second increments, no minimum for standard
+checked_url = "https://aws.amazon.com/transcribe/pricing/"
+checked_on = "2026-10-19"
+data_policy = "AWS AI services may store and use content for service improvement unless the account is opted out (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_ai-opt-out.html)"
+opt_out = "none per request; AWS Organizations AI services opt-out policy. Adapter deletes the S3 objects and the job afterwards."
+notes = "The pricing tier table did not render when checked. Third-party sources give 0.024/min tier 1 (US East); the official page's batch example uses 0.006/min. 0.024 kept as the conservative figure for the budget guard. Verify before publishing cost results."

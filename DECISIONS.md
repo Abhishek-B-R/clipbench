@@ -51,3 +51,16 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - Unavailable providers produce no rows; they are listed in run_meta.skipped_providers.
 - Whisper backend (mlx-whisper, else faster-whisper) is chosen by an actual import and is part of the cache key, since the two decode differently (greedy vs beam 5). condition_on_previous_text is off to reduce repetition loops.
 - Wayin: Vako keeps Wayin output only in Postgres (`Transcript.source = 'wayin'`), nothing under .vr/. The adapter reads data/wayin/<videoId>.json, or the DB read-only only when CLIPBENCH_WAYIN_DB=1 and DATABASE_URL are set, and only whole-video transcripts (slices are rebased and do not match full audio). Otherwise it skips cleanly.
+
+## Providers
+
+- Model ids and prices were checked against each provider's docs on 2026-10-19; URLs are in clipbench/providers/pricing.toml and docs/providers.md.
+- Groq uses whisper-large-v3, not turbo: accuracy matters more for ja/ko than the price gap ($0.111/hr).
+- AssemblyAI uses universal-3-5-pro with universal-2 fallback (3.5 Pro covers ja/es, not ko); cost follows the model that actually ran.
+- Training/retention opt-outs: Deepgram `mip_opt_out=true` on every request. AssemblyAI has no per-request flag, so each transcript is deleted after use; AWS S3 objects and jobs are deleted after each clip. ElevenLabs zero retention (`enable_logging=false`) is Enterprise only, so it is opt-in via CLIPBENCH_ELEVENLABS_ZERO_RETENTION=1. Gemini: use a paid-tier key (paid tier data is not used to improve products; free tier data is). Groq has no request flag (no retention by default). AWS opt-out is an Organizations policy the account owner sets.
+- ElevenLabs `tag_audio_events=false`, since tags like "(laughter)" would count as insertions.
+- Gemini 3.8 Flash cannot disable thinking; `thinkingLevel=low` keeps cost and latency down. Its prices double on 2027-01-01, so dated cost claims need care.
+- AWS price recorded as $0.024/min (tier 1) because the official table did not render; it is the conservative figure for the budget guard. CHECK before publishing costs.
+- AWS Spanish defaults to es-US, since most Spanish Shorts are Latin American.
+- Latency excludes our own retry backoff and waiting for a concurrency slot, but includes upload and polling.
+- Test hooks and privacy-only flags stay out of the cache key, since they do not change the output.

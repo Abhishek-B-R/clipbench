@@ -37,6 +37,29 @@ class Track(BaseModel):
     path: str
 
 
+CATEGORIES = [
+    "talking_head",
+    "vlog_music",
+    "gaming",
+    "comedy_skit",
+    "cooking_tutorial",
+    "news_explainer",
+    "other",
+]
+
+
+class NonSpeechSpan(BaseModel):
+    start_ms: int
+    end_ms: int
+    kind: Literal["music", "sfx", "silence"] = "music"
+
+
+class CodeSwitchSpan(BaseModel):
+    start: int  # character offsets into the reference text
+    end: int
+    lang: str = "en"
+
+
 class Reference(BaseModel):
     video_id: str
     language: str
@@ -45,6 +68,16 @@ class Reference(BaseModel):
     words: list[Word] | None = None  # timings, when the source track has them
     tags: list[str] = Field(default_factory=list)
     audio_sha256: str | None = None
+    # v2 fields, see docs/V2.md. video_id above is the clip_id.
+    platform: str = "youtube"
+    source_id: str | None = None  # the platform's own video id
+    clip_source: str = "short"  # short | window | long
+    start_ms: int | None = None  # window start inside the source video
+    category: str | None = None
+    nonspeech_spans: list[NonSpeechSpan] = Field(default_factory=list)
+    codeswitch_spans: list[CodeSwitchSpan] = Field(default_factory=list)
+    punctuated: bool = False
+    timing_source: str | None = None  # "creator" | "aligner:<name>" | None
 
 
 class Clip(BaseModel):

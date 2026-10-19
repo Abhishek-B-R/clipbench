@@ -21,6 +21,8 @@ import {
   Home,
   FlaskRound,
   Globe,
+  Radio,
+  Table2,
 } from "lucide-react";
 import { setDemo, useRun, useSource } from "@/lib/data";
 import { setTheme, useTheme } from "@/lib/theme";
@@ -34,6 +36,8 @@ import { setCommandMenuOpen, useCommandMenuOpen } from "./commandMenuStore";
 
 const PAGES = [
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy, hint: "Every model ranked, with intervals" },
+  { to: "/streaming", label: "Streaming leaderboard", icon: Radio, hint: "Realtime APIs: first partial, final segment, stability" },
+  { to: "/features", label: "Feature matrix", icon: Table2, hint: "What each provider offers, with doc links" },
   { to: "/compare", label: "Compare", icon: GitCompareArrows, hint: "Pick models, clip types and a metric" },
   { to: "/picker", label: "Pick a provider", icon: Sparkles, hint: "Which speech-to-text for my app" },
   { to: "/clips", label: "Clips", icon: LayoutList, hint: "Browse the clip set" },

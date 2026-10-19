@@ -20,6 +20,8 @@ const Account = lazy(() => import("./pages/Account"));
 const ApiDocs = lazy(() => import("./pages/ApiDocs"));
 const Lang = lazy(() => import("./pages/Lang"));
 const Findings = lazy(() => import("./pages/Findings"));
+const Streaming = lazy(() => import("./pages/Streaming"));
+const Features = lazy(() => import("./pages/Features"));
 
 function L({ children }: { children: ReactNode }) {
   return (
@@ -46,6 +48,8 @@ export const router = createBrowserRouter([
       { path: "/", element: <Landing /> },
       { path: "/leaderboard", element: <L><Leaderboard /></L> },
       { path: "/providers/:id", element: <L><Provider /></L> },
+      { path: "/streaming", element: <L><Streaming /></L> },
+      { path: "/features", element: <L><Features /></L> },
       { path: "/compare", element: <L><Compare /></L> },
       { path: "/picker", element: <L><Picker /></L> },
       { path: "/clips", element: <L><Clips /></L> },

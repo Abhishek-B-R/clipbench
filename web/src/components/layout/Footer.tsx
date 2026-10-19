@@ -12,6 +12,8 @@ const COLS = [
     title: "Results",
     links: [
       { to: "/leaderboard", label: "Leaderboard" },
+      { to: "/streaming", label: "Streaming" },
+      { to: "/features", label: "Feature matrix" },
       { to: "/compare", label: "Compare models" },
       { to: "/picker", label: "Pick a provider" },
       { to: "/findings/en", label: "Findings" },

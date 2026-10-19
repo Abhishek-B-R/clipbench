@@ -118,6 +118,8 @@ for (const lang of LANGUAGES) {
 // Static pages. Descriptions state what the page is; no numbers, so they hold whether or not a language is published.
 const PAGES: [string, string, string][] = [
   ["/leaderboard", "Leaderboard", "Speech-to-text models ranked per language on real short-form video, with 95% intervals, once a language passes the publication gate."],
+  ["/streaming", "Streaming leaderboard", "Realtime speech-to-text APIs on real short-form video: time to first partial, time to final segment, partial stability and final accuracy, never mixed with batch."],
+  ["/features", "Speech-to-text feature matrix", "What each speech-to-text provider offers: languages, streaming, word timestamps, diarization, language ID, custom vocabulary, limits, retention and price, each linked to its docs."],
   ["/compare", "Compare models", "Compare speech-to-text models on the same short-form clips. Verdicts come from a paired test, not from the gap between two numbers."],
   ["/picker", "Which speech-to-text for my app?", "Pick a speech-to-text provider for your clips: music, budget per audio hour, word timing, latency and local-only constraints."],
   ["/clips", "Clip set", "Every clip in the benchmark by its public id, with tags. Captions are never published; anyone can rebuild the set."],

@@ -19,9 +19,10 @@ const MobileAccount = ACCOUNTS ? lazy(() => import("./AccountNav").then((m) => (
 
 export const NAV_LINKS = [
   { to: "/leaderboard", label: "Leaderboard" },
+  { to: "/streaming", label: "Streaming" },
   { to: "/compare", label: "Compare" },
   { to: "/picker", label: "Picker" },
-  { to: "/clips", label: "Clips" },
+  { to: "/features", label: "Features" },
   { to: "/methodology", label: "Methodology" },
   ...(ACCOUNTS ? [{ to: "/requests", label: "Requests" }] : []),
   { to: "/docs/api", label: "Docs" },

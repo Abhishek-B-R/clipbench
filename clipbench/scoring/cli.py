@@ -55,6 +55,19 @@ def headline_table(aggregates: pd.DataFrame, run_id: str) -> Table | None:
     return table
 
 
+def _is_stream_run(run_id: str) -> bool:
+    """Streaming runs (run_meta kind "stream") are scored by clipbench.streaming, never mixed with batch."""
+    import json
+
+    from clipbench.config import get_settings
+
+    meta = get_settings().runs_dir / run_id / "run_meta.json"
+    try:
+        return json.loads(meta.read_text()).get("kind") == "stream"
+    except (OSError, ValueError):
+        return False
+
+
 def register(app: typer.Typer) -> None:
     @app.command("score")
     def score(run_id: str = typer.Argument(..., help="Run id, or 'latest'.")) -> None:
@@ -63,6 +76,11 @@ def register(app: typer.Typer) -> None:
         from clipbench.scoring.score import score_run
 
         run_id = resolve_run_id(run_id)
+        if _is_stream_run(run_id):
+            from clipbench.streaming.score import score_stream
+
+            Console().print(f"wrote {score_stream(run_id)}")
+            return
         out = score_run(run_id)
         console = Console()
         table = headline_table(pd.read_parquet(out / "aggregates.parquet"), run_id)

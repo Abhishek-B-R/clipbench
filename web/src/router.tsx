@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router";
 import { Shell } from "./components/layout/Shell";
 import Landing from "./pages/Landing";
 import { Skeleton } from "./components/ui/Skeleton";
+import { ACCOUNTS } from "./lib/flags";
 
 // Dashboard pages are split out so the landing page ships less JavaScript.
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
@@ -17,6 +18,7 @@ const Requests = lazy(() => import("./pages/Requests"));
 const Changelog = lazy(() => import("./pages/Changelog"));
 const Account = lazy(() => import("./pages/Account"));
 const ApiDocs = lazy(() => import("./pages/ApiDocs"));
+const Lang = lazy(() => import("./pages/Lang"));
 
 function L({ children }: { children: ReactNode }) {
   return (
@@ -47,11 +49,16 @@ export const router = createBrowserRouter([
       { path: "/picker", element: <L><Picker /></L> },
       { path: "/clips", element: <L><Clips /></L> },
       { path: "/methodology", element: <L><Methodology /></L> },
-      { path: "/requests", element: <L><Requests /></L> },
       { path: "/changelog", element: <L><Changelog /></L> },
-      { path: "/account", element: <L><Account /></L> },
+      ...(ACCOUNTS
+        ? [
+            { path: "/account", element: <L><Account /></L> },
+            { path: "/requests", element: <L><Requests /></L> },
+            { path: "/sign-in", element: <L><SignIn /></L> },
+          ]
+        : []),
+      { path: "/lang/:code", element: <L><Lang /></L> },
       { path: "/docs/api", element: <L><ApiDocs /></L> },
-      { path: "/sign-in", element: <L><SignIn /></L> },
       { path: "*", element: <L><NotFound /></L> },
     ],
   },

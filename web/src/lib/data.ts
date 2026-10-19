@@ -141,3 +141,16 @@ export async function loadAllRuns(): Promise<{ runs: Run[]; source: Source }> {
 export function useAllRuns() {
   return useAsync(loadAllRuns, []);
 }
+
+/** Latest run for a language (null when that language has no run yet). Without a language, the latest run. */
+export async function loadRunFor(lang?: string | null): Promise<{ run: Run | null; source: Source }> {
+  const source = await loadSource();
+  if (!lang) return loadRun();
+  const r = [...source.index.runs].filter((x) => x.language === lang).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  if (!r) return { run: null, source };
+  return loadRun(r.run_id);
+}
+
+export function useRunFor(lang?: string | null) {
+  return useAsync(() => loadRunFor(lang), [lang]);
+}

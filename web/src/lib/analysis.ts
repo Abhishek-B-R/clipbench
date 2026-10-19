@@ -1,4 +1,5 @@
-import type { Aggregate, Clip, Paired, Provider, Run, SliceKind, Tier } from "./types";
+import type { Aggregate, Clip, LanguageStatus, Paired, Provider, Run, RunIndex, SliceKind, Tier } from "./types";
+import { LANGUAGES, RULES } from "./config";
 
 /** Plain names for clip tags (clipbench/models.py TAGS). */
 export const TAG_LABEL: Record<string, string> = {
@@ -26,7 +27,7 @@ export const TAG_PHRASE: Record<string, string> = {
 /** Order the clip-type views use. caption_not_verbatim is about the reference, not the audio, so it is left out. */
 export const TAG_ORDER = ["background_music", "fast_speech", "slang_or_dialect", "multiple_speakers", "code_switching", "noisy"];
 
-export const LANGUAGE_NAME: Record<string, string> = { ja: "Japanese", es: "Spanish", ko: "Korean", en: "English" };
+export const LANGUAGE_NAME: Record<string, string> = { en: "English", ja: "Japanese", ko: "Korean", es: "Spanish", hi: "Hindi and Hinglish" };
 
 export const TIER_LABEL: Record<Tier, string> = { verified: "Verified", creator: "Creator captions" };
 
@@ -459,3 +460,64 @@ export function runChanges(runs: Run[], wanted?: Tier): RunChange[] {
     };
   });
 }
+
+
+// ---------------------------------------------------------------- publication gate (docs/V2.md, "Languages")
+
+function gate(verified: number, providers: number) {
+  return verified >= RULES.publishMinVerified && providers >= RULES.publishMinProviders;
+}
+
+/**
+ * Status of a run's language. Uses `run.languages` from the exporter when present; otherwise computes it from
+ * the run defensively: verified clips, and providers with at least one scored row on them.
+ */
+export function runLanguageStatus(run: Run): LanguageStatus {
+  const given = run.languages?.find((l) => l.lang === run.language);
+  if (given) return given;
+  const verified = run.clips.filter((c) => c.tier === "verified").length;
+  // "Providers with ok rows in its latest run" (docs/V2.md): any scored row counts.
+  const providersOk = new Set(run.per_clip.map((r) => r.provider)).size;
+  const clips = run.clips.filter((c) => c.tier === "verified");
+  return {
+    lang: run.language,
+    verified_clips: verified,
+    providers_ok: providersOk,
+    published: gate(verified, providersOk),
+    channels: new Set(clips.map((c) => c.channel)).size,
+    categories: [...new Set(clips.map((c) => c.category).filter((c): c is string => Boolean(c)))],
+  };
+}
+
+export function isPublished(run: Run) {
+  return runLanguageStatus(run).published;
+}
+
+export interface LanguageProgress extends LanguageStatus {
+  /** Latest run for this language, if any. */
+  latestRun?: string;
+  latestAt?: string;
+  /** Clips scored on any tier in the latest run (creator captions included). */
+  scored: number;
+}
+
+/**
+ * Progress for every v2 language, from index.json only (no run fetch). Prefers `index.languages` or the run
+ * summary's `languages`; falls back to n_clips.verified and the provider list (an upper bound on providers with
+ * ok rows, so the fallback can only under-publish when combined with the run-level check).
+ */
+export function languageProgress(index: RunIndex | undefined): LanguageProgress[] {
+  const runs = [...(index?.runs ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  return LANGUAGES.map((lang) => {
+    const r = runs.find((x) => x.language === lang);
+    const given = index?.languages?.find((l) => l.lang === lang) ?? r?.languages?.find((l) => l.lang === lang);
+    const scored = r ? Object.values(r.n_clips).reduce<number>((t, n) => t + (n ?? 0), 0) : 0;
+    if (given) return { ...given, latestRun: r?.run_id, latestAt: r?.created_at, scored };
+    const verified = r?.n_clips.verified ?? 0;
+    const providers = r ? r.providers.length : 0;
+    // Without the exporter's flag, never claim publication from the index alone if no verified clips exist.
+    return { lang, verified_clips: verified, providers_ok: providers, published: verified > 0 && gate(verified, providers), latestRun: r?.run_id, latestAt: r?.created_at, scored };
+  });
+}
+
+export const CATEGORY_KEYS = ["talking_head", "vlog_music", "gaming", "comedy_skit", "cooking_tutorial", "news_explainer"] as const;

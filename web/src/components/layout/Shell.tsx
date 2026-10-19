@@ -1,6 +1,7 @@
-import { Outlet, ScrollRestoration } from "react-router";
+import { Link, Outlet, ScrollRestoration, useLocation } from "react-router";
 import { FlaskConical } from "lucide-react";
 import { setDemo, useSource } from "@/lib/data";
+import { languageProgress } from "@/lib/analysis";
 import { Nav } from "./Nav";
 import { Footer } from "./Footer";
 import { CommandMenu } from "../ui/CommandMenu";
@@ -27,18 +28,17 @@ export function Shell() {
 }
 
 /**
- * Data banner. Three states:
- * - development only: the synthetic fixture (?demo=1), with "Back to real results";
- * - a real but early run (no verified tier or under 30 clips): plain warning (plus "View demo data" in dev).
+ * Data banner:
+ * - real data while no language is published: "First results in progress" with a link to the progress board;
+ * - development only: the synthetic fixture (?demo=1), with "Back to real results" (or "View demo data").
  */
 export function DemoBanner() {
   const src = useSource();
+  const { pathname } = useLocation();
   const s = src.data;
   if (!s) return null;
-  const latest = s.index.runs.find((r) => r.run_id === s.index.latest) ?? s.index.runs[0];
-  const n = latest ? Object.values(latest.n_clips).reduce((a, b) => a + (b ?? 0), 0) : 0;
-  const creatorOnly = latest ? !latest.tiers.includes("verified") : false;
-  const early = !s.demo && latest && (creatorOnly || n < 30);
+  // Real data: say so plainly while no language is published (the homepage says it itself, so skip it there).
+  const early = !s.demo && !languageProgress(s.index).some((l) => l.published) && pathname !== "/";
   if (!s.demo && !early) return null;
   const btn = "ml-1 shrink-0 rounded-xs px-1.5 py-0.5 font-medium text-ink underline decoration-line-strong underline-offset-[3px] hover:decoration-ink";
   return (
@@ -53,19 +53,20 @@ export function DemoBanner() {
           </span>
         ) : (
           <span className="min-w-0 truncate">
-            <span className="font-medium text-ink">Early run.</span>
-            <span className="hidden sm:inline">
-              {" "}
-              {n} clips{creatorOnly ? ", creator captions only (none verified yet)" : ""}. Intervals are wide; most slices are too small to conclude.
-            </span>
-            <span className="sm:hidden"> {n} clips, too few to conclude.</span>
+            <span className="font-medium text-ink">First results in progress.</span>
+            <span className="hidden sm:inline"> No language has passed the publication gate yet, so no ranking is shown.</span>
           </span>
         )}
         {import.meta.env.DEV && s.forced ? (
           <button type="button" className={btn} onClick={() => setDemo(false)}>
             Back to real results
           </button>
-        ) : !s.demo && import.meta.env.DEV ? (
+        ) : !s.demo ? (
+          <Link to="/#progress" className={btn}>
+            See progress
+          </Link>
+        ) : null}
+        {!import.meta.env.DEV || s.forced ? null : !s.demo ? (
           <button type="button" className={btn} onClick={() => setDemo(true)}>
             View demo data
           </button>

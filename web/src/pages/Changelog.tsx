@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { ArrowDown, ArrowRight, ArrowUp, Download, Plus, Minus, RefreshCw } from "lucide-react";
 import type { Run } from "@/lib/types";
 import { runUrl, useAllRuns } from "@/lib/data";
-import { LANGUAGE_NAME, TIER_LABEL, defaultTier, primaryMetric, providerColor, providerLabel, runChanges, type RunChange } from "@/lib/analysis";
+import { LANGUAGE_NAME, defaultTier, isPublished, primaryMetric, providerColor, providerLabel, runChanges, type RunChange } from "@/lib/analysis";
 import { date, pct, signedPts } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -52,6 +52,7 @@ function Entry({ c, latest, json, last }: { c: RunChange; latest: boolean; json:
   const tier = defaultTier(run);
   const n = run.clips.filter((x) => x.tier === tier).length;
   const sameLeader = c.prevLeader && c.leader && c.prevLeader.provider === c.leader.provider;
+  const ranked = isPublished(run);
   return (
     <li className="relative grid gap-4 pb-12 md:grid-cols-[180px_minmax(0,1fr)] md:gap-10">
       {!last && <span aria-hidden className="absolute top-3 bottom-0 left-[3px] hidden w-px bg-line md:block" />}
@@ -68,11 +69,11 @@ function Entry({ c, latest, json, last }: { c: RunChange; latest: boolean; json:
       <article className="min-w-0 rounded-md border border-line bg-surface shadow-card">
         <header className="border-b border-line px-4 py-4 sm:px-5">
           <h2 className="text-[17px] font-semibold tracking-[-0.015em] text-ink">
-            {!c.prev ? "First published run." : sameLeader ? `${providerLabel(run, c.leader!.provider)} still leads.` : c.leader ? `New leader: ${providerLabel(run, c.leader.provider)}.` : "Run published."}
+            {!ranked ? "Pipeline run, not ranked." : !c.prev ? "First published run." : sameLeader ? `${providerLabel(run, c.leader!.provider)} still leads.` : c.leader ? `New leader: ${providerLabel(run, c.leader.provider)}.` : "Run published."}
           </h2>
           <p className="mt-1 text-[13.5px] text-ink-2">
-            {run.providers.length} models on {n} {TIER_LABEL[tier].toLowerCase()} clips in {LANGUAGE_NAME[run.language] ?? run.language}
-            {c.leader ? `. Lowest ${primaryMetric(run).name.toUpperCase()}: ${pct(c.leader.error_rate)} (${pct(c.leader.ci_low)} to ${pct(c.leader.ci_high)}).` : "."}
+            {run.providers.length} models on {n} {tier === "verified" ? "verified" : "creator-captioned"} clips in {LANGUAGE_NAME[run.language] ?? run.language}
+            {ranked && c.leader ? `. Lowest ${primaryMetric(run).name.toUpperCase()}: ${pct(c.leader.error_rate)} (${pct(c.leader.ci_low)} to ${pct(c.leader.ci_high)}).` : `. ${LANGUAGE_NAME[run.language] ?? run.language} is below the publication gate, so no ranking or leader is shown.`}
           </p>
           {(c.prev ? c.added.length + c.removed.length + c.changed.length > 0 : true) && (
             <ul className="mt-3 flex flex-wrap gap-1.5">
@@ -93,11 +94,11 @@ function Entry({ c, latest, json, last }: { c: RunChange; latest: boolean; json:
                   <span className="font-mono text-[11.5px] text-ink">{x.to}</span>
                 </Change>
               ))}
-              {!c.prev && <li className="text-[12.5px] text-ink-3">Baseline for every later comparison.</li>}
+              {!c.prev && ranked && <li className="text-[12.5px] text-ink-3">Baseline for every later comparison.</li>}
             </ul>
           )}
         </header>
-        <Deltas run={run} c={c} />
+        {ranked && <Deltas run={run} c={c} />}
         <footer className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
           <span className="font-mono text-[11px] text-ink-3">
             commit {run.git_commit.slice(0, 7)} / seed {run.sample_seed}

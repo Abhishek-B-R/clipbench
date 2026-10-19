@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import { ArrowUpRight, Search } from "lucide-react";
 import type { Clip, Run } from "@/lib/types";
 import { useRun } from "@/lib/data";
-import { TAG_LABEL, median, perClipMatrix, pickTier, primaryMetric, providerColor, providerLabel, providerOrder, tagsInRun, youtubeUrl } from "@/lib/analysis";
+import { LANGUAGE_NAME, TAG_LABEL, isPublished, median, perClipMatrix, pickTier, primaryMetric, providerColor, providerLabel, providerOrder, tagsInRun, youtubeUrl } from "@/lib/analysis";
 import { duration, pct } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -98,6 +98,11 @@ export default function Clips() {
         {run && (
           <>
             <TierNote tier={tier} />
+            {!isPublished(run) && (
+              <p className="rounded-md border border-line bg-sunken/60 px-4 py-2.5 text-[13px] text-ink-2">
+                <span className="font-medium text-ink">Pipeline checks, not results.</span> {LANGUAGE_NAME[run.language] ?? run.language} is below the publication gate, so these per-clip scores are shown for transparency and are not a ranking.
+              </p>
+            )}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
               <label className="relative w-full sm:w-72">
                 <span className="sr-only">Search by clip id or channel</span>

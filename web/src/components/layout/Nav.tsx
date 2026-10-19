@@ -6,6 +6,7 @@ import { KeyRound, LogOut, Menu as MenuIcon, Search, Star, User, X } from "lucid
 import { cn } from "@/lib/cn";
 import { signOut, useSession } from "@/lib/auth";
 import { GITHUB_URL } from "@/lib/config";
+import { ACCOUNTS } from "@/lib/flags";
 import { Wordmark } from "./Logo";
 import { buttonClass } from "../ui/Button";
 import { Kbd, modKey } from "../ui/Kbd";
@@ -18,8 +19,9 @@ export const NAV_LINKS = [
   { to: "/leaderboard", label: "Leaderboard" },
   { to: "/compare", label: "Compare" },
   { to: "/picker", label: "Picker" },
+  { to: "/clips", label: "Clips" },
   { to: "/methodology", label: "Methodology" },
-  { to: "/requests", label: "Requests" },
+  ...(ACCOUNTS ? [{ to: "/requests", label: "Requests" }] : []),
   { to: "/docs/api", label: "Docs" },
 ];
 
@@ -94,8 +96,12 @@ export function Nav() {
             <GitHubIcon size={16} />
           </a>
           <ThemeToggle />
-          <span aria-hidden className="mx-1 hidden h-5 w-px bg-line sm:block" />
-          <AccountButton />
+          {ACCOUNTS && (
+            <>
+              <span aria-hidden className="mx-1 hidden h-5 w-px bg-line sm:block" />
+              <AccountButton />
+            </>
+          )}
           <MobileMenu />
         </div>
       </div>
@@ -149,7 +155,6 @@ function AccountButton() {
 function MobileMenu() {
   const [open, setOpen] = useState(false);
   const loc = useLocation();
-  const { data } = useSession();
   useEffect(() => setOpen(false), [loc.pathname]);
   return (
     <Sheet.Root open={open} onOpenChange={setOpen}>
@@ -179,15 +184,7 @@ function MobileMenu() {
             ))}
           </nav>
           <div className="frame mt-5 flex gap-2">
-            {data?.user ? (
-              <Link to="/account" className={buttonClass("secondary", "lg", "flex-1")}>
-                Account
-              </Link>
-            ) : (
-              <Link to="/sign-in" className={buttonClass("primary", "lg", "flex-1")}>
-                Sign in
-              </Link>
-            )}
+            {ACCOUNTS && <MobileAccount />}
             <a href={GITHUB_URL} target="_blank" rel="noreferrer" className={buttonClass("secondary", "lg")}>
               <GitHubIcon /> GitHub
             </a>
@@ -195,5 +192,19 @@ function MobileMenu() {
         </Sheet.Content>
       </Sheet.Portal>
     </Sheet.Root>
+  );
+}
+
+/** Only mounted when ACCOUNTS is on, so a static build never calls /api/auth. */
+function MobileAccount() {
+  const { data } = useSession();
+  return data?.user ? (
+    <Link to="/account" className={buttonClass("secondary", "lg", "flex-1")}>
+      Account
+    </Link>
+  ) : (
+    <Link to="/sign-in" className={buttonClass("primary", "lg", "flex-1")}>
+      Sign in
+    </Link>
   );
 }

@@ -20,11 +20,13 @@ import {
   KeyRound,
   Home,
   FlaskRound,
+  Globe,
 } from "lucide-react";
 import { setDemo, useRun, useSource } from "@/lib/data";
 import { setTheme, useTheme } from "@/lib/theme";
-import { providerColor } from "@/lib/analysis";
-import { REPO_SLUG } from "@/lib/config";
+import { LANGUAGE_NAME, providerColor } from "@/lib/analysis";
+import { LANGUAGES, REPO_SLUG } from "@/lib/config";
+import { ACCOUNTS } from "@/lib/flags";
 import { SeriesDot } from "./Badge";
 import { Kbd } from "./Kbd";
 import { toast } from "./Toast";
@@ -53,11 +55,16 @@ const PAGES = [
   { to: "/picker", label: "Model picker", icon: Sparkles, hint: "Which model for my clips" },
   { to: "/clips", label: "Clips", icon: LayoutList, hint: "Browse the clip set" },
   { to: "/methodology", label: "Methodology", icon: FlaskConical, hint: "How scoring works" },
-  { to: "/requests", label: "Requests", icon: Vote, hint: "Vote for the next model or language" },
+  ...(ACCOUNTS ? [{ to: "/requests", label: "Requests", icon: Vote, hint: "Vote for the next model or language" }] : []),
   { to: "/changelog", label: "Changelog", icon: History, hint: "Runs over time" },
   { to: "/docs/api", label: "API docs", icon: Code2, hint: "Public data API" },
-  { to: "/account", label: "Account", icon: User, hint: "Watchlist, alerts, saved comparisons" },
-  { to: "/account#keys", label: "API keys", icon: KeyRound, hint: "Create or revoke a key" },
+  ...(ACCOUNTS
+    ? [
+        { to: "/account", label: "Account", icon: User, hint: "Watchlist, alerts, saved comparisons" },
+        { to: "/account#keys", label: "API keys", icon: KeyRound, hint: "Create or revoke a key" },
+      ]
+    : []),
+  ...LANGUAGES.map((l) => ({ to: `/lang/${l}`, label: LANGUAGE_NAME[l] ?? l, icon: Globe, hint: "Progress and results for this language" })),
   { to: "/", label: "Overview", icon: Home, hint: "The landing page" },
 ];
 
@@ -178,10 +185,12 @@ export function CommandMenu() {
             <BookOpen size={16} strokeWidth={1.75} className="text-ink-3" aria-hidden />
             <span className="text-ink">Read how scoring works</span>
           </Command.Item>
-          <Command.Item value="sign in account" onSelect={() => go("/sign-in")} className={item}>
-            <LogIn size={16} strokeWidth={1.75} className="text-ink-3" aria-hidden />
-            <span className="text-ink">Sign in</span>
-          </Command.Item>
+          {ACCOUNTS && (
+            <Command.Item value="sign in account" onSelect={() => go("/sign-in")} className={item}>
+              <LogIn size={16} strokeWidth={1.75} className="text-ink-3" aria-hidden />
+              <span className="text-ink">Sign in</span>
+            </Command.Item>
+          )}
         </Command.Group>
       </Command.List>
       <div className="flex items-center gap-4 border-t border-line bg-sunken/60 px-4 py-2 text-[11.5px] text-ink-3">

@@ -5,7 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowRight, Check, Clock, Cpu, Minus, Scale, Wallet, X } from "lucide-react";
 import type { Run, Tier } from "@/lib/types";
 import { useRun, useSource } from "@/lib/data";
-import { LANGUAGE_NAME, TAG_LABEL, TAG_PHRASE, defaultTier, providerById, providerColor, providerLabel, recommend, tagsInRun, type LatencyNeed, type PickerInput, type PickerRow } from "@/lib/analysis";
+import { LANGUAGE_NAME, TAG_LABEL, TAG_PHRASE, defaultTier, isPublished, providerById, providerColor, providerLabel, recommend, tagsInRun, type LatencyNeed, type PickerInput, type PickerRow } from "@/lib/analysis";
 import { ms, pct, pValue, signedPts, usdPerHour } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Button, buttonClass } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/State";
 import { TierNote } from "@/components/ui/TierControl";
+import { Gated } from "@/components/ui/Gate";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 const ALL_LANGS = ["ja", "es", "ko", "en"];
@@ -60,7 +61,8 @@ export default function Picker() {
             <Skeleton className="h-[520px]" />
           </div>
         )}
-        {run && result && (
+        {run && !isPublished(run) && <Gated run={run} what="recommendation">{null}</Gated>}
+        {run && result && isPublished(run) && (
           <div className="grid items-start gap-8 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)] xl:gap-10">
             <form onSubmit={(e) => e.preventDefault()} aria-label="Your clips" className="grid gap-0 overflow-hidden rounded-md border border-line bg-surface shadow-card lg:sticky lg:top-20">
               <Step n={1} title="Language">

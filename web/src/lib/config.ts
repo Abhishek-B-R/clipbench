@@ -15,4 +15,28 @@ export const RULES = {
   publishMinProviders: 6,
   /** Bootstrap resamples for every interval and paired test. */
   bootstrapResamples: 1000,
+  /** Dataset diversity (docs/V2.md): at least this many channels per language ... */
+  minChannels: 30,
+  /** ... no channel above this share of a language's set ... */
+  maxChannelShare: 0.05,
+  /** ... and at least this many content categories (not counting "other"). */
+  minCategories: 6,
 } as const;
+
+/** v2 languages, in shipping order (docs/V2.md). */
+export const LANGUAGES = ["en", "ja", "ko", "es", "hi"] as const;
+
+/** Content categories, exact strings from docs/V2.md, with plain names. */
+export const CATEGORIES: Record<string, string> = {
+  talking_head: "Talking head",
+  vlog_music: "Vlog with music",
+  gaming: "Gaming",
+  comedy_skit: "Comedy and skits",
+  cooking_tutorial: "Cooking and tutorials",
+  news_explainer: "News and explainers",
+};
+
+/** The positioning line (docs/REPOSITION-PROMPT.md, section 2). */
+export const POSITIONING = {
+  question: "Which speech-to-text should your video app use?",
+};

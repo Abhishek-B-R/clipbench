@@ -13,11 +13,22 @@ export interface RunSummary {
   providers: string[];
 }
 
+/** Per-language publication status (docs/V2.md, "Languages"). Written by the exporter; computed defensively when missing. */
+export interface LanguageStatus {
+  lang: string;
+  verified_clips: number;
+  providers_ok: number;
+  published: boolean;
+  channels?: number;
+  categories?: string[] | number;
+}
+
 export interface RunIndex {
-  /** Set only on the synthetic sample. The UI shows a "demo data" banner when true. */
+  /** Set only on the synthetic dev fixture. */
   demo?: boolean;
   latest: string;
-  runs: RunSummary[];
+  runs: (RunSummary & { languages?: LanguageStatus[] })[];
+  languages?: LanguageStatus[];
 }
 
 export interface Metric {
@@ -120,6 +131,9 @@ export interface Clip {
   kind?: "short" | "window";
   /** Window start in the source video, seconds (windows only). Contract addition. */
   start_s?: number | null;
+  /** docs/V2.md categories: talking_head, vlog_music, gaming, comedy_skit, cooking_tutorial, news_explainer, other. */
+  category?: string;
+  audio_condition?: "music" | "no_music";
 }
 
 export interface PerClip {
@@ -148,4 +162,6 @@ export interface Run {
   clips: Clip[];
   per_clip: PerClip[];
   limitations: string[];
+  /** docs/V2.md. Optional until the exporter writes it. */
+  languages?: LanguageStatus[];
 }

@@ -3,8 +3,9 @@ import { maxOf } from "@/lib/scale";
 import { Link, useSearchParams } from "react-router";
 import { Download } from "lucide-react";
 import type { Aggregate, Run, Tier } from "@/lib/types";
-import { loadRun, runUrl, useRun } from "@/lib/data";
-import { TIER_LABEL, pickTier, overall, pair, primaryMetric, providerColor, providerLabel } from "@/lib/analysis";
+import { loadRun, runUrl, useRunFor } from "@/lib/data";
+import { Gated } from "@/components/ui/Gate";
+import { LANGUAGE_NAME, TIER_LABEL, isPublished, pickTier, overall, pair, primaryMetric, providerColor, providerLabel } from "@/lib/analysis";
 import { date, ms, pct, usdPerHour } from "@/lib/format";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Figure } from "@/components/ui/Card";
@@ -23,12 +24,14 @@ import { buttonClass } from "@/components/ui/Button";
  * one Figure holding a DataTable, a source line. Tier and metric live in ?tier= and ?metric=.
  */
 export default function Leaderboard() {
-  const state = useRun();
   const [params, setParams] = useSearchParams();
-  const run = state.data?.run;
-  const tier = pickTier(run, params.get("tier"));
+  const lang = params.get("lang");
+  const state = useRunFor(lang);
+  const run = state.data ? state.data.run : undefined;
+  const published = run ? isPublished(run) : run === undefined;
+  const tier = pickTier(run ?? undefined, params.get("tier"));
   const metric = params.get("metric") || (run ? primaryMetric(run).name : "cer");
-  const history = useHistory(run);
+  const history = useHistory(published ? (run ?? undefined) : undefined);
   const set = (k: string, v: string) => {
     const p = new URLSearchParams(params);
     p.set(k, v);
@@ -38,11 +41,16 @@ export default function Leaderboard() {
   return (
     <>
       <PageHeader
-        eyebrow={run ? `Run ${run.run_id} / ${date(run.created_at)}` : "Leaderboard"}
+        eyebrow={run ? `${LANGUAGE_NAME[run.language] ?? run.language} / run ${run.run_id} / ${date(run.created_at)}` : "Leaderboard"}
         title="Leaderboard"
-        description="Every model on the same clips, ranked by error rate with 95% bootstrap intervals. The vs-leader column comes from the paired test, not from the gap between rows."
+        description={
+          published
+            ? "Every model on the same clips, ranked by error rate with 95% bootstrap intervals. The vs-leader column comes from the paired test, not from the gap between rows."
+            : "Rankings appear here once a language passes the publication gate. Until then, this page shows progress."
+        }
         actions={
           run &&
+          published &&
           runUrl(state.data!.source, run.run_id) && (
             <a href={runUrl(state.data!.source, run.run_id)!} download className={buttonClass("secondary", "sm")}>
               <Download size={14} /> JSON
@@ -50,8 +58,8 @@ export default function Leaderboard() {
           )
         }
       >
-        <TierControl run={run} value={tier} onChange={(v) => set("tier", v)} />
-        {run && (
+        {published && <TierControl run={run ?? undefined} value={tier} onChange={(v) => set("tier", v)} />}
+        {run && published && (
           <Segmented
             label="Metric"
             value={metric}
@@ -61,8 +69,10 @@ export default function Leaderboard() {
         )}
       </PageHeader>
       <div className="frame py-8">
-        {run ? (
-          <Board run={run} tier={tier} metric={metric} history={history} />
+        {state.status === "ready" ? (
+          <Gated run={run} lang={lang ?? undefined}>
+            {run && <Board run={run} tier={tier} metric={metric} history={history} />}
+          </Gated>
         ) : state.status === "error" ? (
           <ErrorState title="Could not load the run data." body="The results files did not load. Check your connection and try again." onRetry={() => location.reload()} />
         ) : (

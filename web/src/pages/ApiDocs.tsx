@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { ChevronDown } from "lucide-react";
 import { useActiveHeading } from "@/lib/useActiveHeading";
 import { useSession } from "@/lib/auth";
+import { ACCOUNTS } from "@/lib/flags";
 import { useRun, useSource } from "@/lib/data";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui/Badge";
@@ -34,7 +35,7 @@ const NAV = [
 export default function ApiDocs() {
   const origin = typeof window === "undefined" ? "https://clipbench.dev" : window.location.origin;
   const active = useActiveHeading(NAV.flatMap((g) => g.items.map((i) => i.id)), 160);
-  const { data } = useSession();
+  const data = ACCOUNTS ? useSession().data : null;
   useEffect(() => {
     document.title = "Data API | clipbench";
   }, []);
@@ -69,6 +70,9 @@ export default function ApiDocs() {
             <p>
               Requests work without a key at a low rate limit. Send a key as a bearer token to raise it. Keys start with <Mono>cb_</Mono>, are shown once when created, and are stored only as a hash.
             </p>
+            {!ACCOUNTS ? (
+              <p className="text-ink-3">Keys are not being issued yet: accounts are switched off while the first results are collected. Anonymous requests work in the meantime.</p>
+            ) : (
             <p>
               {data?.user ? (
                 <Link to="/account#keys" className={buttonClass("secondary", "sm")}>
@@ -80,6 +84,7 @@ export default function ApiDocs() {
                 </Link>
               )}
             </p>
+            )}
           </Section>
           <Section id="rate-limits" title="Rate limits" code={<CodeBlock samples={ex.limit} />}>
             <p>Limits are per minute. Every response carries <Mono>X-RateLimit-Limit</Mono>; going over returns <Mono>429</Mono> with <Mono>Retry-After: 60</Mono>.</p>

@@ -4,11 +4,13 @@ import { ArrowRight, ArrowUpRight, GitCompareArrows, Star } from "lucide-react";
 import type { Run, Tier } from "@/lib/types";
 import { useAllRuns, useRun } from "@/lib/data";
 import {
+  LANGUAGE_NAME,
   TAG_LABEL,
   TIER_LABEL,
   breaksOn,
   clipById,
   overall,
+  isPublished,
   pairsFor,
   pickTier,
   primaryMetric,
@@ -23,6 +25,7 @@ import {
 } from "@/lib/analysis";
 import { date, ms, pct, pValue, signedPts, usdPerHour } from "@/lib/format";
 import { useWatch } from "@/lib/watch";
+import { ACCOUNTS } from "@/lib/flags";
 import { useWidth } from "@/lib/useWidth";
 import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -35,6 +38,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Button, buttonClass } from "@/components/ui/Button";
 import { EmptyState, ErrorState } from "@/components/ui/State";
 import { TierControl, TierNote } from "@/components/ui/TierControl";
+import { Gated } from "@/components/ui/Gate";
 
 /**
  * One model in depth: headline numbers with intervals, rank across runs, clip types against the field,
@@ -96,13 +100,19 @@ export default function Provider() {
           )
         }
         title={p?.label ?? "Model"}
-        description={run && p ? <Summary run={run} id={id} tier={tier} metric={metric} /> : "Loading results."}
-        actions={run && p && <Actions run={run} id={id} />}
+        description={run && p ? (isPublished(run) ? <Summary run={run} id={id} tier={tier} metric={metric} /> : `Scored in the pipeline. ${LANGUAGE_NAME[run.language] ?? run.language} results are not published yet.`) : "Loading results."}
+        actions={run && p && isPublished(run) && <Actions run={run} id={id} />}
       >
-        <TierControl run={run} value={tier} onChange={(v) => set("tier", v)} />
-        {run && <Segmented label="Metric" value={metric} onChange={(v) => set("metric", v)} options={run.metrics.map((m) => ({ value: m.name, label: m.label }))} />}
+        {(!run || isPublished(run)) && <TierControl run={run} value={tier} onChange={(v) => set("tier", v)} />}
+        {run && isPublished(run) && <Segmented label="Metric" value={metric} onChange={(v) => set("metric", v)} options={run.metrics.map((m) => ({ value: m.name, label: m.label }))} />}
       </PageHeader>
-      {run && p ? (
+      {run && p && !isPublished(run) ? (
+        <div className="frame py-8">
+          <Gated run={run} what="model results">
+            {null}
+          </Gated>
+        </div>
+      ) : run && p ? (
         <Body run={run} id={id} tier={tier} metric={metric} history={runs.data?.runs} />
       ) : (
         <div className="frame grid gap-8 py-8">
@@ -137,7 +147,7 @@ function Actions({ run, id }: { run: Run; id: string }) {
       <Link to={`/compare?m=${[id, other].filter(Boolean).join(",")}`} className={buttonClass("secondary", "sm")}>
         <GitCompareArrows size={14} /> Compare
       </Link>
-      {signedIn ? (
+      {!ACCOUNTS ? null : signedIn ? (
         <Button variant={watching ? "secondary" : "primary"} size="sm" onClick={toggle} disabled={watching === null} aria-pressed={Boolean(watching)}>
           <Star size={14} className={watching ? "fill-[var(--warn)] text-warn" : ""} />
           {watching ? "Watching" : "Watch"}

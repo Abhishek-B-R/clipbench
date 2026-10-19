@@ -69,3 +69,9 @@ export function ago(t: number | null | undefined) {
   const d = Math.floor(s / 86400);
   return d === 1 ? "yesterday" : d < 30 ? `${d} days ago` : dateMs(t);
 }
+
+const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+/** Small counts as words ("two"), larger as digits. Capitalise at the call site when it starts a sentence. */
+export function words(n: number) {
+  return WORDS[n] ?? int(n);
+}

@@ -2,7 +2,9 @@ import { Link } from "react-router";
 import { useRun } from "@/lib/data";
 import { date } from "@/lib/format";
 import { totalClips } from "@/lib/analysis";
-import { GITHUB_URL } from "@/lib/config";
+import { GITHUB_URL, LANGUAGES } from "@/lib/config";
+import { ACCOUNTS } from "@/lib/flags";
+import { LANGUAGE_NAME } from "@/lib/analysis";
 import { Wordmark } from "./Logo";
 
 const COLS = [
@@ -20,20 +22,25 @@ const COLS = [
     title: "Project",
     links: [
       { to: "/methodology", label: "Methodology" },
-      { to: "/requests", label: "Request a model" },
+      ...(ACCOUNTS ? [{ to: "/requests", label: "Request a model" }] : []),
       { to: "/docs/api", label: "Data API" },
       { href: GITHUB_URL, label: "Source on GitHub" },
     ],
   },
-  {
-    title: "Account",
-    links: [
-      { to: "/sign-in", label: "Sign in" },
-      { to: "/account#watchlist", label: "Watchlist" },
-      { to: "/account#alerts", label: "Run alerts" },
-      { to: "/account#keys", label: "API keys" },
-    ],
-  },
+  ACCOUNTS
+    ? {
+        title: "Account",
+        links: [
+          { to: "/sign-in", label: "Sign in" },
+          { to: "/account#watchlist", label: "Watchlist" },
+          { to: "/account#alerts", label: "Run alerts" },
+          { to: "/account#keys", label: "API keys" },
+        ],
+      }
+    : {
+        title: "Languages",
+        links: LANGUAGES.map((l) => ({ to: `/lang/${l}`, label: LANGUAGE_NAME[l] ?? l })),
+      },
 ];
 
 /** Deterministic pseudo-waveform for the footer band. */

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "./api";
 import { useSession } from "./auth";
+import { ACCOUNTS } from "./flags";
 import { toast } from "@/components/ui/Toast";
 
 /** Watchlist state for one provider with an optimistic toggle (PUT/DELETE /api/watchlist/:id). */
 export function useWatch(providerId: string) {
-  const { data: session } = useSession();
+  // ACCOUNTS is a build-time constant, so the hook order never changes between renders.
+  const session = ACCOUNTS ? useSession().data : null;
   const signedIn = Boolean(session?.user);
   const [watching, setWatching] = useState<boolean | null>(null);
   useEffect(() => {

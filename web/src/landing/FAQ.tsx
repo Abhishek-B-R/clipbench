@@ -1,12 +1,17 @@
 import * as A from "@radix-ui/react-accordion";
 import { Plus } from "lucide-react";
 import { Link } from "react-router";
-import { RULES } from "@/lib/config";
+import { GITHUB_URL, RULES } from "@/lib/config";
+import { ACCOUNTS } from "@/lib/flags";
 
 const QA: { q: string; a: React.ReactNode }[] = [
   {
-    q: "Why Japanese first?",
-    a: "Short-form Japanese is hard in ways English benchmarks hide: no spaces between words, three scripts, fast casual speech, music under the voice and English mixed in. The scoring stack was built for it first; Spanish and Korean use the same pipeline.",
+    q: "Which languages, and when?",
+    a: "English first, then Japanese, Korean, Spanish, and Hindi with Hinglish. Each language gets a ranking only when it passes the publication gate: enough clips verified by ear and enough providers run on them. Until then this site shows progress, not a ranking.",
+  },
+  {
+    q: "How is this different from other speech-to-text leaderboards?",
+    a: "Most public boards score read speech, meetings or phone calls, mostly in English. clipbench scores real short-form video with music, edits and code-switching, and measures what a caption product needs: word timing, invented text over music, punctuation, and cost.",
   },
   {
     q: "What is CER, and why not WER?",
@@ -14,7 +19,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: "What does verified mean?",
-    a: "A person listened to each clip and corrected the transcript by ear. Creator captions are often edited or summarised, so scores against them are shown separately and labelled as agreement, not accuracy.",
+    a: "A person listened to each clip and corrected the caption text by ear. Creator captions are often edited or summarised, so scores against them are shown separately and labelled as agreement, not accuracy.",
   },
   {
     q: "Why should I trust a claim that one model makes fewer errors?",
@@ -45,10 +50,16 @@ const QA: { q: string; a: React.ReactNode }[] = [
     a: (
       <>
         Yes. Each provider is one small adapter in the repository. Open a pull request, or{" "}
-        <Link to="/requests" className="text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
-          request it
-        </Link>{" "}
-        and vote.
+        {ACCOUNTS ? (
+          <Link to="/requests" className="text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+            request it
+          </Link>
+        ) : (
+          <a href={`${GITHUB_URL}/issues`} target="_blank" rel="noreferrer" className="text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+            open an issue
+          </a>
+        )}
+        .
       </>
     ),
   },

@@ -3,10 +3,11 @@ import { Link, useLocation, useSearchParams } from "react-router";
 import { Bookmark, Link2, Loader2 } from "lucide-react";
 import type { Run, Tier } from "@/lib/types";
 import { useRun } from "@/lib/data";
-import { TAG_LABEL, TAG_PHRASE, pickTier, aggregatesFor, overall, pair, primaryMetric, providerColor, providerLabel, providerOrder, tagsInRun, type SliceQuery } from "@/lib/analysis";
-import { ms, pct, pValue, pts, usdPerHour } from "@/lib/format";
+import { TAG_LABEL, TAG_PHRASE, isPublished, pickTier, aggregatesFor, overall, pair, primaryMetric, providerColor, providerLabel, providerOrder, tagsInRun, type SliceQuery } from "@/lib/analysis";
+import { ms, pct, pValue, pts, usdPerHour, words } from "@/lib/format";
 import { api, ApiError, type SavedComparison } from "@/lib/api";
 import { useSession } from "@/lib/auth";
+import { ACCOUNTS } from "@/lib/flags";
 import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Figure } from "@/components/ui/Card";
@@ -21,6 +22,7 @@ import { Field, Input } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
 import { EmptyState, ErrorState } from "@/components/ui/State";
 import { TierControl, TierNote } from "@/components/ui/TierControl";
+import { Gated } from "@/components/ui/Gate";
 import { toast } from "@/components/ui/Toast";
 
 const MIN = 2;
@@ -36,6 +38,7 @@ export default function Compare() {
   const run = state.data?.run;
   const [params, setParams] = useSearchParams();
   const tier = pickTier(run, params.get("tier"));
+  const published = run ? isPublished(run) : true;
   const metric = params.get("metric") || (run ? primaryMetric(run).name : "cer");
   const tagsParam = params.get("tags");
   const tags = tagsParam ? tagsParam.split(",").filter(Boolean) : [];
@@ -78,11 +81,11 @@ export default function Compare() {
       <PageHeader
         eyebrow="Compare"
         title="Compare models"
-        description={`${MIN} to ${MAX} models on the same clips. Verdicts come from the paired test on the clips both models scored, not from the gap between two numbers.`}
-        actions={run && <ShareSave run={run} models={models} tier={tier} metric={metric} tags={tags} />}
+        description={`Compare ${words(MIN)} to ${words(MAX)} models on the same clips. Verdicts come from the paired test on the clips both models scored, not from the gap between two numbers.`}
+        actions={run && published && <ShareSave run={run} models={models} tier={tier} metric={metric} tags={tags} />}
       >
-        <TierControl run={run} value={tier} onChange={(v) => update({ tier: v })} />
-        {run && <Segmented label="Metric" value={metric} onChange={(v) => update({ metric: v })} options={run.metrics.map((m) => ({ value: m.name, label: m.label }))} />}
+        {published && <TierControl run={run} value={tier} onChange={(v) => update({ tier: v })} />}
+        {run && published && <Segmented label="Metric" value={metric} onChange={(v) => update({ metric: v })} options={run.metrics.map((m) => ({ value: m.name, label: m.label }))} />}
       </PageHeader>
       <div className="frame grid gap-8 py-8">
         {state.status === "error" && <ErrorState title="Could not load the run data." body="The results files did not load. Check your connection and try again." onRetry={() => location.reload()} />}
@@ -92,7 +95,8 @@ export default function Compare() {
             <Skeleton className="h-96 w-full" />
           </>
         )}
-        {run && (
+        {run && !published && <Gated run={run} what="comparison">{null}</Gated>}
+        {run && published && (
           <>
             <div className="grid gap-5 rounded-md border border-line bg-surface p-4 shadow-card sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:gap-8">
               <fieldset>
@@ -157,7 +161,8 @@ function useSharedComparison(id: string | null, apply: (c: SavedComparison) => v
 // ---------------------------------------------------------------- share and save
 
 function ShareSave({ run, models, tier, metric, tags }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[] }) {
-  const { data } = useSession();
+  // ACCOUNTS is a build-time constant: with accounts off there is no Save and no session request.
+  const data = ACCOUNTS ? useSession().data : null;
   const loc = useLocation();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -190,7 +195,7 @@ function ShareSave({ run, models, tier, metric, tags }: { run: Run; models: stri
       <Button variant="secondary" size="sm" onClick={share}>
         <Link2 size={14} /> Share
       </Button>
-      {data?.user ? (
+      {!ACCOUNTS ? null : data?.user ? (
         <Dialog
           open={open}
           onOpenChange={(o) => {

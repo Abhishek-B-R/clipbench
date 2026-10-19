@@ -64,3 +64,14 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - AWS Spanish defaults to es-US, since most Spanish Shorts are Latin American.
 - Latency excludes our own retry backoff and waiting for a concurrency slot, but includes upload and polling.
 - Test hooks and privacy-only flags stay out of the cache key, since they do not change the output.
+
+## Error analysis, report, publish check
+
+- "Every provider fails" means primary error rate above 0.5 for every provider, with at least 2 providers scored, so one bad model cannot flag a reference. data/rereview.json is overwritten each run so it reflects the latest references.
+- Error analysis uses the verified reference when a clip has one, otherwise the creator track.
+- ja/ko substitution spans over 8 characters are dropped as garbled regions; error snippets are at most 4 words or 8 characters and always shorter than the whole reference.
+- Publish check, unspaced text: 9 fugashi words compared on characters through a prefix index, since MeCab can split the same span differently in another context; with no tokenizer, more than 12 characters fails. It decodes \uXXXX escapes and HTML entities first, because json.dumps escapes Japanese by default and would hide a leak.
+- Too-small slices are greyed and labelled "too small to conclude" in labels and tooltips, not just by colour.
+- Zero-cost providers are plotted at one third of the cheapest paid cost with a square marker and a "$0/h" label, since a log axis cannot show 0.
+- Charts and tables are made per tier, never mixed.
+- The site loads vega-embed from a pinned jsdelivr version and shows a PNG until it renders, so it works offline and on Cloudflare Pages as is. `clipbench publish` runs the check and prints the wrangler command; it never deploys by itself.

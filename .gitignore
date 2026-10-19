@@ -1,5 +1,5 @@
 # Creator content: audio, captions, references, provider outputs. Never commit.
-data/
+/data/
 # Raw provider outputs can contain caption text.
 results/runs/*/texts*
 .env

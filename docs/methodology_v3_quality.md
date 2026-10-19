@@ -170,3 +170,51 @@ share of reference profanity written, masked, dropped and replaced, and plain la
 `repetition_style` are `keeps` (keep rate at least 0.8), `drops` (at most 0.2) or `mixed`, and
 `profanity_style` is the most common outcome; each label is null below 5 reference occurrences. Slices `all`,
 `condition` and `category`.
+
+### Semantic WER (LLM judge)
+
+CER and WER count every token alike; a viewer cares whether the caption says what was said. An LLM judge
+scores, for each verified (reference, hypothesis) pair, how well the hypothesis keeps the meaning of the
+reference, from 0 to 1, with a one line reason.
+
+**Judge.** Cloudflare Workers AI, default model `@cf/google/gemma-4-26b-a4b-it` (Gemma 4, multilingual,
+USD 0.10 per million input tokens and 0.30 per million output tokens, billed in neurons at USD 0.011 per 1,000,
+checked 2026-10-19 on the Workers AI pricing page). Alternatives with prices in `clipbench/judge/client.py`:
+`@cf/meta/llama-4-scout-17b-16e-instruct`, `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (sent with JSON mode),
+`@cf/openai/gpt-oss-120b`. Temperature 0, fixed seed, at most 200 output tokens.
+
+**Prompt.** Pinned in `clipbench/judge/prompts/semantic_v1.txt`; its version is the file name plus a hash of its
+text, so any edit is a new version. It tells the judge to ignore punctuation, casing, spacing, script (kanji
+or kana, Devanagari or romanised Hindi), digits versus words, fillers, stutters and harmless spelling variants,
+and to count missing or added content words, wrong names or numbers, negation flips, hallucinated text and
+wrong language, on a five point anchor scale (1, 0.75, 0.5, 0.25, 0). The answer must be JSON
+`{"score", "reason"}`: a number from 0 to 1 and a non-empty reason (collapsed to one line, at most 200
+characters). An invalid answer, an HTTP 429 or 5xx, or a network error is retried, three attempts in all; a
+pair that never gets a valid answer is recorded as failed, not scored.
+
+**Cost and cache.** Every request goes through the budget guard (`data/spend.json`, the same cap as provider
+runs), reserved at an upper bound before it is sent (one token per three UTF-8 bytes of text plus the prompt,
+and the full output allowance) and recorded at the billed token usage when the response reports it. Answers
+are cached by (judge model, prompt version, reference hash, hypothesis hash), so a rerun costs nothing.
+`clipbench judge run <run_id> --dry-run` prints the pair count, cached pairs and estimate and sends nothing.
+
+**Outputs.** `results/<run_id>/semantic.parquet` per provider and clip: `semantic_score`, `semantic_error`
+(1 minus the score), judge model, prompt version, cost, cached, failed. `semantic_aggregates.parquet`: the mean
+score with a 95% clip bootstrap interval, `semantic_error`, and the share of clips with the full meaning
+kept, sliced by `all`, `condition` and `category`. The reasons can quote the captions, so they stay in
+`data/runs/<run_id>/semantic_reasons.parquet` and are never published.
+
+**Calibration against people.** `clipbench judge label --lang L --labeller NAME` shows real pairs sampled
+(seeded) from the runs on this machine, and the person types a score on the same anchor scale and an optional
+note. Labels go to `data/calibration/semantic_pairs.csv` (gitignored, since they hold caption text), in the
+format of `datasets/calibration/semantic_pairs.csv` (`lang, ref, hyp, human_score, labeller, note`, plus pair
+and run ids). No label is ever generated. `clipbench judge calibrate` judges every labelled pair (a pair
+labelled by several people uses their mean) and computes, per language, the Spearman rank correlation and the
+mean absolute error between judge and human scores. Only these statistics are published
+(`judge_calibration.json`).
+
+**Publishing gate.** Semantic scores for a language are published only when its calibration, for the same
+judge model and prompt version, has at least 50 labelled pairs, Spearman at least 0.7 and mean absolute error
+at most 0.2. Spearman checks that the judge orders pairs as people do; the error bound checks that its scale
+matches theirs. Otherwise the export carries `published: false` and the reason (for example "12 labelled
+pairs, needs 50") and no scores.

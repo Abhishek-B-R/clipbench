@@ -28,9 +28,8 @@ export function Shell() {
 
 /**
  * Data banner. Three states:
- * - synthetic sample because no real export exists: "Demo data" note;
- * - demo chosen on purpose (?demo=1) while real data exists: note plus "Back to real results";
- * - a real but early run (no verified tier or under 30 clips): plain warning plus "View demo data".
+ * - development only: the synthetic fixture (?demo=1), with "Back to real results";
+ * - a real but early run (no verified tier or under 30 clips): plain warning (plus "View demo data" in dev).
  */
 export function DemoBanner() {
   const src = useSource();
@@ -46,7 +45,7 @@ export function DemoBanner() {
     <div role="note" className="border-b border-line bg-sunken">
       <div className="frame flex min-h-8 items-center justify-center gap-2 py-1 text-[12px] text-ink-2">
         <FlaskConical size={13} className="shrink-0 text-signal" aria-hidden />
-        {s.demo ? (
+        {import.meta.env.DEV && s.demo ? (
           <span className="min-w-0 truncate">
             <span className="font-medium text-ink">Demo data.</span>
             <span className="hidden sm:inline"> {s.forced ? "You are viewing the synthetic demo run" : "No real run has been published yet"}; models are named A to F and every number is synthetic.</span>
@@ -62,11 +61,11 @@ export function DemoBanner() {
             <span className="sm:hidden"> {n} clips, too few to conclude.</span>
           </span>
         )}
-        {s.forced ? (
+        {import.meta.env.DEV && s.forced ? (
           <button type="button" className={btn} onClick={() => setDemo(false)}>
             Back to real results
           </button>
-        ) : !s.demo ? (
+        ) : !s.demo && import.meta.env.DEV ? (
           <button type="button" className={btn} onClick={() => setDemo(true)}>
             View demo data
           </button>

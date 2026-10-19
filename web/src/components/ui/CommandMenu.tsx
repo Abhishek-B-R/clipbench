@@ -161,7 +161,7 @@ export function CommandMenu() {
             <Copy size={16} strokeWidth={1.75} className="text-ink-3" aria-hidden />
             <span className="text-ink">Copy the clone command</span>
           </Command.Item>
-          {src.data && (src.data.forced || !src.data.demo) && (
+          {import.meta.env.DEV && src.data && (
             <Command.Item
               value="demo data synthetic toggle real results"
               onSelect={() => {

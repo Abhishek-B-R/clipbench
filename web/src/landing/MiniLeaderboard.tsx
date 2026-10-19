@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { maxOf } from "@/lib/scale";
 import { Link } from "react-router";
 import { ArrowUpRight } from "lucide-react";
 import type { Run, Tier } from "@/lib/types";
@@ -17,7 +18,7 @@ export function MiniLeaderboard({ run }: { run: Run }) {
   const metric = primaryMetric(run);
   const rows = overall(run, tier, metric.name);
   const leader = rows[0];
-  const max = Math.max(...rows.map((r) => r.ci_high)) * 1.08;
+  const max = maxOf(rows.map((r) => r.ci_high), 0.1) * 1.08 || 0.1;
 
   const columns: Column<Aggregate>[] = [
     { key: "rank", header: "#", cell: (_, i) => <span className="num text-ink-3">{String(i + 1).padStart(2, "0")}</span>, className: "w-10" },

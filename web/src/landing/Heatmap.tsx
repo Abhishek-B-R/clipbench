@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { extent } from "@/lib/scale";
 import type { Run } from "@/lib/types";
 import { TAG_LABEL, overall, primaryMetric, providerColor, providerLabel, tagsInRun, defaultTier } from "@/lib/analysis";
 import { Figure } from "@/components/ui/Card";
@@ -18,7 +19,7 @@ export function Heatmap({ run }: { run: Run }) {
     run.aggregates.find((a) => a.provider === p && a.tier === defaultTier(run) && a.metric === metric && a.slice_kind === mode && a.slice === c);
   const all = (p: string) => run.aggregates.find((a) => a.provider === p && a.tier === defaultTier(run) && a.metric === metric && a.slice_kind === "all");
   const values = providers.flatMap((p) => cols.map((c) => get(p, c)).filter((a) => a && !a.too_small).map((a) => a!.error_rate));
-  const domain: [number, number] = [Math.min(...values), Math.max(...values)];
+  const domain = extent(values);
   const bestIn = (c: string) => {
     const xs = providers.map((p) => get(p, c)).filter((a) => a && !a.too_small);
     return xs.sort((a, b) => a!.error_rate - b!.error_rate)[0]?.provider;
@@ -43,7 +44,7 @@ export function Heatmap({ run }: { run: Run }) {
       source={
         <span className="flex flex-wrap items-center justify-between gap-3">
           <span>source: aggregates, tier={defaultTier(run)}, metric={metric}, slice_kind={mode}</span>
-          <HeatLegend domain={domain} />
+          <HeatLegend domain={values.length ? domain : null} />
         </span>
       }
     >

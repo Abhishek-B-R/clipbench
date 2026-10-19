@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { extent, maxOf } from "@/lib/scale";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import source from "../../../METHODOLOGY.md?raw";
 import type { Run } from "@/lib/types";
@@ -303,7 +304,7 @@ function ScoreFigure() {
           ["Substitutions", "1"],
           ["Deletions", "1"],
           ["Insertions", "1"],
-          ["CER", `3 / ${REF.length} = 30.0%`],
+          ["CER", `3 / ${REF.length} = ${pct(3 / REF.length)}`],
         ].map(([k, v]) => (
           <div key={k} className="bg-surface px-3 py-2.5">
             <dt className="label">{k}</dt>
@@ -324,7 +325,7 @@ function BootFigure() {
     <Figure
       n={3}
       className="my-8"
-      title={mode === "one" ? "Bootstrap interval for one model" : "Paired bootstrap for two models"}
+      title={mode === "one" ? "Bootstrap interval for one model" : "Paired bootstrap for a pair of models"}
       caption={
         mode === "one"
           ? "1,000 resamples of the clips, drawn with replacement. The middle 95% of the resampled error rates is the interval."
@@ -370,15 +371,14 @@ function BootChart({ run, mode }: { run: Run; mode: "one" | "pair" }) {
   if (!data || !a) return <p className="text-[13px] text-ink-3">No per-clip data in this run.</p>;
   const H = 220;
   const pad = { l: 12, r: 12, t: 26, b: 30 };
-  const min = Math.min(...data.samples, data.zero ? 0 : Infinity);
-  const max = Math.max(...data.samples, data.zero ? 0 : -Infinity);
+  const [min, max] = extent(data.zero ? [...data.samples, 0] : data.samples);
   const span = max - min || 1;
   const lo0 = min - span * 0.05;
   const hi0 = max + span * 0.05;
   const BINS = 44;
   const counts = new Array(BINS).fill(0) as number[];
   for (const s of data.samples) counts[Math.min(BINS - 1, Math.floor(((s - lo0) / (hi0 - lo0)) * BINS))]!++;
-  const cmax = Math.max(...counts);
+  const cmax = maxOf(counts, 1) || 1;
   const x = (v: number) => pad.l + ((v - lo0) / (hi0 - lo0)) * (w - pad.l - pad.r);
   const bw = (w - pad.l - pad.r) / BINS;
   const y = (c: number) => H - pad.b - (c / cmax) * (H - pad.t - pad.b);

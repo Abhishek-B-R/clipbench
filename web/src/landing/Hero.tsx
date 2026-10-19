@@ -7,7 +7,6 @@ import { date, int, ms, pct, pValue, usdPerHour } from "@/lib/format";
 import { buttonClass } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Rule } from "@/components/layout/Section";
-import { ClipDemo } from "./ClipDemo";
 import { CopyCommand } from "./CopyCommand";
 import { REPO_SLUG } from "@/lib/config";
 
@@ -20,7 +19,7 @@ export function Hero({ run }: { run: Run | undefined }) {
 
   return (
     <section aria-labelledby="hero-title" className="relative overflow-hidden">
-      <div className="frame frame-lines grid gap-12 pt-10 pb-16 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,500px)] lg:gap-12 lg:pt-20 lg:pb-24 xl:grid-cols-[minmax(0,1fr)_560px] xl:gap-16">
+      <div className="frame frame-lines pt-10 pb-16 sm:pt-16 lg:pt-20 lg:pb-24">
         <div className="flex min-w-0 flex-col">
           <motion.div {...anim(0)} className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1 pr-3 pl-1.5 text-[12px] text-ink-2">
@@ -45,10 +44,6 @@ export function Hero({ run }: { run: Run | undefined }) {
           </motion.div>
         </div>
 
-        <motion.div {...(reduce ? {} : { initial: { opacity: 0, y: 24 }, animate: { opacity: 1, y: 0 }, transition: { duration: 1, ease, delay: 0.25 } })} className="relative min-w-0">
-          <div aria-hidden className="dot-grid absolute -inset-6 -z-10 [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_75%)]" />
-          <ClipDemo />
-        </motion.div>
       </div>
       {run && <StatStrip run={run} />}
     </section>

@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { ArrowDown, ArrowRight, ArrowUp, Download, Plus, Minus, RefreshCw } from "lucide-react";
 import type { Run } from "@/lib/types";
-import { useAllRuns } from "@/lib/data";
+import { runUrl, useAllRuns } from "@/lib/data";
 import { LANGUAGE_NAME, TIER_LABEL, defaultTier, primaryMetric, providerColor, providerLabel, runChanges, type RunChange } from "@/lib/analysis";
 import { date, pct, signedPts } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -16,7 +16,7 @@ export default function Changelog() {
   const state = useAllRuns();
   const runs = state.data?.runs ?? [];
   const changes = runChanges(runs).reverse();
-  const base = state.data?.source.base ?? "/data";
+  const source = state.data?.source;
   return (
     <>
       <PageHeader
@@ -39,7 +39,7 @@ export default function Changelog() {
         {state.status === "ready" && changes.length === 0 && <EmptyState title="No runs published yet." body="The first run shows up here as soon as it is exported." />}
         <ol className="relative">
           {changes.map((c, i) => (
-            <Entry key={c.run.run_id} c={c} latest={i === 0} base={base} last={i === changes.length - 1} />
+            <Entry key={c.run.run_id} c={c} latest={i === 0} json={source ? runUrl(source, c.run.run_id) : null} last={i === changes.length - 1} />
           ))}
         </ol>
       </div>
@@ -47,7 +47,7 @@ export default function Changelog() {
   );
 }
 
-function Entry({ c, latest, base, last }: { c: RunChange; latest: boolean; base: string; last: boolean }) {
+function Entry({ c, latest, json, last }: { c: RunChange; latest: boolean; json: string | null; last: boolean }) {
   const run = c.run;
   const tier = defaultTier(run);
   const n = run.clips.filter((x) => x.tier === tier).length;
@@ -108,9 +108,11 @@ function Entry({ c, latest, base, last }: { c: RunChange; latest: boolean; base:
                 Leaderboard <ArrowRight size={13} />
               </Link>
             )}
-            <a href={`${base}/runs/${run.run_id}.json`} download className={buttonClass("secondary", "sm")}>
-              <Download size={13} /> JSON
-            </a>
+            {json && (
+              <a href={json} download className={buttonClass("secondary", "sm")}>
+                <Download size={13} /> JSON
+              </a>
+            )}
           </span>
         </footer>
       </article>

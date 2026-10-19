@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from "react";
+import { maxOf } from "@/lib/scale";
 import { Link, useSearchParams } from "react-router";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowRight, Check, Clock, Cpu, Minus, Scale, Wallet, X } from "lucide-react";
@@ -158,7 +159,7 @@ function Step({ n, title, hint, children, last }: { n: number; title: string; hi
 function Budget({ run, value, onChange }: { run: Run; value: number | null; onChange: (v: number | null) => void }) {
   const prices = run.providers.map((p) => p.usd_per_hour);
   if (prices.every((x) => x === 0)) return <p className="text-[13px] text-ink-3">Every model in this run is free, so budget does not change the pick.</p>;
-  const top = Math.max(0.05, Math.ceil((Math.max(...prices) + 0.01) * 20) / 20);
+  const top = Math.max(0.05, Math.ceil((maxOf(prices) + 0.01) * 20) / 20);
   const end = Math.round(top * 1.35 * 100) / 100; // the stretch past the top price means "no limit"
   const v = value == null ? end : Math.min(value, top);
   const fill = `${(v / end) * 100}%`;

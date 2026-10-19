@@ -1,6 +1,7 @@
 import * as A from "@radix-ui/react-accordion";
 import { Plus } from "lucide-react";
 import { Link } from "react-router";
+import { RULES } from "@/lib/config";
 
 const QA: { q: string; a: React.ReactNode }[] = [
   {
@@ -16,10 +17,10 @@ const QA: { q: string; a: React.ReactNode }[] = [
     a: "A person listened to each clip and corrected the transcript by ear. Creator captions are often edited or summarised, so scores against them are shown separately and labelled as agreement, not accuracy.",
   },
   {
-    q: "Why should I believe a claim like 40% fewer errors?",
+    q: "Why should I trust a claim that one model makes fewer errors?",
     a: (
       <>
-        Every model runs on the same clips, so we compare them clip by clip with a paired bootstrap. A lead is reported only when the 95% interval of the difference excludes zero; otherwise the site says there is no detectable difference. Slices under 15 clips are marked too small. The details are on the{" "}
+        Every model runs on the same clips, so we compare them clip by clip with a paired bootstrap. A lead is reported only when the 95% interval of the difference excludes zero; otherwise the site says there is no detectable difference. Slices under {RULES.minSliceClips} clips are marked too small. The details are on the{" "}
         <Link to="/methodology" className="text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
           methodology page
         </Link>
@@ -29,7 +30,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: "What does a run cost, and who pays?",
-    a: "The maintainer pays for the published runs. A full run on 150 clips costs a few dollars at list prices, and a hard budget cap stops it before it spends more than the configured amount. If you rerun it, you pay your own providers.",
+    a: "The maintainer pays for the published runs. A full run costs a few dollars at list prices, and a hard budget cap stops it before it spends more than the configured amount. If you rerun it, you pay your own providers.",
   },
   {
     q: "Is any audio or caption text published?",

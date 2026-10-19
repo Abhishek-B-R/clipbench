@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { maxOf } from "@/lib/scale";
 import { Link, Navigate, useSearchParams } from "react-router";
 import { ArrowLeft, BellRing, CircleAlert, KeyRound, Loader2, MailCheck, Star } from "lucide-react";
 import { signInMagicLink, signInSocial, useSession } from "@/lib/auth";
@@ -191,7 +192,7 @@ function LastUsed() {
 function Preview() {
   const run = useRun().data?.run;
   const rows = run ? overall(run).slice(0, 3) : [];
-  const max = rows.length ? Math.max(...rows.map((r) => r.ci_high)) * 1.1 : 1;
+  const max = maxOf(rows.map((r) => r.ci_high), 0.1) * 1.1 || 0.1;
   return (
     <div className="dot-grid relative hidden overflow-hidden rounded-lg border border-line bg-sunken lg:flex lg:items-center lg:justify-center">
       <div className="w-full max-w-[420px] p-8">

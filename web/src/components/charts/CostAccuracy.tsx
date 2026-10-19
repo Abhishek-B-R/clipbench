@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { maxOf, minOf } from "@/lib/scale";
 import { motion, useInView, useReducedMotion } from "motion/react";
 import type { Aggregate, Run } from "@/lib/types";
 import { frontier, providerColor, providerLabel } from "@/lib/analysis";
@@ -33,8 +34,8 @@ export function CostAccuracy({ run, rows, height = 360 }: { run: Run; rows: Aggr
   const hi = Math.log10(Math.max(...costs, 1) * 1.5);
   const x0 = pad.l + freeLane;
   const x = (c: number) => (c <= 0 ? pad.l + freeLane / 2 - 6 : x0 + ((Math.log10(c) - lo) / (hi - lo)) * (w - x0 - pad.r));
-  const errMax = Math.max(...rows.map((r) => r.ci_high)) * 1.12;
-  const errMin = Math.max(0, Math.min(...rows.map((r) => r.ci_low)) * 0.8);
+  const errMax = maxOf(rows.map((r) => r.ci_high), 0.1) * 1.12 || 0.1;
+  const errMin = Math.max(0, minOf(rows.map((r) => r.ci_low), 0) * 0.8);
   const y = (e: number) => pad.t + ((e - errMin) / (errMax - errMin)) * (height - pad.t - pad.b);
 
   const ticks = [0.01, 0.03, 0.1, 0.3, 1, 3, 10].filter((t) => Math.log10(t) >= lo && Math.log10(t) <= hi);

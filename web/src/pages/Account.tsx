@@ -297,7 +297,7 @@ function Comparisons() {
       {res.status === "error" && <ErrorState title="Could not load your comparisons." onRetry={res.reload} />}
       {res.status === "ready" &&
         (res.data!.comparisons.length === 0 ? (
-          <EmptyState title="No saved comparisons." body="Pick two to four models on the Compare page and press Save." />
+          <EmptyState title="No saved comparisons." body="Pick the models on the Compare page and press Save." />
         ) : (
           <ul className="overflow-hidden rounded-md border border-line bg-surface shadow-card">
             {res.data!.comparisons.map((c) => (

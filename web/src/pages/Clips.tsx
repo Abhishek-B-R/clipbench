@@ -20,6 +20,8 @@ import { EmptyState, ErrorState } from "@/components/ui/State";
 import { TierControl, TierNote } from "@/components/ui/TierControl";
 
 const PAGE = 40;
+/** Top of the per-clip colour scale (error rate); everything above it is the darkest step. */
+const HEAT_MAX = 0.4;
 type Sort = "hard" | "easy" | "long" | "short";
 type Row = Clip & { errs: Map<string, number> | undefined; med: number };
 
@@ -139,13 +141,13 @@ export default function Clips() {
                 <span className="flex flex-wrap items-center justify-between gap-3">
                   <span>source: clips + per_clip, run={run.run_id}, tier={tier}, metric={primaryMetric(run).name}</span>
                   <span className="flex items-center gap-2">
-                    <span>0%</span>
+                    <span>{pct(0, 0)}</span>
                     <span className="flex overflow-hidden rounded-xs">
                       {[0, 1, 2, 3, 4].map((k) => (
                         <span key={k} className="h-2.5 w-5" style={{ background: `var(--heat-${k})` }} />
                       ))}
                     </span>
-                    <span>40%+</span>
+                    <span>{pct(HEAT_MAX, 0)}+</span>
                   </span>
                 </span>
               }
@@ -261,7 +263,7 @@ function Strip({ run, order, errs }: { run: Run; order: string[]; errs?: Map<str
     <span className="inline-flex gap-[3px]">
       {order.map((p) => {
         const v = errs?.get(p);
-        const step = v == null ? -1 : heatStep(v, [0, 0.4]);
+        const step = v == null ? -1 : heatStep(v, [0, HEAT_MAX]);
         return (
           <span
             key={p}

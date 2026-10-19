@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { ChevronDown } from "lucide-react";
 import { useActiveHeading } from "@/lib/useActiveHeading";
 import { useSession } from "@/lib/auth";
+import { useRun, useSource } from "@/lib/data";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui/Badge";
 import { buttonClass } from "@/components/ui/Button";
@@ -37,7 +38,8 @@ export default function ApiDocs() {
   useEffect(() => {
     document.title = "Data API | clipbench";
   }, []);
-  const ex = examples(origin);
+  const live = useExamples();
+  const ex = examples(origin, live.latest);
   return (
     <>
       <header className="frame frame-lines pt-12 pb-10 sm:pt-16">
@@ -104,16 +106,15 @@ export default function ApiDocs() {
               ]}
             />
           </Section>
-          <Section id="list-runs" title="List runs" method="GET" path="/api/v1/runs" code={<CodeBlock samples={ex.list} />} response={<CodeBlock title="Response" samples={[{ label: "200", lang: "json", code: RESP_LIST }]} />}>
+          <Section id="list-runs" title="List runs" method="GET" path="/api/v1/runs" code={<CodeBlock samples={ex.list} />} response={<CodeBlock title="Response, live" samples={[{ label: "200", lang: "json", code: live.list }]} />}>
             <p>
-              The run index: which run is latest and a summary of every published run, newest first. Before the first real run exists it serves the synthetic demo index, marked <Mono>"demo": true</Mono>.
+              The run index: which run is latest and a summary of every published run, newest first. The example on the right is the live index, trimmed.
             </p>
             <Fields
               head={["Field", "Type", "Description"]}
               rows={[
                 ["latest", "string", "Id of the newest run."],
-                ["demo", "boolean, optional", "Present and true only on the synthetic sample."],
-                ["runs[].run_id", "string", "Run id, used in Get a run."],
+                                ["runs[].run_id", "string", "Run id, used in Get a run."],
                 ["runs[].created_at", "ISO 8601", "When the run was scored."],
                 ["runs[].language", "string", "ISO 639-1 code, for example ja."],
                 ["runs[].tiers", "string[]", "Reference tiers present: verified, creator."],
@@ -122,7 +123,7 @@ export default function ApiDocs() {
               ]}
             />
           </Section>
-          <Section id="get-run" title="Get a run" method="GET" path="/api/v1/runs/:runId" code={<CodeBlock samples={ex.get} />} response={<CodeBlock title="Response" samples={[{ label: "200", lang: "json", code: RESP_RUN }]} />}>
+          <Section id="get-run" title="Get a run" method="GET" path="/api/v1/runs/:runId" code={<CodeBlock samples={ex.get} />} response={<CodeBlock title="Response, live" samples={[{ label: "200", lang: "json", code: live.one }]} />}>
             <p>One run in full. Use the index's <Mono>latest</Mono> for the current numbers, or pin a run id for reproducible work.</p>
             <Fields head={["Parameter", "In", "Description"]} rows={[["runId", "path", "A run id from List runs. Letters, digits, dot, dash and underscore."]]} />
           </Section>
@@ -275,7 +276,7 @@ function Fields({ head, rows }: { head: string[]; rows: string[][] }) {
   );
 }
 
-function examples(origin: string) {
+function examples(origin: string, runId: string) {
   const base = `${origin}/api/v1`;
   const out: Record<"quick" | "auth" | "limit" | "error" | "list" | "get", CodeSample[]> = {
     quick: [
@@ -296,49 +297,36 @@ function examples(origin: string) {
       { label: "Python", lang: "python", code: `import os, requests\n\nr = requests.get(\n    "${base}/runs",\n    headers={"Authorization": f"Bearer {os.environ['CLIPBENCH_KEY']}"},\n)\nr.raise_for_status()\nlatest = r.json()["latest"]` },
     ],
     get: [
-      { label: "curl", lang: "shell", code: `curl ${base}/runs/demo-2026-10-19 \\\n  -H "Authorization: Bearer $CLIPBENCH_KEY"` },
-      { label: "JavaScript", lang: "js", code: `const run = await fetch("${base}/runs/demo-2026-10-19", {\n  headers: { Authorization: \`Bearer \${process.env.CLIPBENCH_KEY}\` },\n}).then((r) => r.json());\n\n// Overall ranking on verified clips\nconst rows = run.aggregates\n  .filter((a) => a.tier === "verified" && a.slice_kind === "all" && a.metric === "cer")\n  .sort((a, b) => a.error_rate - b.error_rate);` },
-      { label: "Python", lang: "python", code: `import os, requests\n\nrun = requests.get(\n    "${base}/runs/demo-2026-10-19",\n    headers={"Authorization": f"Bearer {os.environ['CLIPBENCH_KEY']}"},\n).json()\n\nrows = sorted(\n    (a for a in run["aggregates"]\n     if a["tier"] == "verified" and a["slice_kind"] == "all" and a["metric"] == "cer"),\n    key=lambda a: a["error_rate"],\n)` },
+      { label: "curl", lang: "shell", code: `curl ${base}/runs/${runId} \\\n  -H "Authorization: Bearer $CLIPBENCH_KEY"` },
+      { label: "JavaScript", lang: "js", code: `const run = await fetch("${base}/runs/${runId}", {\n  headers: { Authorization: \`Bearer \${process.env.CLIPBENCH_KEY}\` },\n}).then((r) => r.json());\n\n// Overall ranking on verified clips\nconst rows = run.aggregates\n  .filter((a) => a.tier === "verified" && a.slice_kind === "all" && a.metric === "cer")\n  .sort((a, b) => a.error_rate - b.error_rate);` },
+      { label: "Python", lang: "python", code: `import os, requests\n\nrun = requests.get(\n    "${base}/runs/${runId}",\n    headers={"Authorization": f"Bearer {os.environ['CLIPBENCH_KEY']}"},\n).json()\n\nrows = sorted(\n    (a for a in run["aggregates"]\n     if a["tier"] == "verified" and a["slice_kind"] == "all" and a["metric"] == "cer"),\n    key=lambda a: a["error_rate"],\n)` },
     ],
   };
   return out;
 }
 
-const RESP_LIST = `{
-  "latest": "demo-2026-10-19",
-  "runs": [
-    {
-      "run_id": "demo-2026-10-19",
-      "created_at": "2026-10-19T09:00:00Z",
-      "language": "ja",
-      "tiers": ["verified", "creator"],
-      "n_clips": { "verified": 150, "creator": 240 },
-      "providers": ["model-a", "model-b", "model-c"]
-    }
-  ]
-}`;
-
-const RESP_RUN = `{
-  "run_id": "demo-2026-10-19",
-  "language": "ja",
-  "git_commit": "0000000demo",
-  "metrics": [{ "name": "cer", "primary": true, "label": "Character error rate" }],
-  "providers": [
-    { "id": "model-c", "model_id": "model-c-v2", "usd_per_hour": 0.4, "uploads_audio": true }
-  ],
-  "aggregates": [
-    {
-      "provider": "model-c", "tier": "verified", "metric": "cer",
-      "slice_kind": "all", "slice": "all", "n_clips": 150,
-      "error_rate": 0.0918, "ci_low": 0.0832, "ci_high": 0.1004,
-      "too_small": false, "cost_per_hour": 0.4, "latency_p50": 2410
-    }
-  ],
-  "paired": [
-    {
-      "provider_a": "model-a", "provider_b": "model-c",
-      "diff": 0.0207, "ci_low": 0.0101, "ci_high": 0.0302,
-      "p_value": 0.0, "verdict": "b_better"
-    }
-  ]
-}`;
+/** Response examples are the live export, trimmed: never hand-written numbers. */
+function useExamples() {
+  const src = useSource();
+  const run = useRun().data?.run;
+  const latest = src.data?.index.latest ?? "<run_id>";
+  const list = src.data ? JSON.stringify({ ...src.data.index, runs: src.data.index.runs.slice(0, 2) }, null, 2) : "// Loading the live index";
+  const one = run
+    ? JSON.stringify(
+        {
+          run_id: run.run_id,
+          created_at: run.created_at,
+          language: run.language,
+          git_commit: run.git_commit,
+          metrics: run.metrics.slice(0, 1),
+          providers: run.providers.slice(0, 1),
+          aggregates: run.aggregates.slice(0, 1),
+          paired: run.paired.slice(0, 1),
+          "...": "clips, per_clip, errors, findings, limitations",
+        },
+        null,
+        2,
+      )
+    : "// Loading the live run";
+  return { latest, list, one };
+}

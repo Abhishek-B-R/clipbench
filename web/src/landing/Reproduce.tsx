@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { motion, useInView, useReducedMotion } from "motion/react";
 import { Check, Copy } from "lucide-react";
-import { REPO_SLUG } from "@/lib/config";
+import { REPO_SLUG, RULES } from "@/lib/config";
 import type { Run } from "@/lib/types";
 import { primaryMetric, totalClips } from "@/lib/analysis";
 import { toast } from "@/components/ui/Toast";
@@ -77,7 +77,7 @@ export function Reproduce({ run }: { run?: Run }) {
             className="mt-3 grid gap-0.5 text-[oklch(0.64_0.006_85)]"
           >
             <span>
-              <span className="text-[oklch(0.74_0.15_150)]">ok</span> scored {run?.providers.length ?? "all"} models on {run ? totalClips(run) : "the"} clips{spent != null ? `, list cost $${spent.toFixed(2)} of the $10.00 cap` : ""}
+              <span className="text-[oklch(0.74_0.15_150)]">ok</span> scored {run?.providers.length ?? "all"} models on {run ? totalClips(run) : "the"} clips{spent != null ? `, list cost $${spent.toFixed(2)} of the $${RULES.budgetCapUsd.toFixed(2)} cap` : ""}
             </span>
             <span>
               <span className="text-[oklch(0.74_0.15_150)]">ok</span> wrote results/ and web/public/data/

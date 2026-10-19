@@ -1,5 +1,5 @@
 /**
- * Writes the SYNTHETIC demo data in public/data/sample/ (docs/WEB.md, "Run data").
+ * Writes the SYNTHETIC fixture in test/fixtures/sample/ (docs/WEB.md, "Run data"). Tests and `vite dev` only.
  * Providers are "Model A".."Model F" and clip ids start with "DEMO": nothing here is a real result.
  * Numbers are generated per clip, then aggregated with the same rules as clipbench.scoring
  * (corpus-style mean, seeded bootstrap 95% CI, paired bootstrap), so every view is internally consistent.
@@ -9,7 +9,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const OUT = join(import.meta.dir, "..", "public", "data", "sample");
+// Test and dev fixture only: never shipped in a production build (see src/lib/data.ts).
+const OUT = join(import.meta.dir, "..", "test", "fixtures", "sample");
 
 type Tag =
   | "background_music"

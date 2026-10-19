@@ -65,7 +65,14 @@ export function HeatCell({
 }
 
 /** Legend for the ramp, with the domain ends printed. */
-export function HeatLegend({ domain }: { domain: [number, number] }) {
+export function HeatLegend({ domain }: { domain: [number, number] | null }) {
+  // No values to scale (empty run, or every slice too small): show only the hatch key, never a made-up range.
+  if (!domain || !Number.isFinite(domain[0]) || !Number.isFinite(domain[1]))
+    return (
+      <div className="flex items-center gap-1.5 text-[11px] text-ink-3">
+        <span className="hatch inline-block h-2.5 w-4 rounded-[2px] border border-line" /> too few clips
+      </div>
+    );
   return (
     <div className="flex items-center gap-2 text-[11px] text-ink-3">
       <span className="num">{pct(domain[0], 0)}</span>

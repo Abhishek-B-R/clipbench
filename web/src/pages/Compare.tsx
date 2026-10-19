@@ -66,8 +66,8 @@ export default function Compare() {
 
   const toggleModel = (id: string) => {
     const on = models.includes(id);
-    if (on && models.length <= MIN) return toast("Keep at least two models to compare.");
-    if (!on && models.length >= MAX) return toast("Compare at most four models at a time.");
+    if (on && models.length <= MIN) return toast(`Keep at least ${MIN} models to compare.`);
+    if (!on && models.length >= MAX) return toast(`Compare at most ${MAX} models at a time.`);
     const next = on ? models.filter((x) => x !== id) : [...models, id];
     update({ m: (run ? providerOrder(run) : next).filter((x) => next.includes(x)).join(",") });
   };
@@ -78,7 +78,7 @@ export default function Compare() {
       <PageHeader
         eyebrow="Compare"
         title="Compare models"
-        description="Two to four models on the same clips. Verdicts come from the paired test on the clips both models scored, not from the gap between two numbers."
+        description={`${MIN} to ${MAX} models on the same clips. Verdicts come from the paired test on the clips both models scored, not from the gap between two numbers.`}
         actions={run && <ShareSave run={run} models={models} tier={tier} metric={metric} tags={tags} />}
       >
         <TierControl run={run} value={tier} onChange={(v) => update({ tier: v })} />

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { maxOf } from "@/lib/scale";
 import { Link, useSearchParams } from "react-router";
 import { Download } from "lucide-react";
 import type { Aggregate, Run, Tier } from "@/lib/types";
-import { loadRun, useRun } from "@/lib/data";
+import { loadRun, runUrl, useRun } from "@/lib/data";
 import { TIER_LABEL, pickTier, overall, pair, primaryMetric, providerColor, providerLabel } from "@/lib/analysis";
 import { date, ms, pct, usdPerHour } from "@/lib/format";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -41,8 +42,9 @@ export default function Leaderboard() {
         title="Leaderboard"
         description="Every model on the same clips, ranked by error rate with 95% bootstrap intervals. The vs-leader column comes from the paired test, not from the gap between rows."
         actions={
-          run && (
-            <a href={`${state.data!.source.base}/runs/${run.run_id}.json`} download className={buttonClass("secondary", "sm")}>
+          run &&
+          runUrl(state.data!.source, run.run_id) && (
+            <a href={runUrl(state.data!.source, run.run_id)!} download className={buttonClass("secondary", "sm")}>
               <Download size={14} /> JSON
             </a>
           )
@@ -92,7 +94,7 @@ function useHistory(run: Run | undefined) {
 function Board({ run, tier, metric, history }: { run: Run; tier: Tier; metric: string; history: Run[] }) {
   const rows = overall(run, tier, metric);
   const leader = rows[0];
-  const max = Math.max(...rows.map((r) => r.ci_high)) * 1.08;
+  const max = maxOf(rows.map((r) => r.ci_high), 0.1) * 1.08 || 0.1;
   const trend = useMemo(() => {
     const out: Record<string, number[]> = {};
     for (const h of history)

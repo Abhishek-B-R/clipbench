@@ -53,8 +53,7 @@ export function RequestCTA() {
       </div>
       <div className="relative rounded-lg border border-line bg-surface shadow-card">
         <div className="flex items-center justify-between border-b border-line px-5 py-3">
-          <span className="label">{top ? "Most requested" : "With an account"}</span>
-          {top && <Badge tone="outline">Live</Badge>}
+          <span className="label">{top && top.length > 0 ? "Most requested, from the request board" : "With an account"}</span>
         </div>
         {top && top.length > 0 ? (
           <ul>

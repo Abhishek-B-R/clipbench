@@ -1,7 +1,15 @@
 import { Link } from "react-router";
 import { ArrowRight } from "lucide-react";
 import type { Run } from "@/lib/types";
-import { totalClips } from "@/lib/analysis";
+import { int } from "@/lib/format";
+
+/** Computed from the export, never typed: how many clips a person has actually checked. */
+function verifiedSentence(run?: Run) {
+  const base = "Headline numbers use only clips whose captions a person corrected while listening. Creator captions are scored separately and labelled unverified.";
+  if (!run) return base;
+  const v = run.clips.filter((c) => c.tier === "verified").length;
+  return v > 0 ? `${base} Verified so far: ${int(v)} ${v === 1 ? "clip" : "clips"}.` : `${base} No clip in the latest run is verified yet.`;
+}
 import { Reveal } from "@/components/layout/Section";
 
 /** Four trust signals, each with a small diagram drawn in the page's own language. */
@@ -10,7 +18,7 @@ export function Method({ run }: { run?: Run }) {
     {
       n: "01",
       title: "References checked by ear",
-      body: `${run ? totalClips(run) : "Every"} clips were transcribed again by a person listening to the audio. Creator captions are scored separately and labelled as unverified.`,
+      body: verifiedSentence(run),
       art: <ArtVerified />,
     },
     {

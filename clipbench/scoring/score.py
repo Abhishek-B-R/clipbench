@@ -19,7 +19,15 @@ import numpy as np
 import pandas as pd
 
 from clipbench.config import Settings, get_settings
-from clipbench.models import CATEGORIES, TAGS, AlternativeSpan, CodeSwitchSpan, NonSpeechSpan, Word
+from clipbench.models import (
+    CATEGORIES,
+    CONDITIONS,
+    TAGS,
+    AlternativeSpan,
+    CodeSwitchSpan,
+    NonSpeechSpan,
+    Word,
+)
 from clipbench.scoring.codeswitch import codeswitch_error
 from clipbench.scoring.lattice import Lattice, build_lattice, lattice_score
 from clipbench.scoring.metrics import align, hallucination
@@ -47,6 +55,8 @@ SCORE_COLUMNS = [
     # v3 A7: closest valid path through the reference lattice (METHODOLOGY.md)
     "error_rate_lattice", "lattice_ref_len", "lattice_errors", "lattice_hits", "lattice_subs", "lattice_dels",
     "lattice_ins",
+    # v3 A4: audio conditions from the review UI (json list); music is also implied by audio_condition
+    "conditions",
 ]  # fmt: skip
 AGGREGATE_COLUMNS = [
     "provider", "model_id", "tier", "metric", "slice_kind", "slice", "n_clips", "error_rate", "ci_low",
@@ -180,6 +190,18 @@ class _RefInfo:
     codeswitch: list[CodeSwitchSpan]
     punctuated: bool
     alternatives: list[AlternativeSpan] | None = None
+    conditions: list[str] | None = None
+
+
+def clip_conditions(conditions: list[str] | None, tags: list[str], spans: list[NonSpeechSpan]) -> list[str]:
+    """Reviewer conditions plus the ones implied by tags and spans, in CONDITIONS order."""
+    have = set(conditions or [])
+    if audio_condition(tags, spans) == "music":
+        have.add("music")
+    implied = {"multiple_speakers": "multiple_speakers", "fast_speech": "fast_speech",
+               "code_switching": "code_switching"}  # fmt: skip
+    have |= {cond for tag, cond in implied.items() if tag in tags}
+    return [c for c in CONDITIONS if c in have]
 
 
 class _RefCache:
@@ -198,6 +220,7 @@ class _RefCache:
                 codeswitch=_parse_models(_field(r, "codeswitch_spans_json", "codeswitch_spans"), CodeSwitchSpan),
                 punctuated=_bool(_field(r, "punctuated")),
                 alternatives=_parse_models(_field(r, "alternatives_json", "alternatives"), AlternativeSpan),
+                conditions=_parse_tags(_field(r, "conditions_json", "conditions")),
             )
         self._tokens: dict[tuple[str, str, str], list[str]] = {}
         self._lattices: dict[tuple[str, str, str], Lattice] = {}
@@ -256,6 +279,7 @@ def _clip_v2(
         "casing_correct": rd.casing_correct if rd else None,
         "category": ref.category,
         "audio_condition": audio_condition(ref.tags, ref.nonspeech),
+        "conditions": json.dumps(clip_conditions(ref.conditions, ref.tags, ref.nonspeech)),
     }
 
 
@@ -354,6 +378,12 @@ def _slices(scores: pd.DataFrame) -> list[tuple[str, str, pd.Series]]:
         mask = scores["audio_condition"] == condition
         if mask.any():
             out.append(("audio_condition", condition, mask))
+    if "conditions" in scores.columns:
+        cond_lists = scores["conditions"].map(_parse_tags)
+        for condition in CONDITIONS:
+            mask = cond_lists.map(lambda conds, c=condition: c in conds)
+            if mask.any():
+                out.append(("condition", condition, mask))
     return out
 
 

@@ -54,6 +54,10 @@ PROVIDER_LABELS = {
     "elevenlabs-scribe": "ElevenLabs Scribe",
     "gemini-flash": "Gemini Flash",
     "aws-transcribe": "AWS Transcribe",
+    "cf-whisper-large-v3-turbo": "Whisper large-v3 turbo (Workers AI)",
+    "cf-whisper": "Whisper (Workers AI)",
+    "cf-whisper-tiny-en": "Whisper tiny English (Workers AI)",
+    "cf-deepgram-nova-3": "Deepgram Nova-3 (Workers AI)",
     "youtube-auto": "YouTube auto captions",
     "wayin": "Wayin",
     "fake": "Fake (test)",
@@ -261,7 +265,8 @@ def clips_section(data: RunData, settings: Settings) -> list[dict[str, Any]]:
         return []
     channels = _channels(settings, data.run_id)
     cols = [
-        c for c in ("video_id", "tier", "duration_s", "tags", "category", "audio_condition") if c in scores
+        c for c in ("video_id", "tier", "duration_s", "tags", "category", "audio_condition", "conditions")
+        if c in scores
     ]
     uniq = scores[cols].drop_duplicates(subset=["video_id", "tier"]).sort_values(["tier", "video_id"])
     out = []
@@ -277,6 +282,7 @@ def clips_section(data: RunData, settings: Settings) -> list[dict[str, Any]]:
                     **clip_kind(str(r["video_id"])),
                     "category": r.get("category"),
                     "audio_condition": r.get("audio_condition"),
+                    "conditions": _tags(r.get("conditions")),
                 }
             )
         )
@@ -371,7 +377,8 @@ V3_HOOKS = [
 ]
 
 
-_SECRETISH = ("key", "token", "secret", "password", "auth")
+# Whole-word credential names; "keyterms" and "settings_hash" are not secrets.
+_SECRETISH = ("api_key", "apikey", "access_key", "secret", "token", "password", "authorization", "credential")
 
 
 def run_meta_section(meta: dict[str, Any]) -> dict[str, Any]:
@@ -380,7 +387,11 @@ def run_meta_section(meta: dict[str, Any]) -> dict[str, Any]:
 
     def safe(d: Any) -> Any:
         if isinstance(d, dict):
-            return {k: safe(v) for k, v in d.items() if not any(s in str(k).lower() for s in _SECRETISH)}
+            return {
+                k: safe(v)
+                for k, v in d.items()
+                if not any(s in str(k).lower().replace("-", "_") for s in _SECRETISH)
+            }
         if isinstance(d, list):
             return [safe(v) for v in d]
         return d
@@ -426,6 +437,10 @@ def v3_sections(run_id: str, settings: Settings) -> dict[str, Any]:
         for key, value in (section or {}).items():
             if value is not None:
                 out[key] = clean(value)
+    if isinstance(out.get("features"), list):
+        for rec in out["features"]:
+            if isinstance(rec, dict) and rec.get("provider"):
+                rec.setdefault("label", PROVIDER_LABELS.get(rec["provider"], rec["provider"]))
     return out
 
 

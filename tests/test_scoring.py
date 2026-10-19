@@ -298,3 +298,12 @@ def test_empty_output_without_timings_stays_unmeasured(tmp_settings):
     agg = pd.read_parquet(out / "aggregates.parquet")
     all_a = agg[(agg["provider"] == "a") & (agg["slice_kind"] == "all")].iloc[0]
     assert all_a["nonspeech_n_clips"] == 0 and pd.isna(all_a["halluc_per_nonspeech_min"])
+
+
+def test_condition_slices_include_implied_music_and_reviewer_conditions():
+    from clipbench.models import NonSpeechSpan
+    from clipbench.scoring.score import clip_conditions
+
+    spans = [NonSpeechSpan(start_ms=0, end_ms=500, kind="music")]
+    assert clip_conditions(["sfx"], ["fast_speech"], spans) == ["music", "sfx", "fast_speech"]
+    assert clip_conditions(None, [], []) == []

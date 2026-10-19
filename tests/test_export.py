@@ -105,7 +105,7 @@ def test_export_writes_contract(web_settings, monkeypatch):
     clips = {c["video_id"]: c for c in run["clips"]}
     assert clips["v0"] == {"video_id": "v0", "tier": "verified", "duration_s": 20.0, "channel": "ch0",
                            "tags": ["background_music"], "kind": "short", "start_s": None,
-                           "category": "talking_head", "audio_condition": "music"}  # fmt: skip
+                           "category": "talking_head", "audio_condition": "music", "conditions": []}  # fmt: skip
     assert clips["vid9@12000-40000"]["kind"] == "window" and clips["vid9@12000-40000"]["start_s"] == 12.0
     assert len(run["per_clip"]) == 3 * 3 * 2 + 1
     assert set(run["per_clip"][0]) == {

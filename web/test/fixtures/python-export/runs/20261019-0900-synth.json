@@ -1,8 +1,8 @@
 {
  "run_id": "20261019-0900-synth",
- "created_at": "2026-10-19T18:25:45Z",
+ "created_at": "2026-10-19T18:38:23Z",
  "language": "en",
- "git_commit": "1947c27ad70b3b01db0ff468fcb666864774e701",
+ "git_commit": "0ba32cef324fed03a643056a41308acdb9d5ce5a",
  "sample_seed": 7,
  "metrics": [
   {
@@ -2977,6 +2977,1686 @@
    "error_rate_lattice": 0.26848591549295775,
    "lattice_ci_low": 0.20507770656831242,
    "lattice_ci_high": 0.3312797563697229
+  },
+  {
+   "provider": "synth-a",
+   "model_id": "synth-a-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "n_clips": 35,
+   "error_rate": 0.1148936170212766,
+   "ci_low": 0.06507094779853154,
+   "ci_high": 0.18570015822784808,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.020779033333333335,
+   "audio_hours": 0.08053888888888887,
+   "cost_per_hour": 0.2580000000000001,
+   "latency_p50": 757.5103095361176,
+   "latency_p95": 999.2528329768359,
+   "rtf": 0.09614421424021774,
+   "timing_n_clips": 35,
+   "timing_n_words": 411,
+   "timing_median_ms": 40.5,
+   "timing_p90_ms": 62.5,
+   "timing_within_200ms": 0.9975669099756691,
+   "nonspeech_n_clips": 35,
+   "nonspeech_minutes": 1.3416666666666666,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 18,
+   "punct_f1": 0.9411764705882353,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.1148936170212766,
+   "lattice_ci_low": 0.06507094779853154,
+   "lattice_ci_high": 0.18570015822784808
+  },
+  {
+   "provider": "synth-b",
+   "model_id": "synth-b-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "n_clips": 35,
+   "error_rate": 0.15319148936170213,
+   "ci_low": 0.10447099314955158,
+   "ci_high": 0.21565624216146487,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.012080833333333332,
+   "audio_hours": 0.08053888888888887,
+   "cost_per_hour": 0.15000000000000002,
+   "latency_p50": 950.1282507121575,
+   "latency_p95": 1141.748377175813,
+   "rtf": 0.11011354135413594,
+   "timing_n_clips": 35,
+   "timing_n_words": 392,
+   "timing_median_ms": 173.0,
+   "timing_p90_ms": 286.2,
+   "timing_within_200ms": 0.6122448979591837,
+   "nonspeech_n_clips": 35,
+   "nonspeech_minutes": 1.3416666666666666,
+   "halluc_nonspeech_words": 1,
+   "halluc_per_nonspeech_min": 0.7453416149068324,
+   "readiness_n_clips": 18,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.15319148936170213,
+   "lattice_ci_low": 0.10447099314955158,
+   "lattice_ci_high": 0.21565624216146487
+  },
+  {
+   "provider": "synth-c",
+   "model_id": "synth-c-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "n_clips": 35,
+   "error_rate": 0.07659574468085106,
+   "ci_low": 0.03054536980176805,
+   "ci_high": 0.1476910454758556,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.03237663333333333,
+   "audio_hours": 0.08053888888888887,
+   "cost_per_hour": 0.402,
+   "latency_p50": 2224.587472671338,
+   "latency_p95": 2646.4460090453917,
+   "rtf": 0.2673581094166022,
+   "timing_n_clips": 35,
+   "timing_n_words": 429,
+   "timing_median_ms": 90.0,
+   "timing_p90_ms": 142.0,
+   "timing_within_200ms": 0.9883449883449883,
+   "nonspeech_n_clips": 35,
+   "nonspeech_minutes": 1.3416666666666666,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 18,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.07659574468085106,
+   "lattice_ci_low": 0.03054536980176805,
+   "lattice_ci_high": 0.1476910454758556
+  },
+  {
+   "provider": "synth-d",
+   "model_id": "synth-d-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "n_clips": 35,
+   "error_rate": 0.13617021276595745,
+   "ci_low": 0.08768077636814589,
+   "ci_high": 0.20328714286329255,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.009664666666666669,
+   "audio_hours": 0.08053888888888887,
+   "cost_per_hour": 0.12000000000000005,
+   "latency_p50": 902.2595443844519,
+   "latency_p95": 1104.567448745657,
+   "rtf": 0.10567321729805026,
+   "timing_n_clips": 35,
+   "timing_n_words": 400,
+   "timing_median_ms": 135.0,
+   "timing_p90_ms": 214.0,
+   "timing_within_200ms": 0.8175,
+   "nonspeech_n_clips": 35,
+   "nonspeech_minutes": 1.3416666666666666,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 18,
+   "punct_f1": 0.0,
+   "casing_acc": 0.9170506912442397,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.13617021276595745,
+   "lattice_ci_low": 0.08768077636814589,
+   "lattice_ci_high": 0.20328714286329255
+  },
+  {
+   "provider": "synth-e",
+   "model_id": "synth-e-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "n_clips": 35,
+   "error_rate": 0.2404255319148936,
+   "ci_low": 0.1936620205173952,
+   "ci_high": 0.3025785793005815,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.008939816666666666,
+   "audio_hours": 0.08053888888888887,
+   "cost_per_hour": 0.11100000000000002,
+   "latency_p50": 636.2041216022785,
+   "latency_p95": 766.8760988280571,
+   "rtf": 0.07693173650103961,
+   "timing_n_clips": 35,
+   "timing_n_words": 352,
+   "timing_median_ms": 71.5,
+   "timing_p90_ms": 108.69999999999999,
+   "timing_within_200ms": 0.9914772727272727,
+   "nonspeech_n_clips": 35,
+   "nonspeech_minutes": 1.3416666666666666,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 18,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.2404255319148936,
+   "lattice_ci_low": 0.1936620205173952,
+   "lattice_ci_high": 0.3025785793005815
+  },
+  {
+   "provider": "synth-f",
+   "model_id": "synth-f-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "n_clips": 35,
+   "error_rate": 0.3127659574468085,
+   "ci_low": 0.25633762694533985,
+   "ci_high": 0.372715881642512,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0,
+   "audio_hours": 0.08053888888888887,
+   "cost_per_hour": 0.0,
+   "latency_p50": 4997.559790146291,
+   "latency_p95": 6083.726680889769,
+   "rtf": 0.5848745776321286,
+   "timing_n_clips": 35,
+   "timing_n_words": 320,
+   "timing_median_ms": 246.5,
+   "timing_p90_ms": 357.3,
+   "timing_within_200ms": 0.340625,
+   "nonspeech_n_clips": 35,
+   "nonspeech_minutes": 1.3416666666666666,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 18,
+   "punct_f1": 0.896551724137931,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.3127659574468085,
+   "lattice_ci_low": 0.25633762694533985,
+   "lattice_ci_high": 0.372715881642512
+  },
+  {
+   "provider": "synth-a",
+   "model_id": "synth-a-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "n_clips": 35,
+   "error_rate": 0.10845986984815618,
+   "ci_low": 0.052735667769830255,
+   "ci_high": 0.18045411438576014,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.018163200000000004,
+   "audio_hours": 0.0704,
+   "cost_per_hour": 0.25800000000000006,
+   "latency_p50": 777.7116775971444,
+   "latency_p95": 1002.2747979756474,
+   "rtf": 0.11215997199946229,
+   "timing_n_clips": 34,
+   "timing_n_words": 404,
+   "timing_median_ms": 40.25,
+   "timing_p90_ms": 59.55,
+   "timing_within_200ms": 1.0,
+   "nonspeech_n_clips": 35,
+   "nonspeech_minutes": 0.69,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.9696969696969697,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.10845986984815618,
+   "lattice_ci_low": 0.052735667769830255,
+   "lattice_ci_high": 0.18045411438576014
+  },
+  {
+   "provider": "synth-b",
+   "model_id": "synth-b-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "n_clips": 34,
+   "error_rate": 0.16591928251121077,
+   "ci_low": 0.10561489072725028,
+   "ci_high": 0.2389086002022813,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0102625,
+   "audio_hours": 0.06841666666666667,
+   "cost_per_hour": 0.15000000000000002,
+   "latency_p50": 972.5530519756526,
+   "latency_p95": 1122.5838321191086,
+   "rtf": 0.12978646695911897,
+   "timing_n_clips": 33,
+   "timing_n_words": 366,
+   "timing_median_ms": 174.0,
+   "timing_p90_ms": 290.8,
+   "timing_within_200ms": 0.5819672131147541,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.69,
+   "halluc_nonspeech_words": 1,
+   "halluc_per_nonspeech_min": 1.4492753623188408,
+   "readiness_n_clips": 16,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.16591928251121077,
+   "lattice_ci_low": 0.10561489072725028,
+   "lattice_ci_high": 0.2389086002022813
+  },
+  {
+   "provider": "synth-c",
+   "model_id": "synth-c-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "n_clips": 35,
+   "error_rate": 0.08676789587852494,
+   "ci_low": 0.034402601219781025,
+   "ci_high": 0.16090188014101053,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0283008,
+   "audio_hours": 0.0704,
+   "cost_per_hour": 0.40199999999999997,
+   "latency_p50": 2224.587472671338,
+   "latency_p95": 2653.2641262999155,
+   "rtf": 0.30280252792025736,
+   "timing_n_clips": 34,
+   "timing_n_words": 414,
+   "timing_median_ms": 93.0,
+   "timing_p90_ms": 143.75,
+   "timing_within_200ms": 0.9806763285024155,
+   "nonspeech_n_clips": 35,
+   "nonspeech_minutes": 0.69,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 17,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.08676789587852494,
+   "lattice_ci_low": 0.034402601219781025,
+   "lattice_ci_high": 0.16090188014101053
+  },
+  {
+   "provider": "synth-d",
+   "model_id": "synth-d-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "n_clips": 35,
+   "error_rate": 0.14533622559652928,
+   "ci_low": 0.0902949196656029,
+   "ci_high": 0.2200066079295154,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.008448,
+   "audio_hours": 0.0704,
+   "cost_per_hour": 0.12,
+   "latency_p50": 914.4546180582232,
+   "latency_p95": 1096.8513953849845,
+   "rtf": 0.12848014905858288,
+   "timing_n_clips": 34,
+   "timing_n_words": 386,
+   "timing_median_ms": 128.5,
+   "timing_p90_ms": 206.5,
+   "timing_within_200ms": 0.8212435233160622,
+   "nonspeech_n_clips": 35,
+   "nonspeech_minutes": 0.69,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.0,
+   "casing_acc": 0.919047619047619,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.14533622559652928,
+   "lattice_ci_low": 0.0902949196656029,
+   "lattice_ci_high": 0.2200066079295154
+  },
+  {
+   "provider": "synth-e",
+   "model_id": "synth-e-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "n_clips": 35,
+   "error_rate": 0.21908893709327548,
+   "ci_low": 0.16035384900919422,
+   "ci_high": 0.28760039484901506,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.007814399999999999,
+   "audio_hours": 0.0704,
+   "cost_per_hour": 0.11099999999999999,
+   "latency_p50": 612.9622836684455,
+   "latency_p95": 771.7114155602126,
+   "rtf": 0.08749918537828506,
+   "timing_n_clips": 34,
+   "timing_n_words": 355,
+   "timing_median_ms": 70.75,
+   "timing_p90_ms": 107.5,
+   "timing_within_200ms": 0.9971830985915493,
+   "nonspeech_n_clips": 35,
+   "nonspeech_minutes": 0.69,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.9655172413793104,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.21908893709327548,
+   "lattice_ci_low": 0.16035384900919422,
+   "lattice_ci_high": 0.28760039484901506
+  },
+  {
+   "provider": "synth-f",
+   "model_id": "synth-f-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "n_clips": 35,
+   "error_rate": 0.2603036876355748,
+   "ci_low": 0.1936102755783607,
+   "ci_high": 0.33797634836427937,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0,
+   "audio_hours": 0.0704,
+   "cost_per_hour": 0.0,
+   "latency_p50": 5055.507870073366,
+   "latency_p95": 6083.726680889769,
+   "rtf": 0.7105839932638724,
+   "timing_n_clips": 34,
+   "timing_n_words": 338,
+   "timing_median_ms": 244.25,
+   "timing_p90_ms": 355.3,
+   "timing_within_200ms": 0.3668639053254438,
+   "nonspeech_n_clips": 35,
+   "nonspeech_minutes": 0.69,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.9375,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.2603036876355748,
+   "lattice_ci_low": 0.1936102755783607,
+   "lattice_ci_high": 0.33797634836427937
+  },
+  {
+   "provider": "synth-a",
+   "model_id": "synth-a-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "n_clips": 34,
+   "error_rate": 0.1623931623931624,
+   "ci_low": 0.07780385157764852,
+   "ci_high": 0.26179000925069373,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.018177533333333332,
+   "audio_hours": 0.07045555555555556,
+   "cost_per_hour": 0.25799999999999995,
+   "latency_p50": 767.5233487152211,
+   "latency_p95": 1020.5194981865901,
+   "rtf": 0.1082488699960982,
+   "timing_n_clips": 34,
+   "timing_n_words": 388,
+   "timing_median_ms": 42.25,
+   "timing_p90_ms": 65.1,
+   "timing_within_200ms": 0.9896907216494846,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.6516666666666666,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.9375,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.1623931623931624,
+   "lattice_ci_low": 0.07780385157764852,
+   "lattice_ci_high": 0.26179000925069373
+  },
+  {
+   "provider": "synth-b",
+   "model_id": "synth-b-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "n_clips": 34,
+   "error_rate": 0.202991452991453,
+   "ci_low": 0.12318973135194901,
+   "ci_high": 0.3013055555555555,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.010568333333333334,
+   "audio_hours": 0.07045555555555556,
+   "cost_per_hour": 0.15,
+   "latency_p50": 884.3096736908192,
+   "latency_p95": 1140.1151423536016,
+   "rtf": 0.12258945190093357,
+   "timing_n_clips": 32,
+   "timing_n_words": 367,
+   "timing_median_ms": 179.0,
+   "timing_p90_ms": 286.5,
+   "timing_within_200ms": 0.5967302452316077,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.6516666666666666,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.9696969696969697,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.202991452991453,
+   "lattice_ci_low": 0.12318973135194901,
+   "lattice_ci_high": 0.3013055555555555
+  },
+  {
+   "provider": "synth-c",
+   "model_id": "synth-c-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "n_clips": 34,
+   "error_rate": 0.13675213675213677,
+   "ci_low": 0.05159917638984214,
+   "ci_high": 0.23840445079624337,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.02832313333333333,
+   "audio_hours": 0.07045555555555556,
+   "cost_per_hour": 0.4019999999999999,
+   "latency_p50": 2279.1019691743177,
+   "latency_p95": 2674.394559409394,
+   "rtf": 0.3068878499062008,
+   "timing_n_clips": 33,
+   "timing_n_words": 399,
+   "timing_median_ms": 90.0,
+   "timing_p90_ms": 136.4,
+   "timing_within_200ms": 0.9899749373433584,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.6516666666666666,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.9696969696969697,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.13675213675213677,
+   "lattice_ci_low": 0.05159917638984214,
+   "lattice_ci_high": 0.23840445079624337
+  },
+  {
+   "provider": "synth-d",
+   "model_id": "synth-d-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "n_clips": 34,
+   "error_rate": 0.18803418803418803,
+   "ci_low": 0.10868975761576911,
+   "ci_high": 0.28245644492106464,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.008454666666666668,
+   "audio_hours": 0.07045555555555556,
+   "cost_per_hour": 0.12,
+   "latency_p50": 882.5909594026374,
+   "latency_p95": 1129.373494051803,
+   "rtf": 0.1207528704244484,
+   "timing_n_clips": 34,
+   "timing_n_words": 374,
+   "timing_median_ms": 140.25,
+   "timing_p90_ms": 215.89999999999998,
+   "timing_within_200ms": 0.8048128342245989,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.6516666666666666,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.0,
+   "casing_acc": 0.9202127659574468,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.18803418803418803,
+   "lattice_ci_low": 0.10868975761576911,
+   "lattice_ci_high": 0.28245644492106464
+  },
+  {
+   "provider": "synth-e",
+   "model_id": "synth-e-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "n_clips": 34,
+   "error_rate": 0.2692307692307692,
+   "ci_low": 0.19380778184236783,
+   "ci_high": 0.3556782623466723,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.007820566666666667,
+   "audio_hours": 0.07045555555555556,
+   "cost_per_hour": 0.111,
+   "latency_p50": 625.6174019678713,
+   "latency_p95": 758.4374605397602,
+   "rtf": 0.08505627805809726,
+   "timing_n_clips": 32,
+   "timing_n_words": 336,
+   "timing_median_ms": 70.25,
+   "timing_p90_ms": 109.15,
+   "timing_within_200ms": 0.9910714285714286,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.6516666666666666,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.967741935483871,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.2692307692307692,
+   "lattice_ci_low": 0.19380778184236783,
+   "lattice_ci_high": 0.3556782623466723
+  },
+  {
+   "provider": "synth-f",
+   "model_id": "synth-f-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "n_clips": 34,
+   "error_rate": 0.3141025641025641,
+   "ci_low": 0.2423013292807264,
+   "ci_high": 0.402766106442577,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0,
+   "audio_hours": 0.07045555555555556,
+   "cost_per_hour": 0.0,
+   "latency_p50": 4139.904296669554,
+   "latency_p95": 5737.633750864708,
+   "rtf": 0.6061649375047866,
+   "timing_n_clips": 33,
+   "timing_n_words": 316,
+   "timing_median_ms": 246.5,
+   "timing_p90_ms": 345.8,
+   "timing_within_200ms": 0.37658227848101267,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.6516666666666666,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": 0.0,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.8888888888888888,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.3141025641025641,
+   "lattice_ci_low": 0.2423013292807264,
+   "lattice_ci_high": 0.402766106442577
+  },
+  {
+   "provider": "synth-a",
+   "model_id": "synth-a-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "n_clips": 17,
+   "error_rate": 0.34497816593886466,
+   "ci_low": 0.15570692323928798,
+   "ci_high": 0.5592652931367386,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.007795899999999999,
+   "audio_hours": 0.030216666666666666,
+   "cost_per_hour": 0.25799999999999995,
+   "latency_p50": 764.5094534404744,
+   "latency_p95": 1005.9659182319489,
+   "rtf": 0.12862038949422827,
+   "timing_n_clips": 15,
+   "timing_n_words": 147,
+   "timing_median_ms": 37.0,
+   "timing_p90_ms": 54.9,
+   "timing_within_200ms": 1.0,
+   "nonspeech_n_clips": 17,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 8,
+   "punct_f1": 0.8571428571428571,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.34497816593886466,
+   "lattice_ci_low": 0.15570692323928798,
+   "lattice_ci_high": 0.5592652931367386
+  },
+  {
+   "provider": "synth-b",
+   "model_id": "synth-b-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "n_clips": 16,
+   "error_rate": 0.330188679245283,
+   "ci_low": 0.1527529761904762,
+   "ci_high": 0.5388617302520625,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.004217500000000001,
+   "audio_hours": 0.028116666666666665,
+   "cost_per_hour": 0.15000000000000005,
+   "latency_p50": 801.2127473036919,
+   "latency_p95": 1075.2508150371905,
+   "rtf": 0.13217927645570293,
+   "timing_n_clips": 15,
+   "timing_n_words": 140,
+   "timing_median_ms": 209.0,
+   "timing_p90_ms": 296.79999999999995,
+   "timing_within_200ms": 0.5071428571428571,
+   "nonspeech_n_clips": 16,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 8,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.330188679245283,
+   "lattice_ci_low": 0.1527529761904762,
+   "lattice_ci_high": 0.5388617302520625
+  },
+  {
+   "provider": "synth-c",
+   "model_id": "synth-c-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "n_clips": 17,
+   "error_rate": 0.3406113537117904,
+   "ci_low": 0.15160372546260467,
+   "ci_high": 0.5587279716949036,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.012147100000000001,
+   "audio_hours": 0.030216666666666666,
+   "cost_per_hour": 0.402,
+   "latency_p50": 2250.7236949751505,
+   "latency_p95": 2607.667614592235,
+   "rtf": 0.35030704784348066,
+   "timing_n_clips": 15,
+   "timing_n_words": 148,
+   "timing_median_ms": 86.0,
+   "timing_p90_ms": 130.20000000000002,
+   "timing_within_200ms": 1.0,
+   "nonspeech_n_clips": 17,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 8,
+   "punct_f1": 0.9333333333333333,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.3406113537117904,
+   "lattice_ci_low": 0.15160372546260467,
+   "lattice_ci_high": 0.5587279716949036
+  },
+  {
+   "provider": "synth-d",
+   "model_id": "synth-d-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "n_clips": 17,
+   "error_rate": 0.35807860262008734,
+   "ci_low": 0.1767051761136599,
+   "ci_high": 0.5640170306063693,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0036260000000000003,
+   "audio_hours": 0.030216666666666666,
+   "cost_per_hour": 0.12000000000000001,
+   "latency_p50": 914.4546180582232,
+   "latency_p95": 1133.369965935297,
+   "rtf": 0.14809900261256675,
+   "timing_n_clips": 15,
+   "timing_n_words": 144,
+   "timing_median_ms": 146.0,
+   "timing_p90_ms": 200.0,
+   "timing_within_200ms": 0.875,
+   "nonspeech_n_clips": 17,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 8,
+   "punct_f1": 0.0,
+   "casing_acc": 0.9242424242424242,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.35807860262008734,
+   "lattice_ci_low": 0.1767051761136599,
+   "lattice_ci_high": 0.5640170306063693
+  },
+  {
+   "provider": "synth-e",
+   "model_id": "synth-e-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "n_clips": 17,
+   "error_rate": 0.35807860262008734,
+   "ci_low": 0.17350672152662008,
+   "ci_high": 0.5681093505477308,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0033540500000000003,
+   "audio_hours": 0.030216666666666666,
+   "cost_per_hour": 0.11100000000000002,
+   "latency_p50": 580.9337403249604,
+   "latency_p95": 694.042853351201,
+   "rtf": 0.09004420431773437,
+   "timing_n_clips": 15,
+   "timing_n_words": 144,
+   "timing_median_ms": 74.5,
+   "timing_p90_ms": 109.00000000000001,
+   "timing_within_200ms": 0.9861111111111112,
+   "nonspeech_n_clips": 17,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 8,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.35807860262008734,
+   "lattice_ci_low": 0.17350672152662008,
+   "lattice_ci_high": 0.5681093505477308
+  },
+  {
+   "provider": "synth-f",
+   "model_id": "synth-f-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "n_clips": 17,
+   "error_rate": 0.40611353711790393,
+   "ci_low": 0.24582785087719297,
+   "ci_high": 0.5926395289298514,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0,
+   "audio_hours": 0.030216666666666666,
+   "cost_per_hour": 0.0,
+   "latency_p50": 4717.860956888341,
+   "latency_p95": 6196.358580345942,
+   "rtf": 0.7815864545681946,
+   "timing_n_clips": 16,
+   "timing_n_words": 132,
+   "timing_median_ms": 251.25,
+   "timing_p90_ms": 350.95000000000005,
+   "timing_within_200ms": 0.36363636363636365,
+   "nonspeech_n_clips": 17,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 8,
+   "punct_f1": 0.8571428571428571,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.40611353711790393,
+   "lattice_ci_low": 0.24582785087719297,
+   "lattice_ci_high": 0.5926395289298514
+  },
+  {
+   "provider": "synth-a",
+   "model_id": "synth-a-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "n_clips": 34,
+   "error_rate": 0.0947136563876652,
+   "ci_low": 0.040356131716956754,
+   "ci_high": 0.16924311926605504,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.015441300000000002,
+   "audio_hours": 0.05985,
+   "cost_per_hour": 0.258,
+   "latency_p50": 817.0765897497392,
+   "latency_p95": 1001.7938106327407,
+   "rtf": 0.12764783581410868,
+   "timing_n_clips": 33,
+   "timing_n_words": 403,
+   "timing_median_ms": 41.5,
+   "timing_p90_ms": 61.0,
+   "timing_within_200ms": 1.0,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 17,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.0947136563876652,
+   "lattice_ci_low": 0.040356131716956754,
+   "lattice_ci_high": 0.16924311926605504
+  },
+  {
+   "provider": "synth-b",
+   "model_id": "synth-b-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "n_clips": 33,
+   "error_rate": 0.17084282460136674,
+   "ci_low": 0.11085265837104072,
+   "ci_high": 0.24256461547242847,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.00868,
+   "audio_hours": 0.057866666666666663,
+   "cost_per_hour": 0.15000000000000002,
+   "latency_p50": 883.0927899774848,
+   "latency_p95": 1119.9387477074354,
+   "rtf": 0.14763928422881165,
+   "timing_n_clips": 32,
+   "timing_n_words": 359,
+   "timing_median_ms": 180.5,
+   "timing_p90_ms": 288.5,
+   "timing_within_200ms": 0.5487465181058496,
+   "nonspeech_n_clips": 33,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 16,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.17084282460136674,
+   "lattice_ci_low": 0.11085265837104072,
+   "lattice_ci_high": 0.24256461547242847
+  },
+  {
+   "provider": "synth-c",
+   "model_id": "synth-c-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "n_clips": 34,
+   "error_rate": 0.09030837004405286,
+   "ci_low": 0.037334701425221,
+   "ci_high": 0.1659280303030303,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.024059700000000003,
+   "audio_hours": 0.05985,
+   "cost_per_hour": 0.4020000000000001,
+   "latency_p50": 2155.668274332378,
+   "latency_p95": 2679.6139730116793,
+   "rtf": 0.3396762559807831,
+   "timing_n_clips": 33,
+   "timing_n_words": 406,
+   "timing_median_ms": 97.5,
+   "timing_p90_ms": 142.0,
+   "timing_within_200ms": 0.9852216748768473,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 17,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.09030837004405286,
+   "lattice_ci_low": 0.037334701425221,
+   "lattice_ci_high": 0.1659280303030303
+  },
+  {
+   "provider": "synth-d",
+   "model_id": "synth-d-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "n_clips": 34,
+   "error_rate": 0.12555066079295155,
+   "ci_low": 0.07207158031393839,
+   "ci_high": 0.19567057611149277,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.007182,
+   "audio_hours": 0.05985,
+   "cost_per_hour": 0.12,
+   "latency_p50": 972.4440542694958,
+   "latency_p95": 1139.575728332805,
+   "rtf": 0.14897491972647747,
+   "timing_n_clips": 33,
+   "timing_n_words": 389,
+   "timing_median_ms": 137.0,
+   "timing_p90_ms": 210.0,
+   "timing_within_200ms": 0.8149100257069408,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.0,
+   "casing_acc": 0.9305555555555556,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.12555066079295155,
+   "lattice_ci_low": 0.07207158031393839,
+   "lattice_ci_high": 0.19567057611149277
+  },
+  {
+   "provider": "synth-e",
+   "model_id": "synth-e-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "n_clips": 34,
+   "error_rate": 0.15418502202643172,
+   "ci_low": 0.09669987737584304,
+   "ci_high": 0.22538789374586535,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.006643349999999999,
+   "audio_hours": 0.05985,
+   "cost_per_hour": 0.11099999999999999,
+   "latency_p50": 612.2044061947304,
+   "latency_p95": 755.7433741433184,
+   "rtf": 0.09828454241242197,
+   "timing_n_clips": 33,
+   "timing_n_words": 377,
+   "timing_median_ms": 69.5,
+   "timing_p90_ms": 105.19999999999999,
+   "timing_within_200ms": 1.0,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.967741935483871,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.15418502202643172,
+   "lattice_ci_low": 0.09669987737584304,
+   "lattice_ci_high": 0.22538789374586535
+  },
+  {
+   "provider": "synth-f",
+   "model_id": "synth-f-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "n_clips": 34,
+   "error_rate": 0.19162995594713655,
+   "ci_low": 0.13260473653901528,
+   "ci_high": 0.2686580212923121,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0,
+   "audio_hours": 0.05985,
+   "cost_per_hour": 0.0,
+   "latency_p50": 4950.076637738779,
+   "latency_p95": 5945.12160382799,
+   "rtf": 0.7903295213503116,
+   "timing_n_clips": 33,
+   "timing_n_words": 360,
+   "timing_median_ms": 237.5,
+   "timing_p90_ms": 353.00000000000006,
+   "timing_within_200ms": 0.37777777777777777,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.9696969696969697,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.19162995594713655,
+   "lattice_ci_low": 0.13260473653901528,
+   "lattice_ci_high": 0.2686580212923121
+  },
+  {
+   "provider": "synth-a",
+   "model_id": "synth-a-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "n_clips": 34,
+   "error_rate": 0.16335540838852097,
+   "ci_low": 0.07707635526267885,
+   "ci_high": 0.2744186046511628,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0154112,
+   "audio_hours": 0.05973333333333334,
+   "cost_per_hour": 0.25799999999999995,
+   "latency_p50": 819.0353464308637,
+   "latency_p95": 1029.0398465502979,
+   "rtf": 0.1316312553247072,
+   "timing_n_clips": 33,
+   "timing_n_words": 375,
+   "timing_median_ms": 44.0,
+   "timing_p90_ms": 65.0,
+   "timing_within_200ms": 0.9893333333333333,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.9696969696969697,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.16335540838852097,
+   "lattice_ci_low": 0.07707635526267885,
+   "lattice_ci_high": 0.2744186046511628
+  },
+  {
+   "provider": "synth-b",
+   "model_id": "synth-b-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "n_clips": 34,
+   "error_rate": 0.2251655629139073,
+   "ci_low": 0.13733170359614377,
+   "ci_high": 0.3302672955974842,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.008960000000000001,
+   "audio_hours": 0.05973333333333334,
+   "cost_per_hour": 0.15,
+   "latency_p50": 934.3383812854096,
+   "latency_p95": 1124.6419306472726,
+   "rtf": 0.14509890158278893,
+   "timing_n_clips": 30,
+   "timing_n_words": 346,
+   "timing_median_ms": 176.25,
+   "timing_p90_ms": 290.9,
+   "timing_within_200ms": 0.5867052023121387,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.9696969696969697,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.2251655629139073,
+   "lattice_ci_low": 0.13733170359614377,
+   "lattice_ci_high": 0.3302672955974842
+  },
+  {
+   "provider": "synth-c",
+   "model_id": "synth-c-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "n_clips": 34,
+   "error_rate": 0.16114790286975716,
+   "ci_low": 0.07452791235410702,
+   "ci_high": 0.264993159562212,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.024012799999999994,
+   "audio_hours": 0.05973333333333334,
+   "cost_per_hour": 0.40199999999999986,
+   "latency_p50": 2315.4860934857556,
+   "latency_p95": 2644.928399502183,
+   "rtf": 0.35869402911907045,
+   "timing_n_clips": 32,
+   "timing_n_words": 374,
+   "timing_median_ms": 89.0,
+   "timing_p90_ms": 137.05,
+   "timing_within_200ms": 0.9866310160427807,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.9696969696969697,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.16114790286975716,
+   "lattice_ci_low": 0.07452791235410702,
+   "lattice_ci_high": 0.264993159562212
+  },
+  {
+   "provider": "synth-d",
+   "model_id": "synth-d-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "n_clips": 34,
+   "error_rate": 0.1986754966887417,
+   "ci_low": 0.11800388506596622,
+   "ci_high": 0.29705672591617294,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.007168,
+   "audio_hours": 0.05973333333333334,
+   "cost_per_hour": 0.11999999999999998,
+   "latency_p50": 894.7760685038425,
+   "latency_p95": 1131.2774497035884,
+   "rtf": 0.14460936317429213,
+   "timing_n_clips": 33,
+   "timing_n_words": 356,
+   "timing_median_ms": 139.0,
+   "timing_p90_ms": 212.0,
+   "timing_within_200ms": 0.8061797752808989,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.0,
+   "casing_acc": 0.9166666666666666,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.1986754966887417,
+   "lattice_ci_low": 0.11800388506596622,
+   "lattice_ci_high": 0.29705672591617294
+  },
+  {
+   "provider": "synth-e",
+   "model_id": "synth-e-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "n_clips": 34,
+   "error_rate": 0.24503311258278146,
+   "ci_low": 0.1644855911661729,
+   "ci_high": 0.34262834490564925,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0066304,
+   "audio_hours": 0.05973333333333334,
+   "cost_per_hour": 0.11099999999999999,
+   "latency_p50": 606.607335983404,
+   "latency_p95": 758.4448433340951,
+   "rtf": 0.09603703253294393,
+   "timing_n_clips": 31,
+   "timing_n_words": 336,
+   "timing_median_ms": 70.0,
+   "timing_p90_ms": 109.80000000000001,
+   "timing_within_200ms": 0.9910714285714286,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.9696969696969697,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.24503311258278146,
+   "lattice_ci_low": 0.1644855911661729,
+   "lattice_ci_high": 0.34262834490564925
+  },
+  {
+   "provider": "synth-f",
+   "model_id": "synth-f-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "n_clips": 34,
+   "error_rate": 0.27593818984547464,
+   "ci_low": 0.18628555152912754,
+   "ci_high": 0.379326420705731,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0,
+   "audio_hours": 0.05973333333333334,
+   "cost_per_hour": 0.0,
+   "latency_p50": 4768.266051786439,
+   "latency_p95": 5870.432012699713,
+   "rtf": 0.7636328012783692,
+   "timing_n_clips": 31,
+   "timing_n_words": 324,
+   "timing_median_ms": 227.0,
+   "timing_p90_ms": 335.0,
+   "timing_within_200ms": 0.41975308641975306,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 17,
+   "punct_f1": 0.9375,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.27593818984547464,
+   "lattice_ci_low": 0.18628555152912754,
+   "lattice_ci_high": 0.379326420705731
+  },
+  {
+   "provider": "synth-a",
+   "model_id": "synth-a-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "n_clips": 34,
+   "error_rate": 0.10044642857142858,
+   "ci_low": 0.04288939051918736,
+   "ci_high": 0.1869857357357357,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0152908,
+   "audio_hours": 0.05926666666666667,
+   "cost_per_hour": 0.258,
+   "latency_p50": 838.9287100909041,
+   "latency_p95": 1012.1649408579141,
+   "rtf": 0.13454341168467177,
+   "timing_n_clips": 33,
+   "timing_n_words": 397,
+   "timing_median_ms": 42.0,
+   "timing_p90_ms": 62.0,
+   "timing_within_200ms": 0.9974811083123426,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 18,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.10044642857142858,
+   "lattice_ci_low": 0.04288939051918736,
+   "lattice_ci_high": 0.1869857357357357
+  },
+  {
+   "provider": "synth-b",
+   "model_id": "synth-b-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "n_clips": 34,
+   "error_rate": 0.17857142857142858,
+   "ci_low": 0.11432829049077693,
+   "ci_high": 0.26316642037058086,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.00889,
+   "audio_hours": 0.05926666666666667,
+   "cost_per_hour": 0.15,
+   "latency_p50": 936.8567691337128,
+   "latency_p95": 1112.7483590783763,
+   "rtf": 0.14937210998584058,
+   "timing_n_clips": 32,
+   "timing_n_words": 364,
+   "timing_median_ms": 176.25,
+   "timing_p90_ms": 290.9,
+   "timing_within_200ms": 0.5714285714285714,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 18,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.17857142857142858,
+   "lattice_ci_low": 0.11432829049077693,
+   "lattice_ci_high": 0.26316642037058086
+  },
+  {
+   "provider": "synth-c",
+   "model_id": "synth-c-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "n_clips": 34,
+   "error_rate": 0.10267857142857142,
+   "ci_low": 0.04749925392385471,
+   "ci_high": 0.18120320278109187,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0238252,
+   "audio_hours": 0.05926666666666667,
+   "cost_per_hour": 0.402,
+   "latency_p50": 2228.3146520984315,
+   "latency_p95": 2648.6616013311077,
+   "rtf": 0.35499553379283133,
+   "timing_n_clips": 33,
+   "timing_n_words": 396,
+   "timing_median_ms": 92.0,
+   "timing_p90_ms": 141.70000000000002,
+   "timing_within_200ms": 0.98989898989899,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 18,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.10267857142857142,
+   "lattice_ci_low": 0.04749925392385471,
+   "lattice_ci_high": 0.18120320278109187
+  },
+  {
+   "provider": "synth-d",
+   "model_id": "synth-d-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "n_clips": 34,
+   "error_rate": 0.125,
+   "ci_low": 0.0687458517699115,
+   "ci_high": 0.20845525227781056,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.007112,
+   "audio_hours": 0.05926666666666667,
+   "cost_per_hour": 0.12,
+   "latency_p50": 981.7547494649624,
+   "latency_p95": 1139.575728332805,
+   "rtf": 0.14935368860518472,
+   "timing_n_clips": 33,
+   "timing_n_words": 385,
+   "timing_median_ms": 139.0,
+   "timing_p90_ms": 214.6,
+   "timing_within_200ms": 0.812987012987013,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 18,
+   "punct_f1": 0.0,
+   "casing_acc": 0.9255813953488372,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.125,
+   "lattice_ci_low": 0.0687458517699115,
+   "lattice_ci_high": 0.20845525227781056
+  },
+  {
+   "provider": "synth-e",
+   "model_id": "synth-e-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "n_clips": 34,
+   "error_rate": 0.14955357142857142,
+   "ci_low": 0.09232101782633698,
+   "ci_high": 0.22877506908164588,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0065785999999999996,
+   "audio_hours": 0.05926666666666667,
+   "cost_per_hour": 0.11099999999999999,
+   "latency_p50": 605.8494585096889,
+   "latency_p95": 759.8903682569038,
+   "rtf": 0.09838704069010422,
+   "timing_n_clips": 33,
+   "timing_n_words": 374,
+   "timing_median_ms": 69.0,
+   "timing_p90_ms": 109.0,
+   "timing_within_200ms": 0.9946524064171123,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 18,
+   "punct_f1": 1.0,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.14955357142857142,
+   "lattice_ci_low": 0.09232101782633698,
+   "lattice_ci_high": 0.22877506908164588
+  },
+  {
+   "provider": "synth-f",
+   "model_id": "synth-f-v1",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "n_clips": 34,
+   "error_rate": 0.20535714285714285,
+   "ci_low": 0.13900883242706927,
+   "ci_high": 0.2919982217411473,
+   "too_small": false,
+   "hallucination_rate": 0.0,
+   "long_output_rate": 0.0,
+   "cost_usd_total": 0.0,
+   "audio_hours": 0.05926666666666667,
+   "cost_per_hour": 0.0,
+   "latency_p50": 5025.679684685393,
+   "latency_p95": 5966.7063116287545,
+   "rtf": 0.8183906337382758,
+   "timing_n_clips": 32,
+   "timing_n_words": 350,
+   "timing_median_ms": 228.5,
+   "timing_p90_ms": 353.85,
+   "timing_within_200ms": 0.3942857142857143,
+   "nonspeech_n_clips": 34,
+   "nonspeech_minutes": 0.0,
+   "halluc_nonspeech_words": 0,
+   "halluc_per_nonspeech_min": null,
+   "readiness_n_clips": 18,
+   "punct_f1": 0.9714285714285714,
+   "casing_acc": 1.0,
+   "codeswitch_n_clips": 0,
+   "codeswitch_ref_len": 0,
+   "codeswitch_errors": 0,
+   "codeswitch_error_rate": null,
+   "error_rate_lattice": 0.20535714285714285,
+   "lattice_ci_low": 0.13900883242706927,
+   "lattice_ci_high": 0.2919982217411473
   }
  ],
  "paired": [
@@ -5499,6 +7179,1476 @@
    "ci_high": -0.004272642721383348,
    "p_value": 0.036,
    "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-a",
+   "provider_b": "synth-b",
+   "n_clips": 35,
+   "diff": -0.03829787234042553,
+   "ci_low": -0.07912698412698413,
+   "ci_high": 0.0020883447280495224,
+   "p_value": 0.066,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-a",
+   "provider_b": "synth-c",
+   "n_clips": 35,
+   "diff": 0.03829787234042553,
+   "ci_low": 0.008676789587852493,
+   "ci_high": 0.06790824915824915,
+   "p_value": 0.004,
+   "verdict": "b_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-a",
+   "provider_b": "synth-d",
+   "n_clips": 35,
+   "diff": -0.021276595744680854,
+   "ci_low": -0.05996039003409582,
+   "ci_high": 0.01562149806587736,
+   "p_value": 0.318,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-a",
+   "provider_b": "synth-e",
+   "n_clips": 35,
+   "diff": -0.125531914893617,
+   "ci_low": -0.16228351327035537,
+   "ci_high": -0.08947861260408253,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-a",
+   "provider_b": "synth-f",
+   "n_clips": 35,
+   "diff": -0.19787234042553192,
+   "ci_low": -0.25519351682400476,
+   "ci_high": -0.14444324712643677,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-b",
+   "provider_b": "synth-c",
+   "n_clips": 35,
+   "diff": 0.07659574468085106,
+   "ci_low": 0.03845948827292112,
+   "ci_high": 0.11226723483742923,
+   "p_value": 0.0,
+   "verdict": "b_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-b",
+   "provider_b": "synth-d",
+   "n_clips": 35,
+   "diff": 0.017021276595744678,
+   "ci_low": -0.02620087336244542,
+   "ci_high": 0.0580707865951369,
+   "p_value": 0.476,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-b",
+   "provider_b": "synth-e",
+   "n_clips": 35,
+   "diff": -0.08723404255319148,
+   "ci_low": -0.12758784425451092,
+   "ci_high": -0.04978961849027184,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-b",
+   "provider_b": "synth-f",
+   "n_clips": 35,
+   "diff": -0.1595744680851064,
+   "ci_low": -0.22035037197024235,
+   "ci_high": -0.09724486494860395,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-c",
+   "provider_b": "synth-d",
+   "n_clips": 35,
+   "diff": -0.059574468085106386,
+   "ci_low": -0.0922471685198817,
+   "ci_high": -0.022513783184514892,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-c",
+   "provider_b": "synth-e",
+   "n_clips": 35,
+   "diff": -0.16382978723404254,
+   "ci_low": -0.19830377441082195,
+   "ci_high": -0.12846030664553154,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-c",
+   "provider_b": "synth-f",
+   "n_clips": 35,
+   "diff": -0.23617021276595745,
+   "ci_low": -0.29684463341760514,
+   "ci_high": -0.17691775637512075,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-d",
+   "provider_b": "synth-e",
+   "n_clips": 35,
+   "diff": -0.10425531914893615,
+   "ci_low": -0.15232630545625037,
+   "ci_high": -0.05842901733459674,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-d",
+   "provider_b": "synth-f",
+   "n_clips": 35,
+   "diff": -0.17659574468085107,
+   "ci_low": -0.23199898724227586,
+   "ci_high": -0.12496610629067245,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "music",
+   "provider_a": "synth-e",
+   "provider_b": "synth-f",
+   "n_clips": 35,
+   "diff": -0.07234042553191491,
+   "ci_low": -0.1244857594936709,
+   "ci_high": -0.016839462673419965,
+   "p_value": 0.02,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-a",
+   "provider_b": "synth-b",
+   "n_clips": 34,
+   "diff": -0.056053811659192834,
+   "ci_low": -0.09714953920251934,
+   "ci_high": -0.01947842028660995,
+   "p_value": 0.002,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-a",
+   "provider_b": "synth-c",
+   "n_clips": 35,
+   "diff": 0.02169197396963124,
+   "ci_low": -0.0022799189839687087,
+   "ci_high": 0.04477916539750228,
+   "p_value": 0.094,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-a",
+   "provider_b": "synth-d",
+   "n_clips": 35,
+   "diff": -0.0368763557483731,
+   "ci_low": -0.07002957655036428,
+   "ci_high": -0.002201924918597974,
+   "p_value": 0.044,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-a",
+   "provider_b": "synth-e",
+   "n_clips": 35,
+   "diff": -0.1106290672451193,
+   "ci_low": -0.15300254802586225,
+   "ci_high": -0.07343412526997842,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-a",
+   "provider_b": "synth-f",
+   "n_clips": 35,
+   "diff": -0.15184381778741862,
+   "ci_low": -0.20779874487928177,
+   "ci_high": -0.09896610972864085,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-b",
+   "provider_b": "synth-c",
+   "n_clips": 34,
+   "diff": 0.07623318385650225,
+   "ci_low": 0.0371094965617628,
+   "ci_high": 0.11431105479885967,
+   "p_value": 0.0,
+   "verdict": "b_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-b",
+   "provider_b": "synth-d",
+   "n_clips": 34,
+   "diff": 0.0179372197309417,
+   "ci_low": -0.023712050224887548,
+   "ci_high": 0.0640243614001892,
+   "p_value": 0.5,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-b",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.05605381165919282,
+   "ci_low": -0.1085972850678733,
+   "ci_high": -0.006473374551256517,
+   "p_value": 0.03,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-b",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.10313901345291479,
+   "ci_low": -0.1682432286258221,
+   "ci_high": -0.046252965096577406,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-c",
+   "provider_b": "synth-d",
+   "n_clips": 35,
+   "diff": -0.05856832971800434,
+   "ci_low": -0.0875293394303241,
+   "ci_high": -0.03187991093138135,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-c",
+   "provider_b": "synth-e",
+   "n_clips": 35,
+   "diff": -0.13232104121475052,
+   "ci_low": -0.17124735729386892,
+   "ci_high": -0.09739733808308322,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-c",
+   "provider_b": "synth-f",
+   "n_clips": 35,
+   "diff": -0.17353579175704986,
+   "ci_low": -0.22961807140900375,
+   "ci_high": -0.11965339233038348,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-d",
+   "provider_b": "synth-e",
+   "n_clips": 35,
+   "diff": -0.0737527114967462,
+   "ci_low": -0.12044311293806172,
+   "ci_high": -0.03555358462675537,
+   "p_value": 0.004,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-d",
+   "provider_b": "synth-f",
+   "n_clips": 35,
+   "diff": -0.11496746203904554,
+   "ci_low": -0.17486170788450064,
+   "ci_high": -0.058665783990276096,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "sfx",
+   "provider_a": "synth-e",
+   "provider_b": "synth-f",
+   "n_clips": 35,
+   "diff": -0.04121475054229934,
+   "ci_low": -0.10293150726438105,
+   "ci_high": 0.02163971068361038,
+   "p_value": 0.218,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-a",
+   "provider_b": "synth-b",
+   "n_clips": 34,
+   "diff": -0.04059829059829059,
+   "ci_low": -0.07947089140735403,
+   "ci_high": 0.0021321961620469065,
+   "p_value": 0.072,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-a",
+   "provider_b": "synth-c",
+   "n_clips": 34,
+   "diff": 0.025641025641025633,
+   "ci_low": -0.002083551255230131,
+   "ci_high": 0.055087276775140914,
+   "p_value": 0.076,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-a",
+   "provider_b": "synth-d",
+   "n_clips": 34,
+   "diff": -0.025641025641025633,
+   "ci_low": -0.05819558795040681,
+   "ci_high": 0.00862690190381526,
+   "p_value": 0.182,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-a",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.10683760683760682,
+   "ci_low": -0.14872659787530476,
+   "ci_high": -0.062489962526766606,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-a",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.1517094017094017,
+   "ci_low": -0.19794756355932205,
+   "ci_high": -0.10344645715117126,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-b",
+   "provider_b": "synth-c",
+   "n_clips": 34,
+   "diff": 0.06623931623931623,
+   "ci_low": 0.032464033811016556,
+   "ci_high": 0.0993707842545052,
+   "p_value": 0.0,
+   "verdict": "b_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-b",
+   "provider_b": "synth-d",
+   "n_clips": 34,
+   "diff": 0.01495726495726496,
+   "ci_low": -0.022870213963963965,
+   "ci_high": 0.05241866696335027,
+   "p_value": 0.442,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-b",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.06623931623931623,
+   "ci_low": -0.10381777786110695,
+   "ci_high": -0.03049613784907905,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-b",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.1111111111111111,
+   "ci_low": -0.15632203705427802,
+   "ci_high": -0.06756258890469417,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-c",
+   "provider_b": "synth-d",
+   "n_clips": 34,
+   "diff": -0.051282051282051266,
+   "ci_low": -0.08602150537634408,
+   "ci_high": -0.015554693274205458,
+   "p_value": 0.01,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-c",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.13247863247863245,
+   "ci_low": -0.1673817652668322,
+   "ci_high": -0.0889819019081584,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-c",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.17735042735042733,
+   "ci_low": -0.2313930954145928,
+   "ci_high": -0.12120557628117025,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-d",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.08119658119658119,
+   "ci_low": -0.12141435979945699,
+   "ci_high": -0.042930487678070096,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-d",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.12606837606837606,
+   "ci_low": -0.17010206993152108,
+   "ci_high": -0.07956809286003508,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "multiple_speakers",
+   "provider_a": "synth-e",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.04487179487179488,
+   "ci_low": -0.09518514553839844,
+   "ci_high": 0.006767500985046043,
+   "p_value": 0.082,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-a",
+   "provider_b": "synth-b",
+   "n_clips": 16,
+   "diff": 0.042452830188679236,
+   "ci_low": -0.040206080909598506,
+   "ci_high": 0.1588838147833475,
+   "p_value": 0.548,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-a",
+   "provider_b": "synth-c",
+   "n_clips": 17,
+   "diff": 0.004366812227074246,
+   "ci_low": -0.036883667596979676,
+   "ci_high": 0.04681351154755411,
+   "p_value": 0.908,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-a",
+   "provider_b": "synth-d",
+   "n_clips": 17,
+   "diff": -0.013100436681222682,
+   "ci_low": -0.03814374185136898,
+   "ci_high": 0.0179372197309417,
+   "p_value": 0.46,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-a",
+   "provider_b": "synth-e",
+   "n_clips": 17,
+   "diff": -0.013100436681222682,
+   "ci_low": -0.05480714601350924,
+   "ci_high": 0.022323930973734758,
+   "p_value": 0.634,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-a",
+   "provider_b": "synth-f",
+   "n_clips": 17,
+   "diff": -0.06113537117903928,
+   "ci_low": -0.11816344169965984,
+   "ci_high": -0.004587155963302725,
+   "p_value": 0.042,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-b",
+   "provider_b": "synth-c",
+   "n_clips": 16,
+   "diff": -0.037735849056603765,
+   "ci_low": -0.15050770464059854,
+   "ci_high": 0.03738317757009346,
+   "p_value": 0.61,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-b",
+   "provider_b": "synth-d",
+   "n_clips": 16,
+   "diff": -0.05188679245283023,
+   "ci_low": -0.16179035567715455,
+   "ci_high": 0.03109213082901554,
+   "p_value": 0.414,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-b",
+   "provider_b": "synth-e",
+   "n_clips": 16,
+   "diff": -0.0566037735849057,
+   "ci_low": -0.15714285714285714,
+   "ci_high": 0.01501360103626943,
+   "p_value": 0.248,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-b",
+   "provider_b": "synth-f",
+   "n_clips": 16,
+   "diff": -0.08490566037735853,
+   "ci_low": -0.19342557414838216,
+   "ci_high": -0.004493087557603826,
+   "p_value": 0.05,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-c",
+   "provider_b": "synth-d",
+   "n_clips": 17,
+   "diff": -0.01746724890829693,
+   "ci_low": -0.053284169871146196,
+   "ci_high": 0.025870539075440437,
+   "p_value": 0.466,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-c",
+   "provider_b": "synth-e",
+   "n_clips": 17,
+   "diff": -0.01746724890829693,
+   "ci_low": -0.04912380817711705,
+   "ci_high": 0.017781763826606876,
+   "p_value": 0.338,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-c",
+   "provider_b": "synth-f",
+   "n_clips": 17,
+   "diff": -0.06550218340611352,
+   "ci_low": -0.12721563723357981,
+   "ci_high": -0.004524886877828038,
+   "p_value": 0.042,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-d",
+   "provider_b": "synth-e",
+   "n_clips": 17,
+   "diff": 0.0,
+   "ci_low": -0.03948684210526317,
+   "ci_high": 0.03167916569018045,
+   "p_value": 1.0,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-d",
+   "provider_b": "synth-f",
+   "n_clips": 17,
+   "diff": -0.048034934497816595,
+   "ci_low": -0.09606986899563319,
+   "ci_high": -0.004366812227074246,
+   "p_value": 0.034,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "fast_speech",
+   "provider_a": "synth-e",
+   "provider_b": "synth-f",
+   "n_clips": 17,
+   "diff": -0.048034934497816595,
+   "ci_low": -0.10715023612750886,
+   "ci_high": 0.004629629629629596,
+   "p_value": 0.108,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-a",
+   "provider_b": "synth-b",
+   "n_clips": 33,
+   "diff": -0.07517084282460136,
+   "ci_low": -0.11231287276834366,
+   "ci_high": -0.04147970834501825,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-a",
+   "provider_b": "synth-c",
+   "n_clips": 34,
+   "diff": 0.004405286343612341,
+   "ci_low": -0.02013877316042238,
+   "ci_high": 0.025066912906161327,
+   "p_value": 0.766,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-a",
+   "provider_b": "synth-d",
+   "n_clips": 34,
+   "diff": -0.030837004405286347,
+   "ci_low": -0.05664488017429193,
+   "ci_high": -0.008450709322524645,
+   "p_value": 0.018,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-a",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.059471365638766524,
+   "ci_low": -0.10330049261083746,
+   "ci_high": -0.023454157782516,
+   "p_value": 0.002,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-a",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.09691629955947136,
+   "ci_low": -0.13726033650710837,
+   "ci_high": -0.05973121666764345,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-b",
+   "provider_b": "synth-c",
+   "n_clips": 33,
+   "diff": 0.07744874715261958,
+   "ci_low": 0.03735235895743977,
+   "ci_high": 0.12129683198082554,
+   "p_value": 0.0,
+   "verdict": "b_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-b",
+   "provider_b": "synth-d",
+   "n_clips": 33,
+   "diff": 0.043280182232346226,
+   "ci_low": 0.00230401504316965,
+   "ci_high": 0.08482142857142858,
+   "p_value": 0.042,
+   "verdict": "b_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-b",
+   "provider_b": "synth-e",
+   "n_clips": 33,
+   "diff": 0.015945330296127547,
+   "ci_low": -0.03818871078715948,
+   "ci_high": 0.06971818566591421,
+   "p_value": 0.576,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-b",
+   "provider_b": "synth-f",
+   "n_clips": 33,
+   "diff": -0.02733485193621868,
+   "ci_low": -0.06416081432166923,
+   "ci_high": 0.00919699872286079,
+   "p_value": 0.198,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-c",
+   "provider_b": "synth-d",
+   "n_clips": 34,
+   "diff": -0.03524229074889869,
+   "ci_low": -0.06100427350427351,
+   "ci_high": -0.009172226855713096,
+   "p_value": 0.008,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-c",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.06387665198237887,
+   "ci_low": -0.10240070387129209,
+   "ci_high": -0.027653016613232297,
+   "p_value": 0.004,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-c",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.1013215859030837,
+   "ci_low": -0.1422394972127885,
+   "ci_high": -0.058162302253116006,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-d",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.028634361233480177,
+   "ci_low": -0.06335200746965453,
+   "ci_high": 0.004465291184041181,
+   "p_value": 0.106,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-d",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.06607929515418501,
+   "ci_low": -0.10989032729338719,
+   "ci_high": -0.022686517069428504,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "whisper_shout",
+   "provider_a": "synth-e",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.03744493392070483,
+   "ci_low": -0.0936301522300365,
+   "ci_high": 0.019248891352549875,
+   "p_value": 0.186,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-a",
+   "provider_b": "synth-b",
+   "n_clips": 34,
+   "diff": -0.061810154525386324,
+   "ci_low": -0.0980402608804716,
+   "ci_high": -0.030096364133406255,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-a",
+   "provider_b": "synth-c",
+   "n_clips": 34,
+   "diff": 0.002207505518763808,
+   "ci_low": -0.021142768839359304,
+   "ci_high": 0.027586206896551724,
+   "p_value": 0.928,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-a",
+   "provider_b": "synth-d",
+   "n_clips": 34,
+   "diff": -0.03532008830022074,
+   "ci_low": -0.06304966978536047,
+   "ci_high": -0.008926107694733522,
+   "p_value": 0.01,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-a",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.08167770419426049,
+   "ci_low": -0.12254686978451951,
+   "ci_high": -0.04109355009829313,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-a",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.11258278145695366,
+   "ci_low": -0.15247566921886935,
+   "ci_high": -0.07436848724398133,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-b",
+   "provider_b": "synth-c",
+   "n_clips": 34,
+   "diff": 0.06401766004415013,
+   "ci_low": 0.028998932453416157,
+   "ci_high": 0.09839906521483166,
+   "p_value": 0.0,
+   "verdict": "b_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-b",
+   "provider_b": "synth-d",
+   "n_clips": 34,
+   "diff": 0.026490066225165587,
+   "ci_low": -0.006831779821136165,
+   "ci_high": 0.06047573661565272,
+   "p_value": 0.14,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-b",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.019867549668874163,
+   "ci_low": -0.06017044641579623,
+   "ci_high": 0.017952826360637983,
+   "p_value": 0.362,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-b",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.05077262693156734,
+   "ci_low": -0.09216589861751151,
+   "ci_high": -0.009278081696076945,
+   "p_value": 0.018,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-c",
+   "provider_b": "synth-d",
+   "n_clips": 34,
+   "diff": -0.037527593818984545,
+   "ci_low": -0.0711322602662877,
+   "ci_high": -0.0066192913047217776,
+   "p_value": 0.03,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-c",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.0838852097130243,
+   "ci_low": -0.11983932461873638,
+   "ci_high": -0.049878679920244,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-c",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.11479028697571747,
+   "ci_low": -0.16291339116291678,
+   "ci_high": -0.07235268878718537,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-d",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.04635761589403975,
+   "ci_low": -0.07907977822270136,
+   "ci_high": -0.013329670329670336,
+   "p_value": 0.012,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-d",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.07726269315673293,
+   "ci_low": -0.1255234653770219,
+   "ci_high": -0.03384514484965953,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "outdoor_noise",
+   "provider_a": "synth-e",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.030905077262693176,
+   "ci_low": -0.08407485808214989,
+   "ci_high": 0.019204526816467112,
+   "p_value": 0.258,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-a",
+   "provider_b": "synth-b",
+   "n_clips": 34,
+   "diff": -0.078125,
+   "ci_low": -0.112872197724645,
+   "ci_high": -0.045349152592071326,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-a",
+   "provider_b": "synth-c",
+   "n_clips": 34,
+   "diff": -0.002232142857142849,
+   "ci_low": -0.027529306829765548,
+   "ci_high": 0.022938422187460363,
+   "p_value": 0.972,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-a",
+   "provider_b": "synth-d",
+   "n_clips": 34,
+   "diff": -0.024553571428571425,
+   "ci_low": -0.05023912256351457,
+   "ci_high": 0.002085479934924083,
+   "p_value": 0.074,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-a",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.04910714285714285,
+   "ci_low": -0.08149997946253454,
+   "ci_high": -0.013013778854307713,
+   "p_value": 0.006,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-a",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.10491071428571427,
+   "ci_low": -0.1425516917293233,
+   "ci_high": -0.06998973833979442,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-b",
+   "provider_b": "synth-c",
+   "n_clips": 34,
+   "diff": 0.07589285714285715,
+   "ci_low": 0.03303964757709252,
+   "ci_high": 0.12018394621999742,
+   "p_value": 0.002,
+   "verdict": "b_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-b",
+   "provider_b": "synth-d",
+   "n_clips": 34,
+   "diff": 0.053571428571428575,
+   "ci_low": 0.016685300990212783,
+   "ci_high": 0.09153116594441123,
+   "p_value": 0.006,
+   "verdict": "b_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-b",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": 0.02901785714285715,
+   "ci_low": -0.01707165869832712,
+   "ci_high": 0.07456388425815669,
+   "p_value": 0.214,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-b",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.026785714285714274,
+   "ci_low": -0.06353315760266372,
+   "ci_high": 0.014752192982456128,
+   "p_value": 0.202,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-c",
+   "provider_b": "synth-d",
+   "n_clips": 34,
+   "diff": -0.022321428571428575,
+   "ci_low": -0.051889859048128824,
+   "ci_high": 0.01071071129317569,
+   "p_value": 0.214,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-c",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.046875,
+   "ci_low": -0.07760636494065475,
+   "ci_high": -0.013662063188861782,
+   "p_value": 0.004,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-c",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.10267857142857142,
+   "ci_low": -0.14443686015160986,
+   "ci_high": -0.06060606060606061,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-d",
+   "provider_b": "synth-e",
+   "n_clips": 34,
+   "diff": -0.024553571428571425,
+   "ci_low": -0.05934334243251442,
+   "ci_high": 0.008890881913303424,
+   "p_value": 0.166,
+   "verdict": "no_difference"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-d",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.08035714285714285,
+   "ci_low": -0.12135756616878068,
+   "ci_high": -0.03990690298233507,
+   "p_value": 0.0,
+   "verdict": "a_better"
+  },
+  {
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "condition",
+   "slice": "code_switching",
+   "provider_a": "synth-e",
+   "provider_b": "synth-f",
+   "n_clips": 34,
+   "diff": -0.055803571428571425,
+   "ci_low": -0.107805913711877,
+   "ci_high": -0.0111552194045014,
+   "p_value": 0.016,
+   "verdict": "a_better"
   }
  ],
  "stability": [
@@ -5991,7 +9141,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00002",
@@ -6002,7 +9156,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00003",
@@ -6015,7 +9173,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00004",
@@ -6028,7 +9190,10 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00005",
@@ -6039,7 +9204,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00006",
@@ -6050,7 +9219,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00007",
@@ -6061,7 +9234,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00008",
@@ -6074,7 +9251,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00009",
@@ -6085,7 +9266,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00010",
@@ -6098,7 +9283,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00011",
@@ -6111,7 +9300,10 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00012",
@@ -6122,7 +9314,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00013",
@@ -6133,7 +9329,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00014",
@@ -6144,7 +9344,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00015",
@@ -6157,7 +9361,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00016",
@@ -6168,7 +9376,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00017",
@@ -6181,7 +9393,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00018",
@@ -6194,7 +9410,10 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00019",
@@ -6205,7 +9424,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00020",
@@ -6216,7 +9439,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00021",
@@ -6227,7 +9454,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00022",
@@ -6240,7 +9471,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00023",
@@ -6251,7 +9486,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00024",
@@ -6264,7 +9503,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00025",
@@ -6277,7 +9520,10 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00026",
@@ -6288,7 +9534,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00027",
@@ -6299,7 +9549,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00028",
@@ -6310,7 +9564,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00029",
@@ -6323,7 +9581,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00030",
@@ -6334,7 +9596,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00031",
@@ -6347,7 +9613,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00032",
@@ -6360,7 +9630,10 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00033",
@@ -6371,7 +9644,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00034",
@@ -6382,7 +9659,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00035",
@@ -6393,7 +9674,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00036",
@@ -6406,7 +9691,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00037",
@@ -6417,7 +9706,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00038",
@@ -6430,7 +9723,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00039",
@@ -6443,7 +9740,10 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00040",
@@ -6454,7 +9754,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00041",
@@ -6465,7 +9769,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00042",
@@ -6476,7 +9784,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00043",
@@ -6489,7 +9801,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00044",
@@ -6500,7 +9816,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00045",
@@ -6513,7 +9833,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00046",
@@ -6526,7 +9850,10 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00047",
@@ -6537,7 +9864,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00048",
@@ -6548,7 +9879,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00049",
@@ -6559,7 +9894,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00050",
@@ -6572,7 +9911,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00051",
@@ -6583,7 +9926,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00052",
@@ -6596,7 +9943,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00053",
@@ -6609,7 +9960,10 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00054",
@@ -6620,7 +9974,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00055",
@@ -6631,7 +9989,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00056",
@@ -6642,7 +10004,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00057",
@@ -6655,7 +10021,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00058",
@@ -6666,7 +10036,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00059",
@@ -6679,7 +10053,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00060",
@@ -6692,7 +10070,10 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00061",
@@ -6703,7 +10084,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00062",
@@ -6714,7 +10099,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00063",
@@ -6725,7 +10114,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00064",
@@ -6738,7 +10131,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00065",
@@ -6749,7 +10146,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00066",
@@ -6762,7 +10163,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00067",
@@ -6775,7 +10180,10 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00068",
@@ -6786,7 +10194,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00069",
@@ -6797,7 +10209,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00070",
@@ -6808,7 +10224,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00071",
@@ -6821,7 +10241,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00072",
@@ -6832,7 +10256,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00073",
@@ -6845,7 +10273,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00074",
@@ -6858,7 +10290,10 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00075",
@@ -6869,7 +10304,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00076",
@@ -6880,7 +10319,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00077",
@@ -6891,7 +10334,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00078",
@@ -6904,7 +10351,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00079",
@@ -6915,7 +10366,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00080",
@@ -6928,7 +10383,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00081",
@@ -6941,7 +10400,10 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00082",
@@ -6952,7 +10414,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00083",
@@ -6963,7 +10429,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00084",
@@ -6974,7 +10444,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00085",
@@ -6987,7 +10461,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00086",
@@ -6998,7 +10476,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00087",
@@ -7011,7 +10493,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00088",
@@ -7024,7 +10510,10 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00089",
@@ -7035,7 +10524,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00090",
@@ -7046,7 +10539,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00091",
@@ -7057,7 +10554,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00092",
@@ -7070,7 +10571,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00093",
@@ -7081,7 +10586,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00094",
@@ -7094,7 +10603,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00095",
@@ -7107,7 +10620,10 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00096",
@@ -7118,7 +10634,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00097",
@@ -7129,7 +10649,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00098",
@@ -7140,7 +10664,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00099",
@@ -7153,7 +10681,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00100",
@@ -7164,7 +10696,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00101",
@@ -7177,7 +10713,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00102",
@@ -7190,7 +10730,10 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00103",
@@ -7201,7 +10744,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00104",
@@ -7212,7 +10759,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00105",
@@ -7223,7 +10774,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00106",
@@ -7236,7 +10791,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00107",
@@ -7247,7 +10806,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00108",
@@ -7260,7 +10823,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00109",
@@ -7273,7 +10840,10 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00110",
@@ -7284,7 +10854,11 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00111",
@@ -7295,7 +10869,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00112",
@@ -7306,7 +10884,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00113",
@@ -7319,7 +10901,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   },
   {
    "video_id": "synth00114",
@@ -7330,7 +10916,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "sfx",
+    "whisper_shout"
+   ]
   },
   {
    "video_id": "synth00115",
@@ -7343,7 +10933,11 @@
    "kind": "short",
    "start_s": null,
    "category": "talking_head",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "multiple_speakers"
+   ]
   },
   {
    "video_id": "synth00116",
@@ -7356,7 +10950,10 @@
    "kind": "short",
    "start_s": null,
    "category": "vlog_music",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "fast_speech"
+   ]
   },
   {
    "video_id": "synth00117",
@@ -7367,7 +10964,11 @@
    "kind": "short",
    "start_s": null,
    "category": "gaming",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "whisper_shout",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00118",
@@ -7378,7 +10979,11 @@
    "kind": "short",
    "start_s": null,
    "category": "comedy_skit",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "multiple_speakers",
+    "outdoor_noise"
+   ]
   },
   {
    "video_id": "synth00119",
@@ -7389,7 +10994,11 @@
    "kind": "short",
    "start_s": null,
    "category": "cooking_tutorial",
-   "audio_condition": "no_music"
+   "audio_condition": "no_music",
+   "conditions": [
+    "outdoor_noise",
+    "code_switching"
+   ]
   },
   {
    "video_id": "synth00120",
@@ -7402,7 +11011,11 @@
    "kind": "short",
    "start_s": null,
    "category": "news_explainer",
-   "audio_condition": "music"
+   "audio_condition": "music",
+   "conditions": [
+    "music",
+    "sfx"
+   ]
   }
  ],
  "per_clip": [
@@ -13900,7 +17513,13 @@
   "kind": "batch",
   "options": {
    "diarize": true,
-   "detect_language": true
+   "detect_language": true,
+   "keyterms": [
+    "Zorblax",
+    "Mirela",
+    "Quentaro",
+    "Vexlo"
+   ]
   },
   "providers": {
    "synth-a": {
@@ -13908,7 +17527,13 @@
     "settings": {
      "model_id": "synth-a-v1",
      "diarize": true,
-     "detect_language": true
+     "detect_language": true,
+     "keyterms": [
+      "Zorblax",
+      "Mirela",
+      "Quentaro",
+      "Vexlo"
+     ]
     },
     "settings_hash": "28a3369ec1a2f581",
     "usd_per_minute": 0.0043,
@@ -13919,7 +17544,13 @@
     "settings": {
      "model_id": "synth-b-v1",
      "diarize": true,
-     "detect_language": true
+     "detect_language": true,
+     "keyterms": [
+      "Zorblax",
+      "Mirela",
+      "Quentaro",
+      "Vexlo"
+     ]
     },
     "settings_hash": "77db26eebeb55079",
     "usd_per_minute": 0.0025,
@@ -13930,7 +17561,13 @@
     "settings": {
      "model_id": "synth-c-v1",
      "diarize": true,
-     "detect_language": true
+     "detect_language": true,
+     "keyterms": [
+      "Zorblax",
+      "Mirela",
+      "Quentaro",
+      "Vexlo"
+     ]
     },
     "settings_hash": "b0820a92c9d38435",
     "usd_per_minute": 0.0067,
@@ -13941,7 +17578,13 @@
     "settings": {
      "model_id": "synth-d-v1",
      "diarize": true,
-     "detect_language": true
+     "detect_language": true,
+     "keyterms": [
+      "Zorblax",
+      "Mirela",
+      "Quentaro",
+      "Vexlo"
+     ]
     },
     "settings_hash": "4a0a456780904b4b",
     "usd_per_minute": 0.002,
@@ -13952,7 +17595,13 @@
     "settings": {
      "model_id": "synth-e-v1",
      "diarize": true,
-     "detect_language": true
+     "detect_language": true,
+     "keyterms": [
+      "Zorblax",
+      "Mirela",
+      "Quentaro",
+      "Vexlo"
+     ]
     },
     "settings_hash": "41d0d4a0ab944c18",
     "usd_per_minute": 0.00185,
@@ -13963,7 +17612,13 @@
     "settings": {
      "model_id": "synth-f-v1",
      "diarize": true,
-     "detect_language": true
+     "detect_language": true,
+     "keyterms": [
+      "Zorblax",
+      "Mirela",
+      "Quentaro",
+      "Vexlo"
+     ]
     },
     "settings_hash": "5b41edd4765cf7aa",
     "usd_per_minute": 0.0,
@@ -17472,7 +21127,7 @@
   {
    "sweep_id": "en-synth-sweep",
    "language": "en",
-   "created_at": "2026-10-19T18:25:47Z",
+   "created_at": "2026-10-19T18:38:25Z",
    "snrs_db": [
     20.0,
     10.0,
@@ -23117,6 +26772,636 @@
     "error_rate_lattice": 0.26848591549295775,
     "lattice_ci_low": 0.20507770656831242,
     "lattice_ci_high": 0.3312797563697229
+   },
+   {
+    "provider": "synth-a",
+    "model_id": "synth-a-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "music",
+    "n_clips": 35,
+    "error_rate": 0.1148936170212766,
+    "ci_low": 0.06507094779853154,
+    "ci_high": 0.18570015822784808,
+    "error_rate_lattice": 0.1148936170212766,
+    "lattice_ci_low": 0.06507094779853154,
+    "lattice_ci_high": 0.18570015822784808
+   },
+   {
+    "provider": "synth-b",
+    "model_id": "synth-b-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "music",
+    "n_clips": 35,
+    "error_rate": 0.15319148936170213,
+    "ci_low": 0.10447099314955158,
+    "ci_high": 0.21565624216146487,
+    "error_rate_lattice": 0.15319148936170213,
+    "lattice_ci_low": 0.10447099314955158,
+    "lattice_ci_high": 0.21565624216146487
+   },
+   {
+    "provider": "synth-c",
+    "model_id": "synth-c-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "music",
+    "n_clips": 35,
+    "error_rate": 0.07659574468085106,
+    "ci_low": 0.03054536980176805,
+    "ci_high": 0.1476910454758556,
+    "error_rate_lattice": 0.07659574468085106,
+    "lattice_ci_low": 0.03054536980176805,
+    "lattice_ci_high": 0.1476910454758556
+   },
+   {
+    "provider": "synth-d",
+    "model_id": "synth-d-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "music",
+    "n_clips": 35,
+    "error_rate": 0.13617021276595745,
+    "ci_low": 0.08768077636814589,
+    "ci_high": 0.20328714286329255,
+    "error_rate_lattice": 0.13617021276595745,
+    "lattice_ci_low": 0.08768077636814589,
+    "lattice_ci_high": 0.20328714286329255
+   },
+   {
+    "provider": "synth-e",
+    "model_id": "synth-e-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "music",
+    "n_clips": 35,
+    "error_rate": 0.2404255319148936,
+    "ci_low": 0.1936620205173952,
+    "ci_high": 0.3025785793005815,
+    "error_rate_lattice": 0.2404255319148936,
+    "lattice_ci_low": 0.1936620205173952,
+    "lattice_ci_high": 0.3025785793005815
+   },
+   {
+    "provider": "synth-f",
+    "model_id": "synth-f-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "music",
+    "n_clips": 35,
+    "error_rate": 0.3127659574468085,
+    "ci_low": 0.25633762694533985,
+    "ci_high": 0.372715881642512,
+    "error_rate_lattice": 0.3127659574468085,
+    "lattice_ci_low": 0.25633762694533985,
+    "lattice_ci_high": 0.372715881642512
+   },
+   {
+    "provider": "synth-a",
+    "model_id": "synth-a-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "sfx",
+    "n_clips": 35,
+    "error_rate": 0.10845986984815618,
+    "ci_low": 0.052735667769830255,
+    "ci_high": 0.18045411438576014,
+    "error_rate_lattice": 0.10845986984815618,
+    "lattice_ci_low": 0.052735667769830255,
+    "lattice_ci_high": 0.18045411438576014
+   },
+   {
+    "provider": "synth-b",
+    "model_id": "synth-b-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "sfx",
+    "n_clips": 34,
+    "error_rate": 0.16591928251121077,
+    "ci_low": 0.10561489072725028,
+    "ci_high": 0.2389086002022813,
+    "error_rate_lattice": 0.16591928251121077,
+    "lattice_ci_low": 0.10561489072725028,
+    "lattice_ci_high": 0.2389086002022813
+   },
+   {
+    "provider": "synth-c",
+    "model_id": "synth-c-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "sfx",
+    "n_clips": 35,
+    "error_rate": 0.08676789587852494,
+    "ci_low": 0.034402601219781025,
+    "ci_high": 0.16090188014101053,
+    "error_rate_lattice": 0.08676789587852494,
+    "lattice_ci_low": 0.034402601219781025,
+    "lattice_ci_high": 0.16090188014101053
+   },
+   {
+    "provider": "synth-d",
+    "model_id": "synth-d-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "sfx",
+    "n_clips": 35,
+    "error_rate": 0.14533622559652928,
+    "ci_low": 0.0902949196656029,
+    "ci_high": 0.2200066079295154,
+    "error_rate_lattice": 0.14533622559652928,
+    "lattice_ci_low": 0.0902949196656029,
+    "lattice_ci_high": 0.2200066079295154
+   },
+   {
+    "provider": "synth-e",
+    "model_id": "synth-e-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "sfx",
+    "n_clips": 35,
+    "error_rate": 0.21908893709327548,
+    "ci_low": 0.16035384900919422,
+    "ci_high": 0.28760039484901506,
+    "error_rate_lattice": 0.21908893709327548,
+    "lattice_ci_low": 0.16035384900919422,
+    "lattice_ci_high": 0.28760039484901506
+   },
+   {
+    "provider": "synth-f",
+    "model_id": "synth-f-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "sfx",
+    "n_clips": 35,
+    "error_rate": 0.2603036876355748,
+    "ci_low": 0.1936102755783607,
+    "ci_high": 0.33797634836427937,
+    "error_rate_lattice": 0.2603036876355748,
+    "lattice_ci_low": 0.1936102755783607,
+    "lattice_ci_high": 0.33797634836427937
+   },
+   {
+    "provider": "synth-a",
+    "model_id": "synth-a-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "multiple_speakers",
+    "n_clips": 34,
+    "error_rate": 0.1623931623931624,
+    "ci_low": 0.07780385157764852,
+    "ci_high": 0.26179000925069373,
+    "error_rate_lattice": 0.1623931623931624,
+    "lattice_ci_low": 0.07780385157764852,
+    "lattice_ci_high": 0.26179000925069373
+   },
+   {
+    "provider": "synth-b",
+    "model_id": "synth-b-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "multiple_speakers",
+    "n_clips": 34,
+    "error_rate": 0.202991452991453,
+    "ci_low": 0.12318973135194901,
+    "ci_high": 0.3013055555555555,
+    "error_rate_lattice": 0.202991452991453,
+    "lattice_ci_low": 0.12318973135194901,
+    "lattice_ci_high": 0.3013055555555555
+   },
+   {
+    "provider": "synth-c",
+    "model_id": "synth-c-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "multiple_speakers",
+    "n_clips": 34,
+    "error_rate": 0.13675213675213677,
+    "ci_low": 0.05159917638984214,
+    "ci_high": 0.23840445079624337,
+    "error_rate_lattice": 0.13675213675213677,
+    "lattice_ci_low": 0.05159917638984214,
+    "lattice_ci_high": 0.23840445079624337
+   },
+   {
+    "provider": "synth-d",
+    "model_id": "synth-d-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "multiple_speakers",
+    "n_clips": 34,
+    "error_rate": 0.18803418803418803,
+    "ci_low": 0.10868975761576911,
+    "ci_high": 0.28245644492106464,
+    "error_rate_lattice": 0.18803418803418803,
+    "lattice_ci_low": 0.10868975761576911,
+    "lattice_ci_high": 0.28245644492106464
+   },
+   {
+    "provider": "synth-e",
+    "model_id": "synth-e-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "multiple_speakers",
+    "n_clips": 34,
+    "error_rate": 0.2692307692307692,
+    "ci_low": 0.19380778184236783,
+    "ci_high": 0.3556782623466723,
+    "error_rate_lattice": 0.2692307692307692,
+    "lattice_ci_low": 0.19380778184236783,
+    "lattice_ci_high": 0.3556782623466723
+   },
+   {
+    "provider": "synth-f",
+    "model_id": "synth-f-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "multiple_speakers",
+    "n_clips": 34,
+    "error_rate": 0.3141025641025641,
+    "ci_low": 0.2423013292807264,
+    "ci_high": 0.402766106442577,
+    "error_rate_lattice": 0.3141025641025641,
+    "lattice_ci_low": 0.2423013292807264,
+    "lattice_ci_high": 0.402766106442577
+   },
+   {
+    "provider": "synth-a",
+    "model_id": "synth-a-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "fast_speech",
+    "n_clips": 17,
+    "error_rate": 0.34497816593886466,
+    "ci_low": 0.15570692323928798,
+    "ci_high": 0.5592652931367386,
+    "error_rate_lattice": 0.34497816593886466,
+    "lattice_ci_low": 0.15570692323928798,
+    "lattice_ci_high": 0.5592652931367386
+   },
+   {
+    "provider": "synth-b",
+    "model_id": "synth-b-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "fast_speech",
+    "n_clips": 16,
+    "error_rate": 0.330188679245283,
+    "ci_low": 0.1527529761904762,
+    "ci_high": 0.5388617302520625,
+    "error_rate_lattice": 0.330188679245283,
+    "lattice_ci_low": 0.1527529761904762,
+    "lattice_ci_high": 0.5388617302520625
+   },
+   {
+    "provider": "synth-c",
+    "model_id": "synth-c-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "fast_speech",
+    "n_clips": 17,
+    "error_rate": 0.3406113537117904,
+    "ci_low": 0.15160372546260467,
+    "ci_high": 0.5587279716949036,
+    "error_rate_lattice": 0.3406113537117904,
+    "lattice_ci_low": 0.15160372546260467,
+    "lattice_ci_high": 0.5587279716949036
+   },
+   {
+    "provider": "synth-d",
+    "model_id": "synth-d-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "fast_speech",
+    "n_clips": 17,
+    "error_rate": 0.35807860262008734,
+    "ci_low": 0.1767051761136599,
+    "ci_high": 0.5640170306063693,
+    "error_rate_lattice": 0.35807860262008734,
+    "lattice_ci_low": 0.1767051761136599,
+    "lattice_ci_high": 0.5640170306063693
+   },
+   {
+    "provider": "synth-e",
+    "model_id": "synth-e-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "fast_speech",
+    "n_clips": 17,
+    "error_rate": 0.35807860262008734,
+    "ci_low": 0.17350672152662008,
+    "ci_high": 0.5681093505477308,
+    "error_rate_lattice": 0.35807860262008734,
+    "lattice_ci_low": 0.17350672152662008,
+    "lattice_ci_high": 0.5681093505477308
+   },
+   {
+    "provider": "synth-f",
+    "model_id": "synth-f-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "fast_speech",
+    "n_clips": 17,
+    "error_rate": 0.40611353711790393,
+    "ci_low": 0.24582785087719297,
+    "ci_high": 0.5926395289298514,
+    "error_rate_lattice": 0.40611353711790393,
+    "lattice_ci_low": 0.24582785087719297,
+    "lattice_ci_high": 0.5926395289298514
+   },
+   {
+    "provider": "synth-a",
+    "model_id": "synth-a-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "whisper_shout",
+    "n_clips": 34,
+    "error_rate": 0.0947136563876652,
+    "ci_low": 0.040356131716956754,
+    "ci_high": 0.16924311926605504,
+    "error_rate_lattice": 0.0947136563876652,
+    "lattice_ci_low": 0.040356131716956754,
+    "lattice_ci_high": 0.16924311926605504
+   },
+   {
+    "provider": "synth-b",
+    "model_id": "synth-b-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "whisper_shout",
+    "n_clips": 33,
+    "error_rate": 0.17084282460136674,
+    "ci_low": 0.11085265837104072,
+    "ci_high": 0.24256461547242847,
+    "error_rate_lattice": 0.17084282460136674,
+    "lattice_ci_low": 0.11085265837104072,
+    "lattice_ci_high": 0.24256461547242847
+   },
+   {
+    "provider": "synth-c",
+    "model_id": "synth-c-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "whisper_shout",
+    "n_clips": 34,
+    "error_rate": 0.09030837004405286,
+    "ci_low": 0.037334701425221,
+    "ci_high": 0.1659280303030303,
+    "error_rate_lattice": 0.09030837004405286,
+    "lattice_ci_low": 0.037334701425221,
+    "lattice_ci_high": 0.1659280303030303
+   },
+   {
+    "provider": "synth-d",
+    "model_id": "synth-d-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "whisper_shout",
+    "n_clips": 34,
+    "error_rate": 0.12555066079295155,
+    "ci_low": 0.07207158031393839,
+    "ci_high": 0.19567057611149277,
+    "error_rate_lattice": 0.12555066079295155,
+    "lattice_ci_low": 0.07207158031393839,
+    "lattice_ci_high": 0.19567057611149277
+   },
+   {
+    "provider": "synth-e",
+    "model_id": "synth-e-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "whisper_shout",
+    "n_clips": 34,
+    "error_rate": 0.15418502202643172,
+    "ci_low": 0.09669987737584304,
+    "ci_high": 0.22538789374586535,
+    "error_rate_lattice": 0.15418502202643172,
+    "lattice_ci_low": 0.09669987737584304,
+    "lattice_ci_high": 0.22538789374586535
+   },
+   {
+    "provider": "synth-f",
+    "model_id": "synth-f-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "whisper_shout",
+    "n_clips": 34,
+    "error_rate": 0.19162995594713655,
+    "ci_low": 0.13260473653901528,
+    "ci_high": 0.2686580212923121,
+    "error_rate_lattice": 0.19162995594713655,
+    "lattice_ci_low": 0.13260473653901528,
+    "lattice_ci_high": 0.2686580212923121
+   },
+   {
+    "provider": "synth-a",
+    "model_id": "synth-a-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "outdoor_noise",
+    "n_clips": 34,
+    "error_rate": 0.16335540838852097,
+    "ci_low": 0.07707635526267885,
+    "ci_high": 0.2744186046511628,
+    "error_rate_lattice": 0.16335540838852097,
+    "lattice_ci_low": 0.07707635526267885,
+    "lattice_ci_high": 0.2744186046511628
+   },
+   {
+    "provider": "synth-b",
+    "model_id": "synth-b-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "outdoor_noise",
+    "n_clips": 34,
+    "error_rate": 0.2251655629139073,
+    "ci_low": 0.13733170359614377,
+    "ci_high": 0.3302672955974842,
+    "error_rate_lattice": 0.2251655629139073,
+    "lattice_ci_low": 0.13733170359614377,
+    "lattice_ci_high": 0.3302672955974842
+   },
+   {
+    "provider": "synth-c",
+    "model_id": "synth-c-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "outdoor_noise",
+    "n_clips": 34,
+    "error_rate": 0.16114790286975716,
+    "ci_low": 0.07452791235410702,
+    "ci_high": 0.264993159562212,
+    "error_rate_lattice": 0.16114790286975716,
+    "lattice_ci_low": 0.07452791235410702,
+    "lattice_ci_high": 0.264993159562212
+   },
+   {
+    "provider": "synth-d",
+    "model_id": "synth-d-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "outdoor_noise",
+    "n_clips": 34,
+    "error_rate": 0.1986754966887417,
+    "ci_low": 0.11800388506596622,
+    "ci_high": 0.29705672591617294,
+    "error_rate_lattice": 0.1986754966887417,
+    "lattice_ci_low": 0.11800388506596622,
+    "lattice_ci_high": 0.29705672591617294
+   },
+   {
+    "provider": "synth-e",
+    "model_id": "synth-e-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "outdoor_noise",
+    "n_clips": 34,
+    "error_rate": 0.24503311258278146,
+    "ci_low": 0.1644855911661729,
+    "ci_high": 0.34262834490564925,
+    "error_rate_lattice": 0.24503311258278146,
+    "lattice_ci_low": 0.1644855911661729,
+    "lattice_ci_high": 0.34262834490564925
+   },
+   {
+    "provider": "synth-f",
+    "model_id": "synth-f-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "outdoor_noise",
+    "n_clips": 34,
+    "error_rate": 0.27593818984547464,
+    "ci_low": 0.18628555152912754,
+    "ci_high": 0.379326420705731,
+    "error_rate_lattice": 0.27593818984547464,
+    "lattice_ci_low": 0.18628555152912754,
+    "lattice_ci_high": 0.379326420705731
+   },
+   {
+    "provider": "synth-a",
+    "model_id": "synth-a-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "code_switching",
+    "n_clips": 34,
+    "error_rate": 0.10044642857142858,
+    "ci_low": 0.04288939051918736,
+    "ci_high": 0.1869857357357357,
+    "error_rate_lattice": 0.10044642857142858,
+    "lattice_ci_low": 0.04288939051918736,
+    "lattice_ci_high": 0.1869857357357357
+   },
+   {
+    "provider": "synth-b",
+    "model_id": "synth-b-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "code_switching",
+    "n_clips": 34,
+    "error_rate": 0.17857142857142858,
+    "ci_low": 0.11432829049077693,
+    "ci_high": 0.26316642037058086,
+    "error_rate_lattice": 0.17857142857142858,
+    "lattice_ci_low": 0.11432829049077693,
+    "lattice_ci_high": 0.26316642037058086
+   },
+   {
+    "provider": "synth-c",
+    "model_id": "synth-c-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "code_switching",
+    "n_clips": 34,
+    "error_rate": 0.10267857142857142,
+    "ci_low": 0.04749925392385471,
+    "ci_high": 0.18120320278109187,
+    "error_rate_lattice": 0.10267857142857142,
+    "lattice_ci_low": 0.04749925392385471,
+    "lattice_ci_high": 0.18120320278109187
+   },
+   {
+    "provider": "synth-d",
+    "model_id": "synth-d-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "code_switching",
+    "n_clips": 34,
+    "error_rate": 0.125,
+    "ci_low": 0.0687458517699115,
+    "ci_high": 0.20845525227781056,
+    "error_rate_lattice": 0.125,
+    "lattice_ci_low": 0.0687458517699115,
+    "lattice_ci_high": 0.20845525227781056
+   },
+   {
+    "provider": "synth-e",
+    "model_id": "synth-e-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "code_switching",
+    "n_clips": 34,
+    "error_rate": 0.14955357142857142,
+    "ci_low": 0.09232101782633698,
+    "ci_high": 0.22877506908164588,
+    "error_rate_lattice": 0.14955357142857142,
+    "lattice_ci_low": 0.09232101782633698,
+    "lattice_ci_high": 0.22877506908164588
+   },
+   {
+    "provider": "synth-f",
+    "model_id": "synth-f-v1",
+    "tier": "verified",
+    "metric": "wer",
+    "slice_kind": "condition",
+    "slice": "code_switching",
+    "n_clips": 34,
+    "error_rate": 0.20535714285714285,
+    "ci_low": 0.13900883242706927,
+    "ci_high": 0.2919982217411473,
+    "error_rate_lattice": 0.20535714285714285,
+    "lattice_ci_low": 0.13900883242706927,
+    "lattice_ci_high": 0.2919982217411473
    }
   ]
  },
@@ -23124,7 +27409,7 @@
   "track": "longform",
   "run_id": "lf-20261017-synth",
   "language": "en",
-  "created_at": "2026-10-19T18:25:48Z",
+  "created_at": "2026-10-19T18:38:26Z",
   "reference": "creator captions (unverified)",
   "n_videos": 3,
   "min_minutes": 3.0,
@@ -31858,7 +36143,8 @@
      "checked_on": "2026-10-19",
      "note": null
     }
-   }
+   },
+   "label": "Whisper large-v3 (local)"
   },
   {
    "provider": "whisper-local-turbo",
@@ -31933,7 +36219,8 @@
      "checked_on": "2026-10-19",
      "note": null
     }
-   }
+   },
+   "label": "Whisper large-v3 turbo (local)"
   },
   {
    "provider": "groq-whisper",
@@ -32008,7 +36295,8 @@
      "checked_on": "2026-10-19",
      "note": null
     }
-   }
+   },
+   "label": "Groq Whisper"
   },
   {
    "provider": "deepgram",
@@ -32083,7 +36371,8 @@
      "checked_on": "2026-10-19",
      "note": null
     }
-   }
+   },
+   "label": "Deepgram"
   },
   {
    "provider": "assemblyai",
@@ -32158,7 +36447,8 @@
      "checked_on": "2026-10-19",
      "note": null
     }
-   }
+   },
+   "label": "AssemblyAI"
   },
   {
    "provider": "elevenlabs-scribe",
@@ -32233,7 +36523,8 @@
      "checked_on": "2026-10-19",
      "note": null
     }
-   }
+   },
+   "label": "ElevenLabs Scribe"
   },
   {
    "provider": "gemini-flash",
@@ -32308,7 +36599,8 @@
      "checked_on": "2026-10-19",
      "note": null
     }
-   }
+   },
+   "label": "Gemini Flash"
   },
   {
    "provider": "aws-transcribe",
@@ -32383,7 +36675,8 @@
      "checked_on": "2026-10-19",
      "note": null
     }
-   }
+   },
+   "label": "AWS Transcribe"
   },
   {
    "provider": "cf-whisper-large-v3-turbo",
@@ -32458,7 +36751,8 @@
      "checked_on": "2026-10-19",
      "note": null
     }
-   }
+   },
+   "label": "Whisper large-v3 turbo (Workers AI)"
   },
   {
    "provider": "cf-whisper",
@@ -32533,7 +36827,8 @@
      "checked_on": "2026-10-19",
      "note": null
     }
-   }
+   },
+   "label": "Whisper (Workers AI)"
   },
   {
    "provider": "cf-whisper-tiny-en",
@@ -32604,7 +36899,8 @@
      "checked_on": "2026-10-19",
      "note": null
     }
-   }
+   },
+   "label": "Whisper tiny English (Workers AI)"
   },
   {
    "provider": "cf-deepgram-nova-3",
@@ -32679,7 +36975,8 @@
      "checked_on": "2026-10-19",
      "note": null
     }
-   }
+   },
+   "label": "Deepgram Nova-3 (Workers AI)"
   }
  ]
 }

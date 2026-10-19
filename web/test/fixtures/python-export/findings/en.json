@@ -1,7 +1,7 @@
 {
  "lang": "en",
  "run_id": "20261019-0900-synth",
- "created_at": "2026-10-19T18:25:45Z",
+ "created_at": "2026-10-19T18:38:23Z",
  "published": true,
  "findings": [
   {
@@ -23,7 +23,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.15566625155666253,
     "loser_error_rate_slice": 0.20266836086404066,
-    "p_adjusted": 0.004556962025316456,
+    "p_adjusted": 0.004560000000000001,
     "diff": 0.04447268106734434,
     "ci_low": -0.06948214095175487,
     "ci_high": -0.01814009056669406,
@@ -34,7 +34,7 @@
   {
    "id": "1bc0dcf421",
    "slug": "wer-synth-a-beats-synth-b-audio-condition-no-music",
-   "text": "synth-a beats synth-b on wer on clips without music: 4.7 points fewer errors (95% CI 1.6 to 7.5) on the 83 clips both scored (adjusted p=0.00818).",
+   "text": "synth-a beats synth-b on wer on clips without music: 4.7 points fewer errors (95% CI 1.6 to 7.5) on the 83 clips both scored (adjusted p=0.00826).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -50,7 +50,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.17253521126760563,
     "loser_error_rate_slice": 0.223731884057971,
-    "p_adjusted": 0.00818181818181818,
+    "p_adjusted": 0.008260869565217393,
     "diff": 0.047101449275362306,
     "ci_low": -0.07531329939000393,
     "ci_high": -0.016482763123530947,
@@ -104,7 +104,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.2054263565891473,
     "loser_error_rate_slice": 0.2364341085271318,
-    "p_adjusted": 0.03495145631067961,
+    "p_adjusted": 0.03496932515337423,
     "diff": 0.031007751937984496,
     "ci_low": -0.05952507598784193,
     "ci_high": -0.007379395485131333,
@@ -131,7 +131,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.15566625155666253,
     "loser_error_rate_slice": 0.18244084682440848,
-    "p_adjusted": 0.004556962025316456,
+    "p_adjusted": 0.004560000000000001,
     "diff": 0.02677459526774595,
     "ci_low": -0.043272243531387956,
     "ci_high": -0.010544765785331436,
@@ -169,7 +169,7 @@
   {
    "id": "7e6f98b445",
    "slug": "wer-synth-a-beats-synth-d-category-cooking-tutorial",
-   "text": "synth-a beats synth-d on wer on cooking tutorial clips: 4.2 points fewer errors (95% CI 0.4 to 7.8) on the 20 clips both scored (adjusted p=0.0475).",
+   "text": "synth-a beats synth-d on wer on cooking tutorial clips: 4.2 points fewer errors (95% CI 0.4 to 7.8) on the 20 clips both scored (adjusted p=0.0481).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -185,7 +185,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.09923664122137404,
     "loser_error_rate_slice": 0.14122137404580154,
-    "p_adjusted": 0.047547169811320754,
+    "p_adjusted": 0.04807228915662651,
     "diff": 0.041984732824427495,
     "ci_low": -0.07782101167315174,
     "ci_high": -0.003967472815898014,
@@ -331,7 +331,7 @@
   {
    "id": "528ecfd185",
    "slug": "wer-synth-a-beats-synth-e-category-cooking-tutorial",
-   "text": "synth-a beats synth-e on wer on cooking tutorial clips: 6.1 points fewer errors (95% CI 1.8 to 10.3) on the 20 clips both scored (adjusted p=0.022).",
+   "text": "synth-a beats synth-e on wer on cooking tutorial clips: 6.1 points fewer errors (95% CI 1.8 to 10.3) on the 20 clips both scored (adjusted p=0.0222).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -347,7 +347,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.09923664122137404,
     "loser_error_rate_slice": 0.16030534351145037,
-    "p_adjusted": 0.022040816326530613,
+    "p_adjusted": 0.022207792207792208,
     "diff": 0.06106870229007633,
     "ci_low": -0.10266422699469485,
     "ci_high": -0.01824486935364434,
@@ -358,7 +358,7 @@
   {
    "id": "36a1cf8fdb",
    "slug": "wer-synth-a-beats-synth-e-category-gaming",
-   "text": "synth-a beats synth-e on wer on gaming clips: 7.7 points fewer errors (95% CI 2.3 to 13.6) on the 20 clips both scored (adjusted p=0.00818).",
+   "text": "synth-a beats synth-e on wer on gaming clips: 7.7 points fewer errors (95% CI 2.3 to 13.6) on the 20 clips both scored (adjusted p=0.00826).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -374,7 +374,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.09225092250922509,
     "loser_error_rate_slice": 0.16974169741697417,
-    "p_adjusted": 0.00818181818181818,
+    "p_adjusted": 0.008260869565217393,
     "diff": 0.07749077490774908,
     "ci_low": -0.13638047138047138,
     "ci_high": -0.02280725578204066,
@@ -412,7 +412,7 @@
   {
    "id": "ded43d664b",
    "slug": "wer-synth-a-beats-synth-e-category-vlog-music",
-   "text": "synth-a beats synth-e on wer on vlog music clips: 6.6 points fewer errors (95% CI 1.7 to 12.3) on the 20 clips both scored (adjusted p=0.00818).",
+   "text": "synth-a beats synth-e on wer on vlog music clips: 6.6 points fewer errors (95% CI 1.7 to 12.3) on the 20 clips both scored (adjusted p=0.00826).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -428,7 +428,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.2054263565891473,
     "loser_error_rate_slice": 0.2713178294573643,
-    "p_adjusted": 0.00818181818181818,
+    "p_adjusted": 0.008260869565217393,
     "diff": 0.06589147286821703,
     "ci_low": -0.12260714438319871,
     "ci_high": -0.016525538544912614,
@@ -628,7 +628,7 @@
   {
    "id": "0b09322473",
    "slug": "wer-synth-a-beats-synth-f-category-news-explainer",
-   "text": "synth-a beats synth-f on wer on news explainer clips: 11.3 points fewer errors (95% CI 3.7 to 18.4) on the 20 clips both scored (adjusted p=0.0155).",
+   "text": "synth-a beats synth-f on wer on news explainer clips: 11.3 points fewer errors (95% CI 3.7 to 18.4) on the 20 clips both scored (adjusted p=0.0156).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -644,7 +644,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.2518796992481203,
     "loser_error_rate_slice": 0.36466165413533835,
-    "p_adjusted": 0.015483870967741935,
+    "p_adjusted": 0.015616438356164386,
     "diff": 0.11278195488721804,
     "ci_low": -0.18422482837528606,
     "ci_high": -0.037269925078166545,
@@ -736,7 +736,7 @@
   {
    "id": "554ac5d292",
    "slug": "wer-synth-b-beats-synth-e",
-   "text": "synth-b beats synth-e on wer on all clips: 3.5 points fewer errors (95% CI 0.7 to 6.0) on the 118 clips both scored (adjusted p=0.0155).",
+   "text": "synth-b beats synth-e on wer on all clips: 3.5 points fewer errors (95% CI 0.7 to 6.0) on the 118 clips both scored (adjusted p=0.0156).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -752,7 +752,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.20266836086404066,
     "loser_error_rate_slice": 0.23412204234122042,
-    "p_adjusted": 0.015483870967741935,
+    "p_adjusted": 0.015616438356164386,
     "diff": 0.03494282083862771,
     "ci_low": -0.06005318566080566,
     "ci_high": -0.006974061565099065,
@@ -914,7 +914,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.1183206106870229,
     "loser_error_rate_slice": 0.22137404580152673,
-    "p_adjusted": 0.004556962025316456,
+    "p_adjusted": 0.004560000000000001,
     "diff": 0.10305343511450382,
     "ci_low": -0.16602316602316602,
     "ci_high": -0.0389067354387235,
@@ -925,7 +925,7 @@
   {
    "id": "baf6a690da",
    "slug": "wer-synth-b-beats-synth-f-category-gaming",
-   "text": "synth-b beats synth-f on wer on gaming clips: 6.3 points fewer errors (95% CI 1.5 to 10.9) on the 20 clips both scored (adjusted p=0.022).",
+   "text": "synth-b beats synth-f on wer on gaming clips: 6.3 points fewer errors (95% CI 1.5 to 10.9) on the 20 clips both scored (adjusted p=0.0222).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -941,7 +941,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.14391143911439114,
     "loser_error_rate_slice": 0.2066420664206642,
-    "p_adjusted": 0.022040816326530613,
+    "p_adjusted": 0.022207792207792208,
     "diff": 0.06273062730627307,
     "ci_low": -0.10861996483986855,
     "ci_high": -0.014922609176340524,
@@ -979,7 +979,7 @@
   {
    "id": "ffd611e07c",
    "slug": "wer-synth-b-beats-synth-f-category-vlog-music",
-   "text": "synth-b beats synth-f on wer on vlog music clips: 7.5 points fewer errors (95% CI 1.7 to 14.2) on the 19 clips both scored (adjusted p=0.022).",
+   "text": "synth-b beats synth-f on wer on vlog music clips: 7.5 points fewer errors (95% CI 1.7 to 14.2) on the 19 clips both scored (adjusted p=0.0222).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -995,7 +995,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.25311203319502074,
     "loser_error_rate_slice": 0.32558139534883723,
-    "p_adjusted": 0.022040816326530613,
+    "p_adjusted": 0.022207792207792208,
     "diff": 0.07468879668049794,
     "ci_low": -0.14224183018323475,
     "ci_high": -0.0165272251130837,
@@ -1033,7 +1033,7 @@
   {
    "id": "f34f238026",
    "slug": "wer-synth-c-beats-synth-a-audio-condition-music",
-   "text": "synth-c beats synth-a on wer on clips with music under the speech: 3.8 points fewer errors (95% CI 0.9 to 6.8) on the 35 clips both scored (adjusted p=0.00818).",
+   "text": "synth-c beats synth-a on wer on clips with music under the speech: 3.8 points fewer errors (95% CI 0.9 to 6.8) on the 35 clips both scored (adjusted p=0.00826).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -1049,7 +1049,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.07659574468085106,
     "loser_error_rate_slice": 0.1148936170212766,
-    "p_adjusted": 0.00818181818181818,
+    "p_adjusted": 0.008260869565217393,
     "diff": 0.03829787234042553,
     "ci_low": 0.008676789587852493,
     "ci_high": 0.06790824915824915,
@@ -1060,7 +1060,7 @@
   {
    "id": "a56f5052e2",
    "slug": "wer-synth-c-beats-synth-a-category-news-explainer",
-   "text": "synth-c beats synth-a on wer on news explainer clips: 4.5 points fewer errors (95% CI 1.1 to 8.6) on the 20 clips both scored (adjusted p=0.0381).",
+   "text": "synth-c beats synth-a on wer on news explainer clips: 4.5 points fewer errors (95% CI 1.1 to 8.6) on the 20 clips both scored (adjusted p=0.0382).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -1076,7 +1076,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.20676691729323307,
     "loser_error_rate_slice": 0.2518796992481203,
-    "p_adjusted": 0.03807692307692308,
+    "p_adjusted": 0.03823170731707317,
     "diff": 0.04511278195488724,
     "ci_low": 0.011317586595325259,
     "ci_high": 0.08560589216231242,
@@ -1087,7 +1087,7 @@
   {
    "id": "5d2d61be95",
    "slug": "wer-synth-c-beats-synth-a-category-talking-head",
-   "text": "synth-c beats synth-a on wer on talking head clips: 2.8 points fewer errors (95% CI 1.0 to 5.1) on the 20 clips both scored (adjusted p=0.0155).",
+   "text": "synth-c beats synth-a on wer on talking head clips: 2.8 points fewer errors (95% CI 1.0 to 5.1) on the 20 clips both scored (adjusted p=0.0156).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -1103,7 +1103,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.1696113074204947,
     "loser_error_rate_slice": 0.1978798586572438,
-    "p_adjusted": 0.015483870967741935,
+    "p_adjusted": 0.015616438356164386,
     "diff": 0.028268551236749095,
     "ci_low": 0.01013428200928199,
     "ci_high": 0.050724637681159424,
@@ -1114,7 +1114,7 @@
   {
    "id": "cf2652f736",
    "slug": "wer-synth-c-beats-synth-a-tag-background-music",
-   "text": "synth-c beats synth-a on wer on clips tagged background music: 3.8 points fewer errors (95% CI 0.9 to 6.8) on the 35 clips both scored (adjusted p=0.00818).",
+   "text": "synth-c beats synth-a on wer on clips tagged background music: 3.8 points fewer errors (95% CI 0.9 to 6.8) on the 35 clips both scored (adjusted p=0.00826).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -1130,7 +1130,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.07659574468085106,
     "loser_error_rate_slice": 0.1148936170212766,
-    "p_adjusted": 0.00818181818181818,
+    "p_adjusted": 0.008260869565217393,
     "diff": 0.03829787234042553,
     "ci_low": 0.008676789587852493,
     "ci_high": 0.06790824915824915,
@@ -1195,7 +1195,7 @@
   {
    "id": "121090b9e3",
    "slug": "wer-synth-c-beats-synth-b-audio-condition-no-music",
-   "text": "synth-c beats synth-b on wer on clips without music: 5.0 points fewer errors (95% CI 2.0 to 8.1) on the 83 clips both scored (adjusted p=0.00818).",
+   "text": "synth-c beats synth-b on wer on clips without music: 5.0 points fewer errors (95% CI 2.0 to 8.1) on the 83 clips both scored (adjusted p=0.00826).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -1211,7 +1211,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.16901408450704225,
     "loser_error_rate_slice": 0.223731884057971,
-    "p_adjusted": 0.00818181818181818,
+    "p_adjusted": 0.008260869565217393,
     "diff": 0.049818840579710144,
     "ci_low": 0.019674501218555074,
     "ci_high": 0.08053202319740771,
@@ -1249,7 +1249,7 @@
   {
    "id": "1714b6bc05",
    "slug": "wer-synth-c-beats-synth-b-category-gaming",
-   "text": "synth-c beats synth-b on wer on gaming clips: 5.9 points fewer errors (95% CI 1.4 to 10.9) on the 20 clips both scored (adjusted p=0.00818).",
+   "text": "synth-c beats synth-b on wer on gaming clips: 5.9 points fewer errors (95% CI 1.4 to 10.9) on the 20 clips both scored (adjusted p=0.00826).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -1265,7 +1265,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.08487084870848709,
     "loser_error_rate_slice": 0.14391143911439114,
-    "p_adjusted": 0.00818181818181818,
+    "p_adjusted": 0.008260869565217393,
     "diff": 0.05904059040590405,
     "ci_low": 0.013735632183908048,
     "ci_high": 0.10852713178294573,
@@ -1384,7 +1384,7 @@
   {
    "id": "6657b3fd2f",
    "slug": "wer-synth-c-beats-synth-d-category-cooking-tutorial",
-   "text": "synth-c beats synth-d on wer on cooking tutorial clips: 5.3 points fewer errors (95% CI 1.1 to 9.3) on the 20 clips both scored (adjusted p=0.0324).",
+   "text": "synth-c beats synth-d on wer on cooking tutorial clips: 5.3 points fewer errors (95% CI 1.1 to 9.3) on the 20 clips both scored (adjusted p=0.0323).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -1400,7 +1400,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.08778625954198473,
     "loser_error_rate_slice": 0.14122137404580154,
-    "p_adjusted": 0.0324,
+    "p_adjusted": 0.03226415094339623,
     "diff": 0.053435114503816813,
     "ci_low": -0.09293896429497708,
     "ci_high": -0.01107521885118126,
@@ -1411,7 +1411,7 @@
   {
    "id": "a649b940c0",
    "slug": "wer-synth-c-beats-synth-d-category-news-explainer",
-   "text": "synth-c beats synth-d on wer on news explainer clips: 2.6 points fewer errors (95% CI 0.8 to 4.9) on the 20 clips both scored (adjusted p=0.00818).",
+   "text": "synth-c beats synth-d on wer on news explainer clips: 2.6 points fewer errors (95% CI 0.8 to 4.9) on the 20 clips both scored (adjusted p=0.00826).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -1427,7 +1427,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.20676691729323307,
     "loser_error_rate_slice": 0.23308270676691728,
-    "p_adjusted": 0.00818181818181818,
+    "p_adjusted": 0.008260869565217393,
     "diff": 0.02631578947368421,
     "ci_low": -0.04869832520669918,
     "ci_high": -0.007547169811320753,
@@ -1616,7 +1616,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.08778625954198473,
     "loser_error_rate_slice": 0.16030534351145037,
-    "p_adjusted": 0.004556962025316456,
+    "p_adjusted": 0.004560000000000001,
     "diff": 0.07251908396946564,
     "ci_low": -0.11154850746268657,
     "ci_high": -0.027559055118110243,
@@ -1643,7 +1643,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.08487084870848709,
     "loser_error_rate_slice": 0.16974169741697417,
-    "p_adjusted": 0.012134831460674157,
+    "p_adjusted": 0.012127659574468085,
     "diff": 0.08487084870848709,
     "ci_low": -0.14926770641176143,
     "ci_high": -0.026019895360044062,
@@ -1951,7 +1951,7 @@
   {
    "id": "82fc30b789",
    "slug": "wer-synth-c-beats-synth-f-category-vlog-music",
-   "text": "synth-c beats synth-f on wer on vlog music clips: 8.9 points fewer errors (95% CI 1.2 to 16.2) on the 20 clips both scored (adjusted p=0.0411).",
+   "text": "synth-c beats synth-f on wer on vlog music clips: 8.9 points fewer errors (95% CI 1.2 to 16.2) on the 20 clips both scored (adjusted p=0.0415).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -1967,7 +1967,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.2364341085271318,
     "loser_error_rate_slice": 0.32558139534883723,
-    "p_adjusted": 0.04114285714285715,
+    "p_adjusted": 0.04145454545454545,
     "diff": 0.08914728682170545,
     "ci_low": -0.16236762367623678,
     "ci_high": -0.012186686590186077,
@@ -2059,7 +2059,7 @@
   {
    "id": "f75486a896",
    "slug": "wer-synth-d-beats-synth-e-audio-condition-no-music",
-   "text": "synth-d beats synth-e on wer on clips without music: 3.0 points fewer errors (95% CI 0.9 to 5.1) on the 85 clips both scored (adjusted p=0.00818).",
+   "text": "synth-d beats synth-e on wer on clips without music: 3.0 points fewer errors (95% CI 0.9 to 5.1) on the 85 clips both scored (adjusted p=0.00826).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -2075,7 +2075,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.20158450704225353,
     "loser_error_rate_slice": 0.23151408450704225,
-    "p_adjusted": 0.00818181818181818,
+    "p_adjusted": 0.008260869565217393,
     "diff": 0.02992957746478872,
     "ci_low": -0.05142344241544277,
     "ci_high": -0.00874588691944138,
@@ -2113,7 +2113,7 @@
   {
    "id": "90400d3166",
    "slug": "wer-synth-d-beats-synth-e-category-gaming",
-   "text": "synth-d beats synth-e on wer on gaming clips: 7.4 points fewer errors (95% CI 1.5 to 14.5) on the 20 clips both scored (adjusted p=0.0189).",
+   "text": "synth-d beats synth-e on wer on gaming clips: 7.4 points fewer errors (95% CI 1.5 to 14.5) on the 20 clips both scored (adjusted p=0.019).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -2129,7 +2129,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.0959409594095941,
     "loser_error_rate_slice": 0.16974169741697417,
-    "p_adjusted": 0.018947368421052633,
+    "p_adjusted": 0.019,
     "diff": 0.07380073800738007,
     "ci_low": -0.1445439229484733,
     "ci_high": -0.014793416854491764,
@@ -2140,7 +2140,7 @@
   {
    "id": "037b534b7f",
    "slug": "wer-synth-d-beats-synth-e-category-news-explainer",
-   "text": "synth-d beats synth-e on wer on news explainer clips: 5.6 points fewer errors (95% CI 0.7 to 10.8) on the 20 clips both scored (adjusted p=0.0324).",
+   "text": "synth-d beats synth-e on wer on news explainer clips: 5.6 points fewer errors (95% CI 0.7 to 10.8) on the 20 clips both scored (adjusted p=0.0323).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -2156,7 +2156,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.23308270676691728,
     "loser_error_rate_slice": 0.2894736842105263,
-    "p_adjusted": 0.0324,
+    "p_adjusted": 0.03226415094339623,
     "diff": 0.05639097744360905,
     "ci_low": -0.10832123177981053,
     "ci_high": -0.007490636704119867,
@@ -2318,7 +2318,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.14122137404580154,
     "loser_error_rate_slice": 0.22137404580152673,
-    "p_adjusted": 0.004556962025316456,
+    "p_adjusted": 0.004560000000000001,
     "diff": 0.08015267175572519,
     "ci_low": -0.13765540820555325,
     "ci_high": -0.023076923076923078,
@@ -2383,7 +2383,7 @@
   {
    "id": "9657ba4f7c",
    "slug": "wer-synth-d-beats-synth-f-category-vlog-music",
-   "text": "synth-d beats synth-f on wer on vlog music clips: 8.9 points fewer errors (95% CI 2.4 to 15.4) on the 20 clips both scored (adjusted p=0.0189).",
+   "text": "synth-d beats synth-f on wer on vlog music clips: 8.9 points fewer errors (95% CI 2.4 to 15.4) on the 20 clips both scored (adjusted p=0.019).",
    "status": "draft",
    "source": {
     "table": "paired",
@@ -2399,7 +2399,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.2364341085271318,
     "loser_error_rate_slice": 0.32558139534883723,
-    "p_adjusted": 0.018947368421052633,
+    "p_adjusted": 0.019,
     "diff": 0.08914728682170545,
     "ci_low": -0.15352737935766328,
     "ci_high": -0.02428662016487002,
@@ -2480,7 +2480,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.2404255319148936,
     "loser_error_rate_slice": 0.3127659574468085,
-    "p_adjusted": 0.03495145631067961,
+    "p_adjusted": 0.03496932515337423,
     "diff": 0.07234042553191491,
     "ci_low": -0.1244857594936709,
     "ci_high": -0.016839462673419965,
@@ -2507,7 +2507,7 @@
    "numbers": {
     "winner_error_rate_slice": 0.2404255319148936,
     "loser_error_rate_slice": 0.3127659574468085,
-    "p_adjusted": 0.03495145631067961,
+    "p_adjusted": 0.03496932515337423,
     "diff": 0.07234042553191491,
     "ci_low": -0.1244857594936709,
     "ci_high": -0.016839462673419965,

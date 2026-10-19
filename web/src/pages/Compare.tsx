@@ -2,9 +2,9 @@ import { lazy, Suspense, useEffect, useMemo, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Link2 } from "lucide-react";
 import type { Run, SliceKind, Tier } from "@/lib/types";
-import { CAPTION_METRICS, metricValue, sliceLabel } from "@/lib/metrics";
+import { CAPTION_METRICS, SLICE_KIND_LABEL, metricValue, sliceKindsIn, sliceLabel, slicesOf } from "@/lib/metrics";
 import { useRun } from "@/lib/data";
-import { TAG_LABEL, TAG_PHRASE, isPublished, pickMetric, pickTier, aggregatesFor, overall, pair, providerColor, providerLabel, providerOrder, tagsInRun, type SliceQuery } from "@/lib/analysis";
+import { isPublished, pickMetric, pickTier, aggregatesFor, overall, pair, providerColor, providerLabel, providerOrder, type SliceQuery } from "@/lib/analysis";
 import { ms, pct, pValue, pts, usdPerHour, words } from "@/lib/format";
 import { api, type SavedComparison } from "@/lib/api";
 import { ACCOUNTS } from "@/lib/flags";
@@ -44,11 +44,16 @@ export default function Compare() {
   const focusKind = params.get("slice_kind");
   const focus = focusKind && focusKind !== "all" && params.get("slice") ? { kind: focusKind as SliceKind, slice: params.get("slice")! } : null;
   const tagsParam = params.get("tags");
-  // Only clip types this run and tier have; an unknown tag would add an empty "x" row and count as picked.
+  // Group rows by condition, category, clip type or audio (A4). Old links with ?tags= and no ?by= mean clip types.
+  const groupKinds = run ? sliceKindsIn(run, tier).filter((k): k is GroupKind => k !== "all" && k !== "duration") : [];
+  const wantedBy = params.get("by") ?? (tagsParam ? "tag" : null);
+  const by: GroupKind = groupKinds.includes(wantedBy as GroupKind) ? (wantedBy as GroupKind) : (groupKinds[0] ?? "tag");
+  const groupValues = useMemo(() => (run ? slicesOf(run, tier, by) : []), [run, tier, by]);
+  // Only slices this run and tier have; an unknown value would add an empty "x" row and count as picked.
   const tags = useMemo(() => {
-    const known = run ? new Set(tagsInRun(run, tier)) : null;
+    const known = run ? new Set(groupValues) : null;
     return [...new Set((tagsParam ?? "").split(",").filter((t) => t && (!known || known.has(t))))];
-  }, [run, tier, tagsParam]);
+  }, [run, groupValues, tagsParam]);
   const mParam = params.get("m");
   const models = useMemo(() => {
     if (!run) return [];
@@ -123,14 +128,17 @@ export default function Compare() {
                 </div>
               </fieldset>
               <fieldset>
-                <legend className="label mb-2.5">
-                  Clip types <span className="normal-case">({tags.length ? `${tags.length} picked` : "all"})</span>
-                </legend>
+                <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+                  <legend className="label">
+                    {SLICE_KIND_LABEL[by]} <span className="normal-case">({tags.length ? `${tags.length} picked` : "all"})</span>
+                  </legend>
+                  {groupKinds.length > 1 && <Segmented label="Group by" value={by} onChange={(v) => update({ by: v, tags: null })} options={groupKinds.map((k) => ({ value: k, label: SLICE_KIND_LABEL[k] }))} />}
+                </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {tagsInRun(run, tier).length === 0 && <span className="py-1.5 text-[13px] text-ink-3">No clip types tagged in this run yet.</span>}
-                  {tagsInRun(run, tier).map((t) => (
+                  {groupValues.length === 0 && <span className="py-1.5 text-[13px] text-ink-3">No slices of this kind in this run yet.</span>}
+                  {groupValues.map((t) => (
                     <Chip key={t} pressed={tags.includes(t)} onClick={() => toggleTag(t)}>
-                      {TAG_LABEL[t]}
+                      {sliceLabel(by, t)}
                     </Chip>
                   ))}
                   {tags.length > 0 && (
@@ -142,9 +150,9 @@ export default function Compare() {
               </fieldset>
             </div>
             <TierNote tier={tier} className="-mt-3" />
-            <SideBySide run={run} models={models} tier={tier} metric={metric} tags={tags} focus={focus} />
-            <Verdicts run={run} models={models} tier={tier} metric={metric} tags={tags} focus={focus} />
-            <PerType run={run} models={models} tier={tier} metric={metric} tags={tags} />
+            <SideBySide run={run} models={models} tier={tier} metric={metric} tags={tags} focus={focus} by={by} groups={groupValues} />
+            <Verdicts run={run} models={models} tier={tier} metric={metric} tags={tags} focus={focus} by={by} groups={groupValues} />
+            <PerType run={run} models={models} tier={tier} metric={metric} tags={tags} by={by} groups={groupValues} />
           </>
         )}
       </div>
@@ -171,7 +179,8 @@ function useSharedComparison(id: string | null, apply: (c: SavedComparison) => v
 
 function ShareSave({ run, models, tier, metric, tags }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[] }) {
   const share = async () => {
-    const url = `${location.origin}/compare?${new URLSearchParams({ m: models.join(","), tier, metric, ...(tags.length ? { tags: tags.join(",") } : {}) })}`;
+    const by = new URLSearchParams(location.search).get("by");
+    const url = `${location.origin}/compare?${new URLSearchParams({ m: models.join(","), tier, metric, ...(by ? { by } : {}), ...(tags.length ? { tags: tags.join(",") } : {}) })}`;
     try {
       await navigator.clipboard.writeText(url);
       toast("Link copied", { description: "Anyone can open it. No account needed." });
@@ -195,7 +204,10 @@ function ShareSave({ run, models, tier, metric, tags }: { run: Run; models: stri
 
 // ---------------------------------------------------------------- side by side
 
-function SideBySide({ run, models, tier, metric, tags, focus }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[]; focus: Focus }) {
+type GroupKind = Exclude<SliceKind, "all" | "duration">;
+type GroupProps = { by: GroupKind; groups: string[] };
+
+function SideBySide({ run, models, tier, metric, tags, focus, by, groups }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[]; focus: Focus } & GroupProps) {
   const all = overall(run, tier, metric);
   const get = (kind: SliceKind, slice: string) => aggregatesFor(run, { tier, metric, kind, slice });
   const allRows = get("all", "all");
@@ -205,7 +217,7 @@ function SideBySide({ run, models, tier, metric, tags, focus }: { run: Run; mode
     const xs = vals.filter((v): v is number => v != null);
     return xs.length ? Math.min(...xs) : null;
   };
-  const showTags = tags.length ? tags : tagsInRun(run, tier);
+  const showTags = tags.length ? tags : groups;
   const metricLabel = run.metrics.find((m) => m.name === metric)?.label ?? metric;
 
   const rateRow = (label: ReactNode, kind: SliceKind, slice: string, big = false) => {
@@ -258,7 +270,7 @@ function SideBySide({ run, models, tier, metric, tags, focus }: { run: Run; mode
       title={`Side by side, ${metricLabel.toLowerCase()}`}
       caption={
         <>
-          Bold marks the lowest value in each row. Clip types with fewer than 15 clips are shown but never bolded.
+          Bold marks the lowest value in each row. Slices with fewer than 15 clips are shown but never bolded.
           {models.length > 2 && <span className="sm:hidden"> Swipe the table sideways for every model.</span>}
         </>
       }
@@ -292,7 +304,7 @@ function SideBySide({ run, models, tier, metric, tags, focus }: { run: Run; mode
           <tbody>
             {rateRow(<span className="font-medium text-ink">All clips</span>, "all", "all", true)}
             {focus && rateRow(<span className="font-medium text-ink">{sliceLabel(focus.kind, focus.slice)}</span>, focus.kind, focus.slice, true)}
-            {showTags.map((t) => rateRow(TAG_LABEL[t] ?? t, "tag", t))}
+            {showTags.map((t) => rateRow(sliceLabel(by, t), by, t))}
             {plain("Hallucination", aggs.map((a) => pct(a?.hallucination_rate, 2)), argmin(aggs.map((a) => a?.hallucination_rate)))}
             {plain("Price per hour", aggs.map((a) => usdPerHour(a?.cost_per_hour)), argmin(aggs.map((a) => a?.cost_per_hour)))}
             {plain("Latency p50", aggs.map((a) => ms(a?.latency_p50)), argmin(aggs.map((a) => a?.latency_p50)))}
@@ -331,19 +343,19 @@ function Td({ children }: { children: ReactNode }) {
 
 // ---------------------------------------------------------------- verdicts
 
-function Verdicts({ run, models, tier, metric, tags, focus }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[]; focus: Focus }) {
+function Verdicts({ run, models, tier, metric, tags, focus, by, groups }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[]; focus: Focus } & GroupProps) {
   const pairs: [string, string][] = [];
   for (let i = 0; i < models.length; i++) for (let j = i + 1; j < models.length; j++) pairs.push([models[i]!, models[j]!]);
   const slices: { label: string; q: SliceQuery }[] = [
     { label: "All clips", q: { tier, metric, kind: "all", slice: "all" } },
     ...(focus ? [{ label: sliceLabel(focus.kind, focus.slice), q: { tier, metric, kind: focus.kind, slice: focus.slice } }] : []),
-    ...(tags.length ? tags : tagsInRun(run, tier).slice(0, 3)).map((t) => ({ label: TAG_LABEL[t] ?? t, q: { tier, metric, kind: "tag" as const, slice: t } })),
+    ...(tags.length ? tags : groups.slice(0, 3)).map((t) => ({ label: sliceLabel(by, t), q: { tier, metric, kind: by, slice: t } })),
   ];
   return (
     <Figure
       n={2}
       title="Paired verdicts"
-      caption={tags.length || !tagsInRun(run, tier).length ? "Each cell is a paired bootstrap on the clips both models scored in that slice." : "Each cell is a paired bootstrap on the clips both models scored. Pick clip types above to change the columns."}
+      caption={tags.length || !groups.length ? "Each cell is a paired bootstrap on the clips both models scored in that slice." : "Each cell is a paired bootstrap on the clips both models scored. Pick slices above to change the columns."}
       source={`source: paired, tier=${tier}, metric=${metric}, 1000 resamples`}
       bodyClassName="p-0 sm:p-0"
     >
@@ -412,24 +424,24 @@ function Verdicts({ run, models, tier, metric, tags, focus }: { run: Run; models
 
 // ---------------------------------------------------------------- per type chart
 
-function PerType({ run, models, tier, metric, tags }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[] }) {
-  const show = tags.length ? tags : tagsInRun(run, tier);
-  const data = show.map((t) => ({ tag: t, rows: models.map((m) => aggregatesFor(run, { tier, metric, kind: "tag", slice: t }).find((a) => a.provider === m)) }));
+function PerType({ run, models, tier, metric, tags, by, groups }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[] } & GroupProps) {
+  const show = tags.length ? tags : groups;
+  const data = show.map((t) => ({ tag: t, rows: models.map((m) => aggregatesFor(run, { tier, metric, kind: by, slice: t }).find((a) => a.provider === m)) }));
   const max = Math.max(0.01, ...data.flatMap((d) => d.rows.map((r) => r?.ci_high ?? 0))) * 1.05;
   const w = (v: number) => `${(v / max) * 100}%`;
   return (
     <Figure
       n={3}
-      title="Error rate by clip type"
-      caption="One group per clip type, one bar per model, with 95% intervals. Hatched bars have fewer than 15 clips."
-      source={`source: aggregates, tier=${tier}, metric=${metric}, slice_kind=tag`}
+      title={`Error rate by ${SLICE_KIND_LABEL[by].toLowerCase()}`}
+      caption={`One group per ${SLICE_KIND_LABEL[by].toLowerCase()}, one bar per model, with 95% intervals. Hatched bars have fewer than 15 clips.`}
+      source={`source: aggregates, tier=${tier}, metric=${metric}, slice_kind=${by}`}
     >
-      {data.length === 0 && <EmptyState title="No clip types tagged in this run yet." body="Clip types are tagged when a person verifies a clip. This chart fills in once verified clips land." />}
+      {data.length === 0 && <EmptyState title="No slices of this kind in this run yet." body="Conditions and clip types are tagged when a person verifies a clip. This chart fills in once verified clips land." />}
       <div className="grid gap-6 sm:grid-cols-2 sm:gap-x-10">
         {data.map((d) => (
           <div key={d.tag}>
             <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-line pb-1.5">
-              <span className="text-[13.5px] font-medium text-ink">{TAG_LABEL[d.tag]}</span>
+              <span className="text-[13.5px] font-medium text-ink">{sliceLabel(by, d.tag)}</span>
               <span className="num text-[11px] text-ink-3">{d.rows[0]?.n_clips ?? 0} clips</span>
             </div>
             <div className="grid gap-1.5">
@@ -437,7 +449,7 @@ function PerType({ run, models, tier, metric, tags }: { run: Run; models: string
                 r ? (
                   <div key={models[i]} className="grid grid-cols-[72px_minmax(0,1fr)_48px] items-center gap-2">
                     <span className="truncate text-[12px] text-ink-2">{providerLabel(run, r.provider)}</span>
-                    <span className="relative h-5" role="img" aria-label={`${providerLabel(run, r.provider)} on ${TAG_PHRASE[d.tag]}: ${pct(r.error_rate)}, interval ${pct(r.ci_low)} to ${pct(r.ci_high)}`}>
+                    <span className="relative h-5" role="img" aria-label={`${providerLabel(run, r.provider)} on ${sliceLabel(by, d.tag).toLowerCase()}: ${pct(r.error_rate)}, interval ${pct(r.ci_low)} to ${pct(r.ci_high)}`}>
                       <span className="absolute inset-y-0 left-0 w-px bg-line-strong" />
                       <span className={cn("absolute top-[3px] bottom-[3px] left-0 rounded-r-[4px] transition-[width] duration-500", r.too_small && "hatch border border-line")} style={{ width: w(r.error_rate), background: r.too_small ? undefined : providerColor(run, r.provider) }} />
                       <span className="absolute top-1/2 h-px -translate-y-1/2 bg-ink" style={{ left: w(r.ci_low), width: `calc(${w(r.ci_high)} - ${w(r.ci_low)})` }}>

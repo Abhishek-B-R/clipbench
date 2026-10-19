@@ -2,8 +2,9 @@ import { useState } from "react";
 import { maxOf } from "@/lib/scale";
 import { Link } from "react-router";
 import { ArrowUpRight } from "lucide-react";
-import type { Run, Tier } from "@/lib/types";
-import { TIER_LABEL, defaultTier, tiersInRun, overall, pair, primaryMetric, providerColor, providerLabel } from "@/lib/analysis";
+import type { Run, SliceKind, Tier } from "@/lib/types";
+import { sliceLabel } from "@/lib/metrics";
+import { TIER_LABEL, aggregatesFor, defaultTier, tiersInRun, pair, primaryMetric, providerColor, providerLabel } from "@/lib/analysis";
 import { ms, pct, usdPerHour } from "@/lib/format";
 import { Figure } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
@@ -13,10 +14,11 @@ import { Badge, SeriesDot } from "@/components/ui/Badge";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { Aggregate } from "@/lib/types";
 
-export function MiniLeaderboard({ run }: { run: Run }) {
+/** Compact board. `kind`/`slice` narrow it to one condition or category (A4); default all clips. */
+export function MiniLeaderboard({ run, kind = "all", slice = "all" }: { run: Run; kind?: SliceKind; slice?: string }) {
   const [tier, setTier] = useState<Tier>(defaultTier(run));
   const metric = primaryMetric(run);
-  const rows = overall(run, tier, metric.name);
+  const rows = aggregatesFor(run, { tier, metric: metric.name, kind, slice });
   const leader = rows[0];
   const max = maxOf(rows.map((r) => r.ci_high), 0.1) * 1.08 || 0.1;
 
@@ -54,7 +56,7 @@ export function MiniLeaderboard({ run }: { run: Run }) {
       header: "vs leader",
       cell: (r) => {
         if (!leader || r.provider === leader.provider) return <Badge tone="good">Lowest</Badge>;
-        const t = pair(run, { tier, metric: metric.name, kind: "all", slice: "all" }, r.provider, leader.provider);
+        const t = pair(run, { tier, metric: metric.name, kind, slice }, r.provider, leader.provider);
         if (!t) return <span className="text-[12.5px] text-ink-3">not tested</span>;
         if (t.better === leader.provider)
           return (
@@ -74,7 +76,7 @@ export function MiniLeaderboard({ run }: { run: Run }) {
   return (
     <Figure
       n={1}
-      title={`Overall ${metric.label.toLowerCase()}, ${TIER_LABEL[tier].toLowerCase()}`}
+      title={`${kind === "all" ? "Overall" : sliceLabel(kind, slice)} ${metric.label.toLowerCase()}, ${TIER_LABEL[tier].toLowerCase()}`}
       caption="Lower is better. The dot is the error rate; the band is its 95% bootstrap interval."
       controls={
         tiersInRun(run).length > 1 ? (
@@ -92,9 +94,9 @@ export function MiniLeaderboard({ run }: { run: Run }) {
       source={
         <span className="flex flex-wrap items-center justify-between gap-2">
           <span>
-            source: aggregates, tier={tier}, metric={metric.name}, slice=all
+            source: aggregates, tier={tier}, metric={metric.name}, slice_kind={kind}, slice={slice}
           </span>
-          <Link to="/leaderboard" className="inline-flex items-center gap-1 text-ink-2 hover:text-ink">
+          <Link to={`/leaderboard?lang=${run.language}${kind === "all" ? "" : `&slice_kind=${kind}&slice=${encodeURIComponent(slice)}`}`} className="inline-flex items-center gap-1 text-ink-2 hover:text-ink">
             Full leaderboard <ArrowUpRight size={12} />
           </Link>
         </span>

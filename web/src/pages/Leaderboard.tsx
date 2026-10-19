@@ -1,9 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { maxOf } from "@/lib/scale";
 import { Link, useSearchParams } from "react-router";
-import { ChevronDown, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import type { Aggregate, Run, SliceKind, Tier } from "@/lib/types";
-import { SLICE_KIND_LABEL, hasCaptionMetrics, sliceKindsIn, sliceLabel, slicesOf } from "@/lib/metrics";
+import { hasCaptionMetrics, sliceKindsIn, sliceLabel, slicesOf } from "@/lib/metrics";
+import { hasLattice, inSlice, latticeFor, v3 } from "@/lib/v3";
+import { SliceFilter, readSlice, sliceParams } from "@/components/ui/SliceFilter";
+import { Tabs, tabPanelProps } from "@/components/ui/Tabs";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { VIEW_LABEL, viewsIn, type LeaderView } from "@/components/v3/views";
 import { CaptionMetricsTable } from "@/components/charts/CaptionMetrics";
 import { loadRun, runUrl, useRunFor } from "@/lib/data";
 import { Gated } from "@/components/ui/Gate";
@@ -21,6 +26,9 @@ import { TierControl } from "@/components/ui/TierControl";
 import { ErrorState } from "@/components/ui/State";
 import { buttonClass } from "@/components/ui/Button";
 
+// Views beyond accuracy (sweeps, long-form, formatting, ...) carry their own chart code: one lazy chunk.
+const LeaderViewPanel = lazy(() => import("@/components/v3/LeaderViews"));
+
 /**
  * Full leaderboard. Reference page for other pages: PageHeader with filters synced to the URL,
  * one Figure holding a DataTable, a source line. Tier and metric live in ?tier= and ?metric=.
@@ -34,15 +42,15 @@ export default function Leaderboard() {
   const tier = pickTier(run ?? undefined, params.get("tier"));
   const metric = pickMetric(run ?? undefined, params.get("metric"));
   const kinds = run ? sliceKindsIn(run, tier) : (["all"] as SliceKind[]);
-  const kind = (kinds.includes(params.get("slice_kind") as SliceKind) ? params.get("slice_kind") : "all") as SliceKind;
-  const values = run ? slicesOf(run, tier, kind) : ["all"];
-  const slice = kind === "all" ? "all" : values.includes(params.get("slice") ?? "") ? params.get("slice")! : (values[0] ?? "all");
+  const { kind, slice, values } = readSlice(params, kinds, (k) => (run ? slicesOf(run, tier, k) : []));
+  const lattice = Boolean(run && hasLattice(run) && params.get("score") === "lattice");
+  const views = run ? viewsIn(run) : (["accuracy"] as LeaderView[]);
+  const view = (views.includes(params.get("view") as LeaderView) ? params.get("view") : "accuracy") as LeaderView;
   const history = useHistory(published ? (run ?? undefined) : undefined);
   const set = (k: string, v: string | null) => {
     const p = new URLSearchParams(params);
     if (v == null || v === "") p.delete(k);
     else p.set(k, v);
-    if (k === "slice_kind") p.delete("slice");
     setParams(p, { replace: true });
   };
 
@@ -75,25 +83,17 @@ export default function Leaderboard() {
             options={run.metrics.map((m) => ({ value: m.name, label: m.label }))}
           />
         )}
-        {run && published && kinds.length > 1 && (
-          <Segmented label="Slice" value={kind} onChange={(v) => set("slice_kind", v === "all" ? null : v)} options={kinds.map((k) => ({ value: k, label: SLICE_KIND_LABEL[k] }))} />
-        )}
-        {run && published && kind !== "all" && (
-          <label className="relative inline-flex">
-            <span className="sr-only">{SLICE_KIND_LABEL[kind]}</span>
-            <select
-              value={slice}
-              onChange={(e) => set("slice", e.target.value)}
-              className="h-8 appearance-none rounded-sm border border-line bg-surface pr-8 pl-2.5 text-[12.5px] text-ink hover:border-line-strong focus:border-ink focus:outline-none"
-            >
-              {values.map((v) => (
-                <option key={v} value={v}>
-                  {sliceLabel(kind, v)}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-ink-3" aria-hidden />
-          </label>
+        {run && published && <SliceFilter kinds={kinds} kind={kind} slice={slice} values={values} onChange={(k, v) => setParams(sliceParams(params, k, v), { replace: true })} />}
+        {run && published && hasLattice(run) && view === "accuracy" && (
+          <Segmented
+            label="Scoring"
+            value={lattice ? "lattice" : "strict"}
+            onChange={(v) => set("score", v === "lattice" ? v : null)}
+            options={[
+              { value: "strict", label: "Strict" },
+              { value: "lattice", label: "Any valid form" },
+            ]}
+          />
         )}
       </PageHeader>
       <div className="frame py-8">
@@ -101,7 +101,20 @@ export default function Leaderboard() {
           <Gated run={run} lang={lang ?? undefined}>
             {run && (
               <div className="grid gap-8">
-                <Board run={run} tier={tier} metric={metric} kind={kind} slice={slice} history={history} highlight={params.get("provider")} />
+                {views.length > 1 && (
+                  <div className="-mt-2 border-b border-line">
+                    <Tabs label="Measure" value={view} onChange={(v) => set("view", v === "accuracy" ? null : v)} tabs={views.map((v) => ({ value: v, label: VIEW_LABEL[v] }))} />
+                  </div>
+                )}
+                {view !== "accuracy" ? (
+                  <div {...tabPanelProps(view)} className="grid gap-8 focus:outline-none">
+                    <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                      <LeaderViewPanel view={view} run={run} tier={tier} metric={metric} kind={kind} slice={slice} n={1} />
+                    </Suspense>
+                  </div>
+                ) : (
+                <div {...tabPanelProps("accuracy")} className="grid gap-8 focus:outline-none">
+                <Board run={run} tier={tier} metric={metric} kind={kind} slice={slice} history={history} highlight={params.get("provider")} lattice={lattice} />
                 {hasCaptionMetrics(run) && (
                   <Figure
                     n={2}
@@ -112,6 +125,8 @@ export default function Leaderboard() {
                   >
                     <CaptionMetricsTable run={run} rows={aggregatesFor(run, { tier, metric, kind, slice })} sort={params.get("sort")} highlight={params.get("provider")} />
                   </Figure>
+                )}
+                </div>
                 )}
               </div>
             )}
@@ -144,9 +159,22 @@ function useHistory(run: Run | undefined) {
   return runs;
 }
 
-function Board({ run, tier, metric, kind, slice, history, highlight }: { run: Run; tier: Tier; metric: string; kind: SliceKind; slice: string; history: Run[]; highlight: string | null }) {
-  const rows = aggregatesFor(run, { tier, metric, kind, slice });
+function Board({ run, tier, metric, kind, slice, history, highlight, lattice }: { run: Run; tier: Tier; metric: string; kind: SliceKind; slice: string; history: Run[]; highlight: string | null; lattice: boolean }) {
+  const strict = aggregatesFor(run, { tier, metric, kind, slice });
+  // "Any valid form" (A7): the same rows scored against the closest valid path through the reference's alternatives.
+  const lat = lattice ? latticeFor(run, tier, metric, kind, slice) : null;
+  const rows = lat
+    ? strict
+        .flatMap((a) => {
+          const l = lat.get(a.provider);
+          return l ? [{ ...a, error_rate: l.error_rate, ci_low: l.ci_low ?? l.error_rate, ci_high: l.ci_high ?? l.error_rate }] : [];
+        })
+        .sort((a, b) => a.error_rate - b.error_rate)
+    : strict;
   const leader = rows[0];
+  const sem = v3(run).semantic;
+  const semRows = sem?.published ? inSlice(sem.rows, tier, kind, slice) : [];
+  const semOf = (id: string) => semRows.find((x) => x.provider === id);
   const max = maxOf(rows.map((r) => r.ci_high), 0.1) * 1.08 || 0.1;
   const trend = useMemo(() => {
     const out: Record<string, number[]> = {};
@@ -196,11 +224,34 @@ function Board({ run, tier, metric, kind, slice, history, highlight }: { run: Ru
       headerClassName: "hidden xl:table-cell",
       className: "hidden xl:table-cell",
     },
+    ...(semRows.length
+      ? [
+          {
+            key: "sem",
+            header: (
+              <Tooltip content="Share of meaning lost, as scored by a calibrated LLM judge against the verified reference. Lower is better.">
+                <span tabIndex={0} className="cursor-help">
+                  Semantic error
+                </span>
+              </Tooltip>
+            ),
+            align: "right" as const,
+            sort: (r: Aggregate) => semOf(r.provider)?.error ?? null,
+            cell: (r: Aggregate) => {
+              const x = semOf(r.provider);
+              return x?.error == null ? <span className="text-ink-3">n/a</span> : <span className="num text-ink-2">{pct(x.error)}</span>;
+            },
+            headerClassName: "hidden md:table-cell",
+            className: "hidden md:table-cell",
+          },
+        ]
+      : []),
     {
       key: "vs",
       header: "vs leader",
       cell: (r) => {
         if (!leader || r.provider === leader.provider) return <Badge tone="good">Lowest</Badge>;
+        if (lat) return <span className="text-[12.5px] text-ink-3">not tested</span>;
         const t = pair(run, { tier, metric, kind, slice }, r.provider, leader.provider);
         if (!t) return <span className="text-[12.5px] text-ink-3">not tested</span>;
         return t.better === leader.provider ? (
@@ -244,9 +295,14 @@ function Board({ run, tier, metric, kind, slice, history, highlight }: { run: Ru
   return (
     <Figure
       n={1}
-      title={`${m?.label ?? metric}, ${TIER_LABEL[tier].toLowerCase()}${kind === "all" ? "" : `, ${sliceLabel(kind, slice).toLowerCase()}`}`}
-      caption={rows.some((r) => r.too_small) ? "Lower is better. Fewer than 15 clips per model: read the ranking as a first look, not a result." : "Lower is better. Click a header to sort; click a model for its page."}
-      source={`source: aggregates + paired, run=${run.run_id}, tier=${tier}, metric=${metric}, slice_kind=${kind}, slice=${slice}`}
+      title={`${m?.label ?? metric}${lat ? ", any valid form" : ""}, ${TIER_LABEL[tier].toLowerCase()}${kind === "all" ? "" : `, ${sliceLabel(kind, slice).toLowerCase()}`}`}
+      caption={
+        <>
+          {rows.some((r) => r.too_small) ? "Lower is better. Fewer than 15 clips per model: read the ranking as a first look, not a result." : "Lower is better. Click a header to sort; click a model for its page."}
+          {lat && " Any valid form counts a span as right when it matches one of the reference's accepted spellings (kana or kanji, numerals or words). The paired test runs on strict scores only."}
+        </>
+      }
+      source={`source: aggregates${lat ? " (error_rate_lattice)" : ""} + paired, run=${run.run_id}, tier=${tier}, metric=${metric}, slice_kind=${kind}, slice=${slice}`}
       bodyClassName="p-0 sm:p-0"
     >
       {tier === "creator" && (
@@ -255,6 +311,14 @@ function Board({ run, tier, metric, kind, slice, history, highlight }: { run: Ru
         </p>
       )}
       <DataTable columns={columns} rows={rows} rowKey={(r) => r.provider} caption="Leaderboard" highlight={highlight ? (r) => r.provider === highlight : undefined} />
+      {sem && !sem.published && (
+        <p className="border-t border-line px-4 py-2.5 text-[12.5px] text-ink-3 sm:px-5">
+          No semantic error column: {sem.reason ?? "the LLM judge has not passed its calibration against human labels, so its scores are not published."}{" "}
+          <Link to="/methodology#semantic-judge" className="text-ink-2 underline decoration-line-strong underline-offset-4 hover:text-ink">
+            Judge calibration
+          </Link>
+        </p>
+      )}
     </Figure>
   );
 }

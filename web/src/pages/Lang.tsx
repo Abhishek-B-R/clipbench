@@ -1,9 +1,10 @@
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import type { Run } from "@/lib/types";
 import { useRunFor, useSource } from "@/lib/data";
-import { CATEGORY_KEYS, LANGUAGE_NAME, isPublished, languageProgress, overall, runLanguageStatus } from "@/lib/analysis";
-import { hasCaptionMetrics } from "@/lib/metrics";
+import { CATEGORY_KEYS, LANGUAGE_NAME, aggregatesFor, defaultTier, isPublished, languageProgress, primaryMetric, runLanguageStatus } from "@/lib/analysis";
+import { hasCaptionMetrics, sliceKindsIn, sliceLabel, slicesOf } from "@/lib/metrics";
+import { SliceFilter, readSlice, sliceParams } from "@/components/ui/SliceFilter";
 import { CaptionMetricsTable } from "@/components/charts/CaptionMetrics";
 import { CATEGORIES, GITHUB_URL, LANGUAGES, RULES } from "@/lib/config";
 import { date, int, pct } from "@/lib/format";
@@ -31,6 +32,10 @@ export default function Lang() {
   const fromIndex = src.data ? languageProgress(src.data.index).find((l) => l.lang === code) : undefined;
   const status = run ? runLanguageStatus(run) : fromIndex;
   const published = Boolean(run && isPublished(run));
+  const [params, setParams] = useSearchParams();
+  const tier = run ? defaultTier(run) : "verified";
+  const kinds = run && published ? sliceKindsIn(run, tier) : [];
+  const sl = readSlice(params, kinds, (k) => (run ? slicesOf(run, tier, k) : []));
 
   if (!known)
     return (
@@ -76,16 +81,18 @@ export default function Lang() {
             </>
           )
         }
-      />
+      >
+        {published && run && <SliceFilter kinds={kinds} kind={sl.kind} slice={sl.slice} values={sl.values} onChange={(k, v) => setParams(sliceParams(params, k, v), { replace: true })} />}
+      </PageHeader>
       <div className="frame grid gap-8 py-8">
         {(state.status === "error" || src.status === "error") && <ErrorState title="Could not load the run data." body="The results files did not load. Check your connection and try again." onRetry={() => location.reload()} />}
         {state.status === "loading" && <Skeleton className="h-64 w-full" />}
         {state.status === "ready" && published && run && (
           <>
-            <MiniLeaderboard run={run} />
+            <MiniLeaderboard key={`${sl.kind}:${sl.slice}`} run={run} kind={sl.kind} slice={sl.slice} />
             {hasCaptionMetrics(run) && (
-              <Figure n={2} title="Caption metrics, all clips" caption="Word timing, words invented over non-speech, punctuation, casing and code-switching. n/a means a model or these clips cannot be scored on it." source={`source: aggregates, run=${run.run_id}, slice=all`} bodyClassName="p-0 sm:p-0">
-                <CaptionMetricsTable run={run} rows={overall(run)} />
+              <Figure n={2} title={`Caption metrics, ${sliceLabel(sl.kind, sl.slice).toLowerCase()}`} caption="Word timing, words invented over non-speech, punctuation, casing and code-switching. n/a means a model or these clips cannot be scored on it." source={`source: aggregates, run=${run.run_id}, slice_kind=${sl.kind}, slice=${sl.slice}`} bodyClassName="p-0 sm:p-0">
+                <CaptionMetricsTable run={run} rows={aggregatesFor(run, { tier, metric: primaryMetric(run).name, kind: sl.kind, slice: sl.slice })} />
               </Figure>
             )}
           </>

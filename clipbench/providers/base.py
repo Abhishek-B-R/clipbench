@@ -59,6 +59,11 @@ class Provider(ABC):
     def default_model_id(cls) -> str:
         return str(load_pricing().get(cls.id, {}).get("model_id", "unknown"))
 
+    def job_timeout_s(self) -> float:
+        """How long the runner waits for one whole transcribe() call (retries and polling included).
+        `timeout_s` is the default; adapters whose timeout_s bounds a single request override this."""
+        return float(self.timeout_s)
+
     def availability(self) -> tuple[bool, str]:
         """(ok, message). Default: every env key must be set."""
         missing = [k for k in self.env_keys if not os.environ.get(k)]

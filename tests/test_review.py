@@ -404,3 +404,48 @@ def test_peaks(v2data):
     assert min(p["min"]) == pytest.approx(-1.0, abs=0.01)
     assert c.get(f"/api/clip/{SHORT}/peaks?n=5").status_code == 422
     assert c.get("/api/clip/nope/peaks").status_code == 404
+
+
+def test_codeswitch_offsets_are_utf16_in_the_browser(v2data):
+    """The browser's textarea offsets count UTF-16 units; the verified file counts code points (what the
+    scorer slices with). An emoji before the span (2 units, 1 code point) must not shift either side."""
+    c = client(v2data)
+    text = "\U0001f600 hola everyone"  # js: everyone at 8..16; python: 7..15
+    body = {"text": text, "codeswitch_spans": [{"start": 8, "end": 16, "lang": "en"}]}
+    r = c.post(f"/api/clip/{SHORT}", json=body)
+    assert r.status_code == 200 and r.json()["dropped_codeswitch_spans"] == []
+    rec = json.loads((v2data.verified_dir / f"{SHORT}.json").read_text())
+    assert rec["codeswitch_spans"] == [{"start": 7, "end": 15, "lang": "en"}]
+    assert text[7:15] == "everyone"
+    clip = c.get(f"/api/clip/{SHORT}").json()
+    assert clip["codeswitch_spans"] == [{"start": 8, "end": 16, "lang": "en", "text": "everyone"}]
+
+
+def test_tiktok_clip_links_to_tiktok(tmp_settings):
+    s = tmp_settings
+    s.data_dir.mkdir(parents=True)
+    pd.DataFrame(
+        {"video_id": ["7301234567890123456"], "source_id": ["7301234567890123456"], "platform": ["tiktok"],
+         "language": ["en"], "sample_rank": [0]}
+    ).to_parquet(s.sample_path)
+    it = store.load_queue(s).items[0]
+    assert it.youtube_url.startswith("https://www.tiktok.com/") and it.youtube_url.endswith("/7301234567890123456")
+
+
+def test_foreign_host_and_cross_site_writes_rejected(v2data):
+    """The server holds creator captions and audio on 127.0.0.1: a page on another site must not read
+    them through DNS rebinding (foreign Host) or overwrite a review with a drive-by POST (skip has no
+    body, so it is a 'simple' request that needs no CORS preflight)."""
+    c = client(v2data)
+    assert c.get(f"/api/clip/{SHORT}", headers={"host": "evil.example:8765"}).status_code == 400
+    assert c.get(f"/audio/{SHORT}", headers={"host": "evil.example"}).status_code == 400
+    assert c.get(f"/api/clip/{SHORT}", headers={"host": "127.0.0.1:8765"}).status_code == 200
+    assert c.get(f"/api/clip/{SHORT}", headers={"host": "localhost:8765"}).status_code == 200
+    r = c.post(f"/api/clip/{SHORT}/skip", headers={"origin": "https://evil.example"})
+    assert r.status_code == 403 and not (v2data.verified_dir / f"{SHORT}.json").exists()
+    r = c.post(f"/api/clip/{SHORT}/skip", headers={"sec-fetch-site": "cross-site"})
+    assert r.status_code == 403
+    ok = c.post(
+        f"/api/clip/{SHORT}", json={"text": "hola"}, headers={"origin": "http://127.0.0.1:8765", "host": "127.0.0.1:8765"}
+    )
+    assert ok.status_code == 200

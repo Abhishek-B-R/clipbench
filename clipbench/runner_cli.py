@@ -13,6 +13,9 @@ def register(app: typer.Typer) -> None:
     def run_cmd(
         providers: str = typer.Option("all", "--providers", help="'all' or a comma separated list of ids."),
         tier: str = typer.Option("verified", "--tier", help="verified|creator"),
+        lang: str | None = typer.Option(
+            None, "--lang", help="Language of the run (a run holds one). Required when the sample has several."
+        ),
         dry_run: bool = typer.Option(False, "--dry-run", help="Print the plan and cost estimate. No network."),
         no_cache: bool = typer.Option(False, "--no-cache", help="Call providers even when a cached result exists."),
         limit: int | None = typer.Option(None, "--limit", help="Only the first N clips (sorted by video id)."),
@@ -25,7 +28,7 @@ def register(app: typer.Typer) -> None:
         from clipbench.budget import BudgetExceeded
         from clipbench.config import get_settings
         from clipbench.providers.registry import resolve
-        from clipbench.runner import run
+        from clipbench.runner import MixedLanguages, NoClips, run
 
         console = Console(stderr=True)
         if tier not in ("verified", "creator"):
@@ -48,8 +51,15 @@ def register(app: typer.Typer) -> None:
                     settings=settings,
                     console=console,
                     stability=stability,
+                    language=lang,
                 )
             )
+        except MixedLanguages as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(2) from exc
+        except NoClips as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(1) from exc
         except BudgetExceeded as exc:
             console.print(f"[red]{exc}[/red]")
             raise typer.Exit(2) from exc

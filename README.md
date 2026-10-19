@@ -52,7 +52,7 @@ message. The budget cap is `budget_usd` in `clipbench.toml`, and a run that woul
 | `clipbench data check --lang L` | diversity rules: 30+ channels, no channel above 5%, 6+ categories |
 | `clipbench review` | review UI: correct the text, tag category, music spans, code-switch spans |
 | `clipbench align` | forced-align verified text to the audio for word timing references |
-| `clipbench run --providers all --tier verified [--dry-run]` | transcribe with every system, cached and budget guarded |
+| `clipbench run --providers all --tier verified [--lang L] [--dry-run]` | transcribe with every system, cached and budget guarded (one language per run; `--lang` is required when the sample holds several) |
 | `clipbench score` / `errors` / `report` / `export` `<run_id\|latest>` | scores, error analysis, report, web data |
 | `clipbench publish --check` | fails if anything publishable holds audio or caption text |
 

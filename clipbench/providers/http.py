@@ -225,6 +225,12 @@ class HttpProvider(Provider):
     def headers(self) -> dict[str, str]:
         return {}
 
+    def job_timeout_s(self) -> float:
+        """Every attempt may use the full request timeout, with the longest backoff between attempts."""
+        attempts = max(1, int(self.retry.max_attempts))
+        backoff = max(self.retry.max_delay_s, self.retry.max_retry_after_s)
+        return float(self.timeout_s) * attempts + backoff * (attempts - 1)
+
     def _ensure(self) -> None:
         loop = asyncio.get_running_loop()
         if self._loop is not loop or self._client is None:

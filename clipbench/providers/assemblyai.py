@@ -33,6 +33,10 @@ class AssemblyAI(HttpProvider):
     def headers(self) -> dict[str, str]:
         return {"authorization": os.environ.get("ASSEMBLYAI_API_KEY", "")}
 
+    def job_timeout_s(self) -> float:
+        """Upload and submit (with retries), then up to poll_timeout_s of polling, then the delete."""
+        return super().job_timeout_s() + float(self.poll_timeout_s)
+
     def settings(self) -> dict[str, Any]:
         s = super().settings()
         s.pop("delete_after", None)  # does not change the output

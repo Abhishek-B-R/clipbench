@@ -618,3 +618,20 @@ def test_test_hooks_do_not_change_cache_key():
     a = GroqWhisper()
     b = GroqWhisper(transport=httpx.MockTransport(lambda r: httpx.Response(200)), retry=no_sleep_policy())
     assert a.settings_hash() == b.settings_hash()
+
+
+def test_aws_availability_without_boto3(monkeypatch):
+    """CI has no boto3: missing keys are still named, and with keys set the missing package is."""
+    import importlib.util
+
+    real = importlib.util.find_spec
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name, *a: None if name == "boto3" else real(name, *a))
+    cls = provider_class("aws-transcribe")
+    for k in ALL_KEYS:
+        monkeypatch.delenv(k, raising=False)
+    ok, msg = cls().availability()
+    assert not ok and "AWS_ACCESS_KEY_ID" in msg and "boto3" in msg
+    for k in cls.env_keys:
+        monkeypatch.setenv(k, "x")
+    ok, msg = cls().availability()
+    assert not ok and msg == "aws-transcribe: skipped, missing boto3 (install the 'aws' extra)"

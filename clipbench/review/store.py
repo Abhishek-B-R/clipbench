@@ -52,6 +52,7 @@ class QueueItem:
     start_ms: int | None = None  # window start, None for a whole video
     end_ms: int | None = None
     category: str | None = None  # prefill from sample, manifest or datasets/<lang>/clips.csv
+    platform: str = "youtube"
 
     @property
     def kind(self) -> str:
@@ -59,7 +60,12 @@ class QueueItem:
 
     @property
     def youtube_url(self) -> str:
+        """Link to the clip on its platform (the name is kept for the page's existing field)."""
         vid = self.source_id or self.video_id
+        if self.platform != "youtube":
+            from clipbench.data.datasets import public_url
+
+            return public_url(self.platform, vid)
         if self.start_ms is None:
             return f"https://www.youtube.com/shorts/{vid}"
         return f"https://www.youtube.com/watch?v={vid}&t={self.start_ms // 1000}"
@@ -209,6 +215,7 @@ def load_queue(settings: Settings, only_rereview: bool = False) -> Queue:
                 start_ms=start_ms,
                 end_ms=end_ms,
                 category=category,
+                platform=str(_clean(row.get("platform")) or "youtube"),
             )
         )
     flagged = set(load_rereview_ids(settings))
@@ -390,6 +397,33 @@ def reanchor_span(text: str, span_text: str, start: int) -> tuple[int, int] | No
             best = i
         i = text.find(span_text, i + 1)
     return None if best is None else (best, best + len(span_text))
+
+
+def utf16_to_index(text: str, units: int) -> int:
+    """Code point index of a browser (UTF-16 code unit) offset. Past the end stays past the end."""
+    seen = 0
+    for i, ch in enumerate(text):
+        if seen >= units:
+            return i
+        seen += 2 if ord(ch) > 0xFFFF else 1
+    return len(text) + max(0, units - seen)
+
+
+def index_to_utf16(text: str, index: int) -> int:
+    """Browser (UTF-16 code unit) offset of a code point index."""
+    return index + sum(1 for ch in text[: max(0, index)] if ord(ch) > 0xFFFF)
+
+
+def spans_from_browser(text: str, spans: list[dict]) -> list[dict]:
+    """Code-switch spans posted by the review page, offsets converted to code points."""
+    out = []
+    for s in spans:
+        s = dict(s)
+        for key in ("start", "end"):
+            if isinstance(s.get(key), int) and s[key] >= 0:
+                s[key] = utf16_to_index(text, s[key])
+        out.append(s)
+    return out
 
 
 def clean_codeswitch(text: str, spans: list[dict]) -> tuple[list[dict], list[dict]]:

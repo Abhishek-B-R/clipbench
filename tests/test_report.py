@@ -274,3 +274,22 @@ def test_rules_language_status(tmp_settings):
     assert [entry["lang"] for entry in langs] == ["en", "ja", "ko", "es", "hi"]
     assert langs[0] == rules.LanguageStatus(lang="en").as_dict()
     assert rules.is_published(100, 6) and not rules.is_published(99, 6) and not rules.is_published(100, 5)
+
+
+def test_limitations_name_providers_skipped_on_clips(tmp_settings):
+    """A provider skipped on every clip (youtube-auto with no auto tracks) silently vanishes from every
+    table; the limitations must say so, with the reason."""
+    _write_run(tmp_settings)
+    rows = [
+        {"provider": "alpha", "video_id": f"v{i}", "repeat": 0, "status": "ok", "error": None, "tier": "verified"}
+        for i in range(3)
+    ] + [
+        {"provider": "youtube-auto", "video_id": f"v{i}", "repeat": 0, "status": "skipped", "error": "no auto track",
+         "tier": "verified"}
+        for i in range(3)
+    ]  # fmt: skip
+    pd.DataFrame(rows).to_parquet(tmp_settings.runs_dir / "r1" / "rows.parquet")
+    md_path, _ = build_report("r1", tmp_settings)
+    md = md_path.read_text()
+    assert "youtube-auto scored 0 of 3 clips (3 skipped: no auto track)" in md
+    assert "alpha scored" not in md

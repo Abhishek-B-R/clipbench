@@ -78,12 +78,21 @@ class AwsTranscribe(Provider):
         self._sem: asyncio.Semaphore | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
 
+    def job_timeout_s(self) -> float:
+        """The polling deadline (timeout_s) starts after the upload and job start, and the S3 fetch and
+        cleanup follow it: leave room so the adapter's own deadline and cleanup run first."""
+        return float(self.timeout_s) + 300.0
+
     def availability(self) -> tuple[bool, str]:
-        try:
-            import boto3  # noqa: F401
-        except ImportError:
+        import importlib.util
+
+        has_boto3 = importlib.util.find_spec("boto3") is not None
+        ok, message = super().availability()  # missing keys first: that is what the owner must add
+        if not ok:
+            return False, message if has_boto3 else f"{message}; also missing boto3 (install the 'aws' extra)"
+        if not has_boto3:
             return False, f"{self.id}: skipped, missing boto3 (install the 'aws' extra)"
-        return super().availability()
+        return True, message
 
     def language_code(self, language: str) -> str:
         if language == "es":

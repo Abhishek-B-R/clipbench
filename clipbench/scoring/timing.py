@@ -154,11 +154,14 @@ class NonSpeechHallucination:
 def nonspeech_hallucination(
     intervals: list[tuple[float, float]] | None, hyp_words: Sequence[Word] | None
 ) -> NonSpeechHallucination:
-    """Hypothesis words whose midpoint lies inside non-speech, and that count per non-speech minute."""
+    """Hypothesis words whose midpoint lies inside non-speech, and that count per non-speech minute.
+
+    `hyp_words` None means the provider has no word timings (counts unknown); an empty list means it
+    output no words, which is zero hallucinated words."""
     if intervals is None:
         return NonSpeechHallucination(None, None, None)
     minutes = sum(end - start for start, end in intervals) / 60000
-    if not hyp_words:
+    if hyp_words is None:
         return NonSpeechHallucination(minutes, None, None)
     count = 0
     for w in hyp_words:

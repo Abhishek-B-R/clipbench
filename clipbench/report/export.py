@@ -360,14 +360,31 @@ def index_entry(run: dict[str, Any], tiers: list[str], n_clips: dict[str, int]) 
     }
 
 
+def status_runs(runs: list[dict[str, Any]]) -> dict[str, tuple[str, dict[str, Any]]]:
+    """Per language, the run whose status the site shows: (run_id, status dict).
+
+    The newest run with verified clips wins; a language with none falls back to its newest run. So a
+    later creator-tier pipeline check never replaces the verified progress counts or findings.
+    """
+    chosen: dict[str, tuple[str, dict[str, Any]]] = {}
+    newest_first = sorted(runs, key=lambda r: str(r.get("created_at") or ""), reverse=True)
+    for want_verified in (True, False):
+        for r in newest_first:
+            for st in r.get("languages") or []:
+                if not isinstance(st, dict) or not st.get("lang") or st["lang"] in chosen:
+                    continue
+                if want_verified and not (st.get("verified_clips") or 0) > 0:
+                    continue
+                chosen[st["lang"]] = (str(r.get("run_id")), st)
+    return chosen
+
+
 def index_languages(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Status per v2 language from the newest run of each language (zeros when there is none)."""
+    """Status per v2 language from status_runs() (zeros when a language has no run)."""
     latest: dict[str, rules.LanguageStatus] = {}
-    for r in sorted(runs, key=lambda r: str(r.get("created_at") or ""), reverse=True):
-        for st in r.get("languages") or []:
-            if isinstance(st, dict) and st.get("lang") and st["lang"] not in latest:
-                fields = {k: st.get(k) for k in rules.LanguageStatus.__dataclass_fields__ if k in st}
-                latest[st["lang"]] = rules.LanguageStatus(**fields)
+    for lang, (_, st) in status_runs(runs).items():
+        fields = {k: st.get(k) for k in rules.LanguageStatus.__dataclass_fields__ if k in st}
+        latest[lang] = rules.LanguageStatus(**fields)
     return clean(rules.all_languages(latest))
 
 
@@ -390,11 +407,16 @@ def findings_file(data: RunData) -> dict[str, Any]:
     )
 
 
-def write_findings(data: RunData, settings: Settings) -> Path:
-    """Write findings/<lang>.json for this run's language; other v2 languages get an empty file if missing."""
+def write_findings(data: RunData, settings: Settings, runs: list[dict[str, Any]] | None = None) -> Path:
+    """Write findings/<lang>.json for this run's language; other v2 languages get an empty file if missing.
+
+    With `runs` (the index), the file is only replaced when this run is the one status_runs() picks for
+    its language, so exporting an older or creator-only run keeps the verified run's findings."""
     out = data_dir(settings) / "findings"
     path = out / f"{data.language}.json"
-    _write_json(findings_file(data), path)
+    chosen = status_runs(runs).get(data.language) if runs is not None else None
+    if chosen is None or chosen[0] == data.run_id or not path.exists():
+        _write_json(findings_file(data), path)
     for lang in rules.LANGUAGES:
         other = out / f"{lang}.json"
         if not other.exists() or json.loads(other.read_text() or "{}").get("run_id") is None:
@@ -436,7 +458,7 @@ def export_run(run_id: str, settings: Settings | None = None) -> tuple[Path, Pat
     runs.sort(key=lambda r: (str(r.get("created_at") or ""), str(r.get("run_id"))), reverse=True)
     # A real export replaces the demo flag: index.json now points at real runs only.
     _write_json({"latest": runs[0]["run_id"], "runs": runs, "languages": index_languages(runs)}, index_path)
-    findings_path = write_findings(data, settings)
+    findings_path = write_findings(data, settings, runs)
     try:
         from clipbench.report import og
 

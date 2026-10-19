@@ -10,9 +10,13 @@ How the pieces fit. Every module codes against this file. If you change a schema
 
 | path | what | published? |
 |---|---|---|
-| `data/manifest.parquet` | every video found in Vako `.vr/src/<lang>/` | no |
+| `datasets/<lang>/clips.csv`, `channels.csv` | dataset spec: ids, windows, categories (no text) | yes |
+| `data/manifest.parquet` | one row per clips.csv row, tracks classified | no |
+| `data/tracks/<id>.<key>.json3`, `data/tracks/windows/` | caption tracks fetched by clipbench, window slices | no |
+| `data/discover/` | discover state, listings, category hints | no |
+| `data/align/<clip_id>.json` | word timings from `clipbench align` | no |
 | `data/info/<videoId>.info.json` | info.json fetched by clipbench when Vako has none | no |
-| `data/sample.parquet` | the stratified sample | no |
+| `data/sample.parquet` | the stratified sample, every language | no |
 | `data/audio/<videoId>.<ext>` + `data/audio/<videoId>.wav` | original + 16 kHz mono WAV | no |
 | `data/audio/hashes.json` | `{videoId: {"original": sha256, "wav": sha256}}` | no |
 | `data/verified/<videoId>.json` | review UI output | no |
@@ -25,11 +29,28 @@ How the pieces fit. Every module codes against this file. If you change a schema
 | `results/<run_id>/*.parquet`, `report.md` | scores, aggregates | yes |
 | `site/index.html` | static report | yes |
 
-## Manifest (`data/manifest.parquet`)
+## Dataset spec and manifest
 
-One row per video: `video_id, language, duration_s (float|null), channel, channel_id,
+`datasets/<lang>/clips.csv` (committed, public, ids and windows only, no text) is the source of truth for
+which clips exist: `platform, video_id, start_ms, end_ms, channel_id, category, license_note, source`
+(see docs/V2.md). `datasets/<lang>/channels.csv`: `platform, channel_id, handle, category, note`
+(input of `clipbench data discover`). Importers: `data import-vako`, `data import-ids <csv>`,
+`data discover`. Caption tracks found by importers live in Vako's store or `data/tracks/<id>.<key>.json3`
+and are classified from info.json (docs/data_rules.md).
+
+`data/manifest.parquet`: one row per clips.csv row: `video_id` (the clip_id: `<id>` or
+`<id>@<start_ms>-<end_ms>`), `language, duration_s (float|null), channel, channel_id,
 has_creator_track (bool), has_auto_track (bool), creator_track_key, creator_track_path,
-auto_track_key, auto_track_path, info_path, info_source ("vako"|"clipbench"|null)`.
+auto_track_key, auto_track_path, info_path, info_source ("vako"|"clipbench"|null), clip_id, source_id
+(platform id), youtube_id (source_id on YouTube, else null), platform ("youtube"|"tiktok"|"instagram"),
+clip_source ("short"|"window"|"long"), start_ms, end_ms (Int64|null), window_start_s, window_end_s
+(float|null), category (clips.csv value, else a guess, else null), category_guess (bool: true when the
+category is a guess), license_note, source`. A window row's track paths point at sliced, rebased copies
+in `data/tracks/windows/`.
+
+`data/sample.parquet`: manifest columns plus `sample_rank` (pick order inside a language); holds every
+language, `data sample --lang L` replaces only L's rows. `clipbench.data.sample.clip_meta()` gives per
+clip `platform, source_id, youtube_id, kind, start_s, end_s, category, category_guess, url`.
 
 ## References
 
@@ -38,8 +59,11 @@ auto_track_key, auto_track_path, info_path, info_source ("vako"|"clipbench"|null
 - `load_reference(video_id, tier, settings=None) -> Reference | None`
   - tier `verified`: reads `data/verified/<videoId>.json` (skips if tagged `unusable`).
   - tier `creator`: parses the creator json3 from the manifest path.
-- `load_clips(tier, settings=None, limit=None) -> list[Clip]`: sample rows that have WAV audio
-  on disk and a reference in that tier.
+- `load_clips(tier, settings=None, limit=None, language=None) -> list[Clip]`: sample rows that have
+  WAV audio on disk and a reference in that tier (all languages unless `language`). References carry
+  platform, source_id, clip_source, start_ms, category; verified ones also the verified file's
+  category, nonspeech_spans, codeswitch_spans, punctuated, and words from `data/align/<clip_id>.json`
+  (timing_source `aligner:<name>`) or the creator track (`creator`).
 - `clipbench.data.json3.parse_json3_text(text, language) -> str` and
   `parse_json3_words(text) -> list[Word]` (ports of Vako `parseJson3` / `parseJson3Words`).
 
@@ -74,7 +98,9 @@ Cache: `clipbench.providers.cache.ResultCache(settings.cache_dir)`.
 
 ## Run rows (`results/runs/<run_id>/rows.parquet`)
 
-One row per (clip, provider, repeat). `repeat` 0 is the main pass; 1..3 are the stability reruns.
+One row per (clip, provider, repeat). `repeat` 0 is the main pass; 1..3 are the stability reruns. A run holds
+one language (`clipbench run --lang L`; the runner and `score` refuse a mixed run, since en, es and hi all
+score `wer`).
 Columns: `run_id, provider, model_id, provider_version, video_id, language, tier, repeat,
 status ("ok"|"skipped"|"error"), error, latency_ms, audio_seconds, cost_usd, cached (bool),
 duration_s, channel, tags (json list string), hyp_chars`.
@@ -105,4 +131,5 @@ Metrics per language (primary first): `ja`: `cer`, `cer_reading`; `es`: `wer`, `
 
 `{"providers": {pid: {"top_substitutions": [[ref, hyp, count]], "worst_clips": [{video_id, error_rate, others_median}]}},
 "all_fail": [video_id], "examples": [{provider, video_id, ref_snippet, hyp_snippet}]}`. Snippets are at most 4 words
-(or 8 characters for ja). `all_fail` clips are also written to `data/rereview.json` so the review UI can surface them.
+(or 8 characters for ja). `all_fail` clips are also written to `data/rereview.json` so the review UI can surface them (the run's own clips
+are replaced there, clips of other runs are kept).

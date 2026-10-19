@@ -203,12 +203,24 @@ class _RefCache:
         return self._tokens[key]
 
 
-def _clip_v2(ref: _RefInfo, hyp_text: str, hyp_words: list[Word] | None, language: str, duration_s: float) -> dict:
-    """v2 metrics that do not depend on the metric: timing, non-speech hallucination, readiness."""
+def _clip_v2(
+    ref: _RefInfo,
+    hyp_text: str,
+    hyp_words: list[Word] | None,
+    language: str,
+    duration_s: float,
+    timed_provider: bool = False,
+) -> dict:
+    """v2 metrics that do not depend on the metric: timing, non-speech hallucination, readiness.
+
+    `timed_provider`: the provider returns word timings on its other clips, so an empty output here is
+    a measured zero over non-speech, not a missing measurement."""
     primary = metrics_for(language)[0]
     te = timing_error(ref.words, hyp_words, primary.tokenizer)
     duration_ms = None if pd.isna(duration_s) else duration_s * 1000
-    nh = nonspeech_hallucination(nonspeech_intervals(ref.nonspeech, ref.words, duration_ms), hyp_words)
+    # An empty output from a provider that does time its words invented nothing over non-speech.
+    ns_words = [] if hyp_words is None and timed_provider and not hyp_text.strip() else hyp_words
+    nh = nonspeech_hallucination(nonspeech_intervals(ref.nonspeech, ref.words, duration_ms), ns_words)
     rd = readiness(ref.text, hyp_text, language) if ref.punctuated else None
     return {
         "timing_n_words": te.n_words if te else None,
@@ -234,6 +246,7 @@ def _clip_v2(ref: _RefInfo, hyp_text: str, hyp_words: list[Word] | None, languag
 def _score_rows(rows: pd.DataFrame, texts: pd.DataFrame, refs: _RefCache) -> pd.DataFrame:
     text_by_key = {(t.provider, t.video_id, int(t.repeat)): t for t in texts.itertuples(index=False)}
     main = rows[(rows["repeat"] == 0) & (rows["status"] == "ok")]
+    timed = {t.provider for t in texts.itertuples(index=False) if _parse_words(t.words_json)}
     records: list[dict[str, Any]] = []
     for row in main.itertuples(index=False):
         ref = refs.get(row.video_id, row.tier)
@@ -249,7 +262,7 @@ def _score_rows(rows: pd.DataFrame, texts: pd.DataFrame, refs: _RefCache) -> pd.
         duration = _num(row.duration_s)
         if pd.isna(duration):
             duration = _num(row.audio_seconds)
-        v2 = _clip_v2(ref, hyp_text, hyp_words, row.language, duration)
+        v2 = _clip_v2(ref, hyp_text, hyp_words, row.language, duration, row.provider in timed)
         for spec in metrics_for(row.language):
             ref_tokens = refs.tokens(row.video_id, row.tier, spec)
             hyp_tokens = spec.tokenizer(hyp_text)
@@ -495,6 +508,10 @@ def score_run(run_id: str, settings: Settings | None = None) -> Path:
     texts = _read(s.runs_text_dir / run_id / "texts.parquet")
     refs = _RefCache(_read(s.runs_text_dir / run_id / "refs.parquet"))
     seed = s.sample_seed
+    langs = sorted({str(x).split("-")[0].lower() for x in rows["language"].dropna()})
+    if len(langs) > 1:
+        # Aggregates are keyed by (tier, metric) and en, es and hi all score `wer`.
+        raise ValueError(f"run {run_id} mixes languages ({', '.join(langs)}); a run must hold one language")
 
     scores = _score_rows(rows, texts, refs)
     aggregates = _aggregates(scores, seed)

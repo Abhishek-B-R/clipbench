@@ -101,6 +101,14 @@ KEY_PACKAGES = [
 Key = tuple[str, str, int]
 
 
+class MixedLanguages(ValueError):
+    """The clips of one run are in more than one language."""
+
+
+class NoClips(ValueError):
+    """Nothing to run: no clip has audio and a reference in the requested tier and language."""
+
+
 def new_run_id() -> str:
     return datetime.now(UTC).strftime("%Y%m%d-%H%M") + "-" + secrets.token_hex(2)
 
@@ -145,6 +153,10 @@ def _resolve_providers(specs: list[str | Provider]) -> tuple[list[Provider], dic
             available, message = p.availability()
         except Exception as exc:
             available, message = False, f"{p.id}: skipped, availability check failed ({exc})"
+        if available and p.paid and p.price_per_minute() <= 0:
+            # Estimated and reserved at $0, a paid request could never be stopped by the budget guard.
+            available = False
+            message = f"{p.id}: skipped, paid provider with no price for {p.model_id} in pricing.toml"
         if available:
             ok.append(p)
         else:
@@ -205,6 +217,30 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
         except ValueError:
             continue  # a torn last line from a crash
     return out
+
+
+def _scrub_paths(message: str | None, settings: Settings) -> str | None:
+    """Messages go into published files (rows.parquet, run_meta.json): name local paths relative to the
+    data dir, the repo or the home directory, never absolutely."""
+    if not message:
+        return message
+    for base, label in ((settings.data_dir, "data"), (settings.root, "."), (Path.home(), "~")):
+        for form in {str(base), str(Path(base).resolve())}:
+            if form and form != "/":
+                message = message.replace(form, label)
+    return message
+
+
+def _end_with_newline(path: Path) -> None:
+    """Terminate a torn last line so the next append starts a new record instead of joining it."""
+    if not path.exists() or path.stat().st_size == 0:
+        return
+    with path.open("rb") as fh:
+        fh.seek(-1, os.SEEK_END)
+        last = fh.read(1)
+    if last != b"\n":
+        with path.open("a") as fh:
+            fh.write("\n")
 
 
 def _key(row: dict[str, Any]) -> Key:
@@ -390,8 +426,14 @@ async def run(
     console: Console | None = None,
     stability: bool = True,
     progress: bool = True,
+    language: str | None = None,
 ) -> RunResult:
-    """Run `providers` (ids or Provider instances) over `clips` (default: load_clips(tier))."""
+    """Run `providers` (ids or Provider instances) over `clips` (default: load_clips(tier)).
+
+    A run holds exactly one language: scores, reports and exports are per language, and metrics with
+    the same name (en, es and hi all use `wer`) would otherwise be pooled. `language` keeps only that
+    language's clips; without it, clips in more than one language raise ValueError.
+    """
     settings = settings or get_settings()
     console = console or Console(stderr=True)
     if not stability:
@@ -402,6 +444,14 @@ async def run(
         from clipbench.data.references import load_clips  # lazy: written by another module
 
         clips = load_clips(tier, settings=settings)
+    if language:
+        clips = [c for c in clips if c.language.split("-")[0].lower() == language.split("-")[0].lower()]
+    langs = sorted({c.language for c in clips})
+    if len(langs) > 1:
+        raise MixedLanguages(
+            f"a run holds one language, but the clips are in {', '.join(langs)}; pass --lang "
+            "(or language=) to pick one"
+        )
     clips = sorted(clips, key=lambda c: c.video_id)
     if limit is not None:
         clips = clips[:limit]
@@ -428,6 +478,12 @@ async def run(
         _print_locked_plan(console, skipped, clips, est, spent_before, cap, stability_n, stability_repeats, seed)
         return RunResult(run_id, True, est, spent_before, cap, allowed, skipped)
 
+    if not clips:
+        where = f"tier {tier}" + (f", language {language}" if language else "")
+        raise NoClips(
+            f"no clips to run ({where}): a clip needs a WAV with its hash in data/audio and a reference in "
+            "that tier"
+        )
     check_can_start(est, cap, spent_before)
 
     rows_dir = settings.runs_dir / run_id
@@ -454,7 +510,11 @@ async def run(
         prev_rows[_key(r)] = r
     for t in _read_jsonl(texts_part):
         prev_texts[_key(t)] = t
-    done = {k for k, r in prev_rows.items() if _is_done(r)}
+    # An ok row only counts as done with its hypothesis: a crash between the two appends (or a torn
+    # text line) must redo the row (usually a free cache hit), never score it as an empty output.
+    done = {k for k, r in prev_rows.items() if _is_done(r) and (r.get("status") != "ok" or k in prev_texts)}
+    for part in (rows_part, texts_part):
+        _end_with_newline(part)
 
     guard = BudgetGuard(settings.spend_path, cap, run_id)
     write_lock = asyncio.Lock()
@@ -497,6 +557,7 @@ async def run(
 
     async def emit(row: dict[str, Any], result: Result | None) -> None:
         key = _key(row)
+        row["error"] = _scrub_paths(row.get("error"), settings)
         text = None
         if result is not None:
             text = {
@@ -507,13 +568,14 @@ async def run(
                 "words_json": _words_json(result),
             }
         async with write_lock:
-            new_rows[key] = row
-            with rows_part.open("a") as fh:
-                fh.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
+            # Text first: a row that is on disk always has its hypothesis on disk too.
             if text is not None:
                 new_texts[key] = text
                 with texts_part.open("a") as fh:
                     fh.write(json.dumps(text, ensure_ascii=False) + "\n")
+            new_rows[key] = row
+            with rows_part.open("a") as fh:
+                fh.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
 
     def ok_row(row: dict[str, Any], result: Result, cached: bool) -> dict[str, Any]:
         row.update(
@@ -568,9 +630,10 @@ async def run(
                     return
             calls[p.id] += 1
             t0 = time.perf_counter()
+            job_timeout = float(p.job_timeout_s())
             try:
                 result = await asyncio.wait_for(
-                    p.transcribe(Path(c.audio_path), c.language, clip=c), timeout=float(p.timeout_s)
+                    p.transcribe(Path(c.audio_path), c.language, clip=c), timeout=job_timeout
                 )
             except ProviderSkip as exc:
                 if billable:
@@ -584,7 +647,7 @@ async def run(
                     await guard.record(p.id, c.video_id, reserved, reserved)
                 row.update(
                     status="error",
-                    error=f"timeout after {p.timeout_s:.0f}s",
+                    error=f"timeout after {job_timeout:.0f}s",
                     latency_ms=(time.perf_counter() - t0) * 1000.0,
                 )
                 await emit(row, None)
@@ -631,7 +694,15 @@ async def run(
     rows_df = _rows_frame(list(all_rows.values()))
     _atomic_parquet(rows_df, rows_path)
     _atomic_parquet(_texts_frame(list(all_texts.values())), texts_path)
-    _atomic_parquet(_refs_frame(clips), refs_path)
+    refs_df = _refs_frame(clips)
+    if refs_path.exists():
+        # A resume over fewer clips (--limit) keeps the snapshot of the clips it did not touch.
+        old_refs = pd.read_parquet(refs_path)
+        keep = old_refs[~old_refs["video_id"].isin(set(refs_df["video_id"]))]
+        if len(keep):
+            keep = keep.reindex(columns=REF_COLUMNS).astype("string")
+            refs_df = pd.concat([refs_df, keep], ignore_index=True).sort_values("video_id").reset_index(drop=True)
+    _atomic_parquet(refs_df, refs_path)
     rows_part.unlink(missing_ok=True)
     texts_part.unlink(missing_ok=True)
 
@@ -655,16 +726,24 @@ async def run(
         "platform": platform.platform(),
         "packages": _package_versions(),
         "clipbench_version": __version__,
-        "providers": [_provider_meta(p) for p in active],
-        "skipped_providers": skipped,
+        # A resume with fewer providers keeps the meta of the providers that have rows from before.
+        "providers": [_provider_meta(p) for p in active]
+        + [
+            m
+            for m in old_meta.get("providers") or []
+            if isinstance(m, dict)
+            and m.get("id") not in {p.id for p in active}
+            and m.get("id") in set(rows_df["provider"].astype(str))
+        ],
+        "skipped_providers": {pid: _scrub_paths(msg, settings) for pid, msg in skipped.items()},
         "budget_stopped": [pid for pid, s in stopped.items() if s],
         "sample_seed": settings.sample_seed,
         "stability_seed": seed,
         "stability_n": stability_n,
         "stability_repeats": stability_repeats,
         "tier": tier,
-        "language": clips[0].language if clips else settings.language,
-        "n_clips": len(clips),
+        "language": clips[0].language if clips else (language or settings.language),
+        "n_clips": int(rows_df["video_id"].nunique()) if len(rows_df) else len(clips),
         "no_cache": no_cache,
         "estimate_usd": est.total_usd,
         "spent_before_usd": spent_before,

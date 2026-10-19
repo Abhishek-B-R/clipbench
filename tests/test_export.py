@@ -238,3 +238,28 @@ def test_unpublished_export_has_no_findings(web_settings):
     assert doc["published"] is False and doc["findings"] == []
     og = export.web_dir(web_settings) / "public" / "og"
     assert (og / "ja.png").exists() and not list(og.glob("ja/*.png"))
+
+
+@pytest.mark.usefixtures("published_rules")
+def test_creator_run_does_not_unpublish_language(web_settings):
+    """A later creator-tier pipeline check of the same language must not replace the verified run's
+    progress counts or published findings on the site."""
+    _write_run(web_settings, "r1")
+    _write_run(web_settings, "c1")
+    res = web_settings.results_dir / "c1"
+    agg = pd.read_parquet(res / "aggregates.parquet")
+    agg[agg["tier"] == "creator"].to_parquet(res / "aggregates.parquet")
+    paired = pd.read_parquet(res / "paired.parquet")
+    paired[paired["tier"] == "creator"].to_parquet(res / "paired.parquet")
+    meta_path = web_settings.runs_dir / "c1" / "run_meta.json"
+    meta = json.loads(meta_path.read_text())
+    meta_path.write_text(json.dumps({**meta, "run_id": "c1", "created_at": "2026-10-20T10:00:00Z"}))
+
+    export.export_run("r1", web_settings)
+    export.export_run("c1", web_settings)
+    data = export.data_dir(web_settings)
+    index = json.loads((data / "index.json").read_text())
+    ja = next(entry for entry in index["languages"] if entry["lang"] == "ja")
+    assert ja["verified_clips"] == 60 and ja["published"] is True
+    doc = json.loads((data / "findings" / "ja.json").read_text())
+    assert doc["run_id"] == "r1" and doc["published"] is True and doc["findings"]

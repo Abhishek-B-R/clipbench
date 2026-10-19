@@ -126,3 +126,15 @@ def test_snippet_never_full_caption():
     ops = [("sub", "a", "b"), ("eq", "c", "c")]
     ref, hyp = E.snippet(ops, (0, 1), False, 2)
     assert ref == "a" and hyp == "b"
+
+
+def test_rereview_keeps_clips_of_other_runs(tmp_settings, align_fn):
+    """errors on one run (say en) must not wipe the re-review queue another run (ja) wrote; clips of this
+    run are replaced by this run's verdict."""
+    refs = {"v1": "hola que tal estas hoy", "v2": "uno dos tres cuatro"}
+    hyps = {"a": {"v1": "hola que tal estas hoy", "v2": "x"}, "b": {"v1": "hola que tal estas hoy", "v2": "y"}}
+    _write_run(tmp_settings, "r1", "es", refs, hyps)
+    tmp_settings.data_dir.mkdir(parents=True, exist_ok=True)
+    (tmp_settings.data_dir / "rereview.json").write_text(json.dumps(["jaclip1", "v1"]))
+    E.run_errors("r1", tmp_settings, align_fn=align_fn)
+    assert json.loads((tmp_settings.data_dir / "rereview.json").read_text()) == ["jaclip1", "v2"]

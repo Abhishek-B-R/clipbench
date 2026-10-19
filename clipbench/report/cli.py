@@ -7,12 +7,15 @@ import typer
 
 def register(app: typer.Typer) -> None:
     @app.command("report")
-    def report(run_id: str = typer.Argument(..., help="Run id with scores under results/<run_id>/.")) -> None:
+    def report(
+        run_id: str = typer.Argument(..., help="Run id with scores under results/<run_id>/, or 'latest'."),
+    ) -> None:
         """Write results/<run_id>/report.md and site/index.html (with chart PNGs)."""
         from clipbench.report.report import build_report
+        from clipbench.runs import resolve_run_id
 
         try:
-            md, page = build_report(run_id)
+            md, page = build_report(resolve_run_id(run_id))
         except FileNotFoundError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(1) from exc

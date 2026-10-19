@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -55,6 +56,8 @@ class RunData:
     errors: dict | None
     meta: dict
     status: rules.LanguageStatus | None = None
+    # provider -> one line on clips it did not score (repeat 0), from rows.parquet; empty when all scored
+    coverage: dict[str, str] = field(default_factory=dict)
 
     @property
     def published(self) -> bool:
@@ -79,6 +82,38 @@ def _primary_metric(language: str, scores: pd.DataFrame | None, aggregates: pd.D
     if language in FALLBACK_PRIMARY:
         return FALLBACK_PRIMARY[language]
     return str(aggregates["metric"].iloc[0])
+
+
+_PATH_RE = re.compile(r"(?:[A-Za-z]:)?(?:[/\\][^\s/\\:'\"]+){2,}[/\\]?")
+
+
+def _no_paths(reason: str) -> str:
+    """Skip and error reasons can name local files; the published line keeps only the reason."""
+    return _PATH_RE.sub("<path>", reason)
+
+
+def coverage_notes(rows: pd.DataFrame | None) -> dict[str, str]:
+    """'<provider> scored 3 of 10 clips (7 skipped: no auto track)' for providers that missed clips."""
+    if rows is None or not {"provider", "status", "video_id"} <= set(rows.columns):
+        return {}
+    main = rows[rows["repeat"] == 0] if "repeat" in rows else rows
+    out: dict[str, str] = {}
+    for pid, grp in main.groupby("provider", sort=True):
+        total = int(grp["video_id"].nunique())
+        ok = int(grp.loc[grp["status"] == "ok", "video_id"].nunique())
+        if ok == total:
+            continue
+        parts = []
+        for status in ("skipped", "error"):
+            bad = grp[grp["status"] == status]
+            if bad.empty:
+                continue
+            reasons = bad["error"].dropna().astype(str) if "error" in bad else pd.Series(dtype=str)
+            top = reasons.map(_no_paths).value_counts().index[0][:60] if len(reasons) else ""
+            label = "budget" if top == "budget" else top
+            parts.append(f"{len(bad)} {status}" + (f": {label}" if label else ""))
+        out[str(pid)] = f"{pid} scored {ok} of {total} clips ({'; '.join(parts) or 'not scored'})"
+    return out
 
 
 def load_run(run_id: str, settings: Settings | None = None) -> RunData:
@@ -110,6 +145,7 @@ def load_run(run_id: str, settings: Settings | None = None) -> RunData:
         scores=scores,
         errors=errors,
         meta=meta,
+        coverage=coverage_notes(rules._rows(settings, run_id)),
     )
 
 
@@ -456,6 +492,16 @@ def limitations(data: RunData) -> Block:
             f"Providers change models without notice. Model ids in this run: {model_list or 'n/a'}.",
             "Prices are list prices as of each checked date above, not what any customer actually pays.",
             "YouTube auto captions and Wayin are systems under test, never references.",
+            *(
+                [
+                    "Not every provider has a result on every clip, so each provider's numbers cover only its "
+                    "own clips (paired tests use the clips both providers scored): "
+                    + "; ".join(data.coverage.values())
+                    + "."
+                ]
+                if data.coverage
+                else []
+            ),
         ],
     )
 

@@ -1,7 +1,8 @@
 """`clipbench align`: forced alignment of reference text to clip audio, for word timings.
 
 Writes data/align/<clip_id>.json = {"aligner": "<name>@<version>", "words": [{text, start_ms, end_ms}]}
-(docs/V2.md). Extra keys: "language", "audio_sha256", "tier".
+(docs/V2.md). Extra keys: "language", "tier", "audio_sha256" (of the WAV aligned) and "text_sha256" (of the
+reference text aligned; `clipbench align` redoes a clip whose WAV or text changed).
 
 Method: the MMS 300m forced aligner model (wav2vec2 CTC over romanised characters, 1130 languages)
 gives per frame log probabilities; each word is romanised (uroman; Japanese goes through its kana
@@ -283,6 +284,36 @@ def load_alignment(clip_id: str, settings: Settings | None = None) -> tuple[str,
 # ---------------------------------------------------------------------------
 
 
+def text_sha256(text: str) -> str:
+    import hashlib
+
+    return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _is_current(path: Path, tier: str, wav_sha: str, text_sha: str) -> bool:
+    """An existing alignment is kept only when it was made from this tier, WAV and text."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return (
+        isinstance(data, dict)
+        and data.get("tier", "verified") == tier
+        and data.get("audio_sha256") == wav_sha
+        and data.get("text_sha256") == text_sha
+    )
+
+
 def _read_wav(path: Path) -> np.ndarray:
     import soundfile
 
@@ -320,14 +351,16 @@ def register(app: typer.Typer) -> None:
         done = 0
         for cid in ids:
             out_path = align_dir(s) / f"{cid}.json"
-            if out_path.exists() and not force:
-                continue
             ref = load_reference(cid, tier, s)  # type: ignore[arg-type]
             wav = s.audio_dir / f"{cid}.wav"
             if ref is None or not wav.is_file():
                 console.print(f"{cid}: no {tier} reference or no WAV, skipped")
                 continue
             if lang and ref.language != lang:
+                continue
+            wav_sha = _sha256_file(wav)
+            text_sha = text_sha256(ref.text)
+            if out_path.exists() and not force and _is_current(out_path, tier, wav_sha, text_sha):
                 continue
             if ref.language not in ISO3:
                 console.print(f"{cid}: language {ref.language} not supported, skipped")
@@ -342,7 +375,11 @@ def register(app: typer.Typer) -> None:
             except ValueError as exc:
                 console.print(f"{cid}: alignment failed: {exc}")
                 continue
-            write_alignment(cid, result, ref.language, s, tier=tier, audio_sha256=ref.audio_sha256)
+            # The hash of the WAV that was aligned (the reference's own hash may be missing), and of the
+            # text, so an edit in the review UI after aligning triggers a new alignment.
+            write_alignment(
+                cid, result, ref.language, s, tier=tier, audio_sha256=wav_sha, text_sha256=text_sha
+            )
             seconds = time.perf_counter() - started
             console.print(
                 f"{cid}: {len(result.words)} words ({result.skipped_words} skipped), "

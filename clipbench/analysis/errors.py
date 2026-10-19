@@ -14,7 +14,7 @@ Rules:
 - Spaced languages (es): each substituted word is one pair.
 - all_fail: every provider with a result on the clip has primary error rate above ALL_FAIL_THRESHOLD,
   and at least 2 providers have a result. These usually mean a bad reference, so they go to
-  data/rereview.json (overwritten each run, sorted list of video ids).
+  data/rereview.json (sorted list of video ids; this run's clips are replaced, other clips are kept).
 - Examples are short: at most 4 words (8 characters for unspaced languages) of ref and hyp around
   the error, and never the whole caption (always fewer tokens than the reference).
 """
@@ -386,5 +386,26 @@ def run_errors(run_id: str, settings: Settings | None = None, align_fn=None) -> 
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "errors.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
     settings.data_dir.mkdir(parents=True, exist_ok=True)
-    (settings.data_dir / "rereview.json").write_text(json.dumps(result["all_fail"], indent=2))
+    path = settings.data_dir / "rereview.json"
+    write_rereview(path, result["all_fail"], _run_clip_ids(settings, run_id) | {a.video_id for a in alignments})
     return result
+
+
+def _run_clip_ids(settings: Settings, run_id: str) -> set[str]:
+    refs = _read_parquet(settings.runs_text_dir / run_id / "refs.parquet")
+    return set() if refs is None else {str(v) for v in refs["video_id"].dropna()}
+
+
+def write_rereview(path: Path, all_fail: list[str], run_clips: set[str]) -> list[str]:
+    """Replace this run's clips in data/rereview.json with its verdict and keep every other clip, so the
+    errors of one language (or tier) never empty the queue another run filled."""
+    try:
+        old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+    except (OSError, ValueError):
+        old = []
+    if isinstance(old, dict):  # the review UI also accepts {"video_ids": [...]}
+        old = old.get("video_ids", [])
+    keep = {str(v) for v in old if isinstance(v, str) and v not in run_clips}
+    ids = sorted(keep | set(all_fail))
+    path.write_text(json.dumps(ids, indent=2))
+    return ids

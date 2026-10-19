@@ -7,13 +7,15 @@ import typer
 
 def register(app: typer.Typer) -> None:
     @app.command("errors")
-    def errors(run_id: str = typer.Argument(..., help="Run id under data/runs/.")) -> None:
+    def errors(run_id: str = typer.Argument(..., help="Run id under data/runs/, or 'latest'.")) -> None:
         """Error analysis: top substitutions, worst clips, clips every provider fails."""
         from clipbench.analysis.errors import ALL_FAIL_THRESHOLD, run_errors
         from clipbench.config import get_settings
+        from clipbench.runs import resolve_run_id
 
         settings = get_settings()
         try:
+            run_id = resolve_run_id(run_id, settings)
             result = run_errors(run_id, settings)
         except FileNotFoundError as exc:
             typer.echo(str(exc), err=True)

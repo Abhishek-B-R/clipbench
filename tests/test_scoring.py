@@ -253,3 +253,48 @@ def test_v1_refs_without_v2_columns_still_score(scored):
     assert s["punct_f1"].isna().all()
     assert s["codeswitch_ref_len"].isna().all()
     assert (s["audio_condition"].isin(["music", "no_music"])).all()
+
+
+def test_mixed_language_run_is_refused(tmp_settings):
+    """en, es and hi all score `wer`: one run with two languages would pool them into one number."""
+    _write_v2_run(tmp_settings)
+    path = tmp_settings.runs_dir / V2_RUN / "rows.parquet"
+    rows = pd.read_parquet(path)
+    rows.loc[rows["video_id"] == "en1", "language"] = "es"
+    rows.to_parquet(path, index=False)
+    with pytest.raises(ValueError, match="one language"):
+        score_run(V2_RUN, tmp_settings)
+
+
+def test_empty_output_over_nonspeech_is_zero_hallucination(tmp_settings):
+    """A provider that writes nothing hallucinated nothing: the clip counts with 0 words, it is not
+    dropped (dropping it would shrink that provider's non-speech minutes and inflate its rate)."""
+    _write_v2_run(tmp_settings)
+    path = tmp_settings.runs_text_dir / V2_RUN / "texts.parquet"
+    texts = pd.read_parquet(path)
+    mask = (texts["provider"] == "a") & (texts["video_id"] == "en0")
+    texts.loc[mask, "hyp_text"] = ""
+    texts.loc[mask, "words_json"] = "[]"
+    texts.to_parquet(path, index=False)
+    out = score_run(V2_RUN, tmp_settings)
+    s = pd.read_parquet(out / "scores.parquet").set_index(["provider", "video_id"])
+    a0 = s.loc[("a", "en0")].iloc[0] if isinstance(s.loc[("a", "en0")], pd.DataFrame) else s.loc[("a", "en0")]
+    assert a0["halluc_nonspeech_words"] == 0
+    assert a0["halluc_per_nonspeech_min"] == 0
+    agg = pd.read_parquet(out / "aggregates.parquet")
+    all_a = agg[(agg["provider"] == "a") & (agg["slice_kind"] == "all")].iloc[0]
+    assert all_a["nonspeech_n_clips"] == 4
+
+
+def test_empty_output_without_timings_stays_unmeasured(tmp_settings):
+    """A provider with no word timings at all gets no non-speech number, not a 0 from its empty clips."""
+    _write_v2_run(tmp_settings)
+    path = tmp_settings.runs_text_dir / V2_RUN / "texts.parquet"
+    texts = pd.read_parquet(path)
+    texts.loc[texts["provider"] == "a", "words_json"] = None
+    texts.loc[(texts["provider"] == "a") & (texts["video_id"] == "en0"), "hyp_text"] = ""
+    texts.to_parquet(path, index=False)
+    out = score_run(V2_RUN, tmp_settings)
+    agg = pd.read_parquet(out / "aggregates.parquet")
+    all_a = agg[(agg["provider"] == "a") & (agg["slice_kind"] == "all")].iloc[0]
+    assert all_a["nonspeech_n_clips"] == 0 and pd.isna(all_a["halluc_per_nonspeech_min"])

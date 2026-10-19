@@ -347,3 +347,179 @@ def test_whisper_local_contract_without_weights():
     s = a.settings()
     assert s["temperature"] == 0.0 and s["condition_on_previous_text"] is False and s["word_timestamps"] is True
     assert a.settings_hash() != b.settings_hash()
+
+
+# ---------------------------------------------------------------- languages and crash safety
+
+
+def _with_language(clips, language: str, prefix: str):
+    out = []
+    for c in clips:
+        ref = c.reference.model_copy(update={"video_id": prefix + c.video_id, "language": language})
+        out.append(c.model_copy(update={"video_id": prefix + c.video_id, "language": language, "reference": ref}))
+    return out
+
+
+async def test_mixed_language_run_is_refused(tmp_settings, clips):
+    mixed = list(clips) + _with_language(clips, "en", "en-")
+    with pytest.raises(ValueError, match="one language"):
+        await run([FakeProvider()], "verified", clips=mixed, settings=tmp_settings, progress=False, run_id="r-mix")
+    assert not (tmp_settings.runs_dir / "r-mix").exists()
+
+
+async def test_language_filter_picks_one_language(tmp_settings, clips):
+    mixed = list(clips) + _with_language(clips, "en", "en-")
+    res = await run(
+        [FakeProvider()], "verified", clips=mixed, language="en", settings=tmp_settings, progress=False, run_id="r-en"
+    )
+    assert set(res.rows["language"]) == {"en"} and len(res.rows) == 5
+    assert json.loads(res.meta_path.read_text())["language"] == "en"
+
+
+def test_cli_lang_option(tmp_settings, monkeypatch, clips):
+    mixed = list(clips) + _with_language(clips, "en", "en-")
+    mod = types.ModuleType("clipbench.data.references")
+    mod.load_clips = lambda tier, settings=None, limit=None: list(mixed)
+    monkeypatch.setitem(sys.modules, "clipbench.data.references", mod)
+    r = CliRunner().invoke(_app(), ["run", "--providers", "fake", "--run-id", "cli-mix"])
+    assert r.exit_code == 2 and "--lang" in r.output
+    r = CliRunner().invoke(_app(), ["run", "--providers", "fake", "--run-id", "cli-ja", "--lang", "ja"])
+    assert r.exit_code == 0, r.output
+    assert set(pd.read_parquet(tmp_settings.runs_dir / "cli-ja" / "rows.parquet")["language"]) == {"ja"}
+
+
+async def test_resume_does_not_keep_ok_row_without_text(tmp_settings, clips):
+    """A crash can leave an ok row in rows.part.jsonl whose text line never made it (or was torn):
+    the row must be redone, not scored as an empty hypothesis."""
+    await run([FakeProvider()], "verified", clips=clips, settings=tmp_settings, progress=False, run_id="r-torn")
+    rows_dir = tmp_settings.runs_dir / "r-torn"
+    text_dir = tmp_settings.runs_text_dir / "r-torn"
+    rows = pd.read_parquet(rows_dir / "rows.parquet")
+    texts = pd.read_parquet(text_dir / "texts.parquet")
+    (rows_dir / "rows.parquet").unlink()
+    (text_dir / "texts.parquet").unlink()
+    with (rows_dir / "rows.part.jsonl").open("w") as fh:
+        for r in rows.head(3).astype(object).where(rows.head(3).notna(), None).to_dict("records"):
+            fh.write(json.dumps(r, default=str) + "\n")
+    with (text_dir / "texts.part.jsonl").open("w") as fh:
+        for t in texts.head(2).astype(object).to_dict("records"):
+            fh.write(json.dumps(t, ensure_ascii=False) + "\n")
+        fh.write('{"provider": "fake", "video_')  # torn: the third row's text is lost
+    p = FakeProvider()
+    res = await run([p], "verified", clips=clips, settings=tmp_settings, progress=False, run_id="r-torn", no_cache=True)
+    assert p.calls == 3
+    out = pd.read_parquet(res.texts_path)
+    assert len(out) == 5 and set(out["video_id"]) == set(rows["video_id"])
+
+
+async def test_run_without_clips_is_refused(tmp_settings):
+    """No clips (wrong --lang or tier, nothing verified yet) must not write an empty run that then
+    becomes `latest` for score, report and the site."""
+    with pytest.raises(ValueError, match="no clips"):
+        await run([FakeProvider()], "verified", clips=[], settings=tmp_settings, progress=False, run_id="r-none")
+    assert not (tmp_settings.runs_dir / "r-none").exists()
+    res = await run([FakeProvider()], "verified", clips=[], settings=tmp_settings, progress=False, dry_run=True)
+    assert res.dry_run
+
+
+async def test_paid_provider_without_price_is_skipped(tmp_settings, clips):
+    """A paid adapter with no price in pricing.toml would be estimated and reserved at $0, so the
+    budget guard could never stop it."""
+
+    class PaidNoPrice(FakeProvider):
+        id: ClassVar[str] = "fake-paid-free"
+        paid: ClassVar[bool] = True
+
+    p = PaidNoPrice(cost_per_minute=0.0)
+    res = await run([p], "verified", clips=clips, settings=tmp_settings, progress=False, dry_run=True)
+    assert "fake-paid-free" in res.skipped_providers and "pricing.toml" in res.skipped_providers["fake-paid-free"]
+
+
+async def test_runner_timeout_is_the_whole_job(tmp_settings, clips):
+    """timeout_s bounds one HTTP request; the runner must allow the whole job (retries, polling), or a
+    queued AssemblyAI job is cancelled at 120 s, counted as spent and errored while it still bills."""
+    from clipbench.providers.assemblyai import AssemblyAI
+    from clipbench.providers.deepgram import Deepgram
+
+    aai = AssemblyAI()
+    assert aai.job_timeout_s() >= aai.poll_timeout_s + aai.timeout_s
+    dg = Deepgram()
+    assert dg.job_timeout_s() >= dg.timeout_s * dg.retry.max_attempts
+    from clipbench.providers.aws_transcribe import AwsTranscribe
+
+    assert AwsTranscribe(s3_client=object(), transcribe_client=object()).job_timeout_s() > AwsTranscribe.timeout_s
+
+    class SlowJob(FakeProvider):
+        id: ClassVar[str] = "fake-slowjob"
+        timeout_s: ClassVar[float] = 0.05
+
+        def job_timeout_s(self) -> float:
+            return 5.0
+
+        async def transcribe(self, audio_path, language, *, clip=None):
+            await asyncio.sleep(0.2)
+            return await super().transcribe(audio_path, language, clip=clip)
+
+    res = await run([SlowJob()], "verified", clips=clips[:1], settings=tmp_settings, progress=False, run_id="r-job")
+    assert (res.rows["status"] == "ok").all()
+
+
+async def test_published_rows_do_not_carry_local_paths(tmp_settings, clips):
+    """rows.parquet and run_meta.json are published: skip and error messages that name local files
+    (wayin export dir, a missing auto track) must not leak the owner's home directory."""
+
+    class PathSkip(FakeProvider):
+        id: ClassVar[str] = "fake-pathskip"
+
+        async def transcribe(self, audio_path, language, *, clip=None):
+            raise ProviderSkip(f"auto track missing on disk: {tmp_settings.data_dir / 'tracks' / 'x.json3'}")
+
+    class PathOff(FakeProvider):
+        id: ClassVar[str] = "fake-pathoff"
+
+        def availability(self):
+            return False, f"fake-pathoff: skipped, put exports in {Path.home() / 'secret' / 'wayin'}"
+
+    res = await run(
+        [PathSkip(), PathOff()], "verified", clips=clips[:1], settings=tmp_settings, progress=False, run_id="r-path"
+    )
+    err = res.rows["error"].iloc[0]
+    assert str(tmp_settings.data_dir) not in err and "data/tracks/x.json3" in err
+    meta = res.meta_path.read_text()
+    assert str(Path.home()) not in meta and "~/secret/wayin" in meta
+
+
+async def test_resume_with_fewer_clips_keeps_references(tmp_settings, clips):
+    """Resuming a run with --limit (say to retry a few errors) must not drop the reference snapshot of
+    the clips it did not touch, or scoring silently loses their rows."""
+    await run([FakeProvider()], "verified", clips=clips, settings=tmp_settings, progress=False, run_id="r-refs")
+    res = await run(
+        [FakeProvider()], "verified", clips=clips, limit=2, settings=tmp_settings, progress=False, run_id="r-refs"
+    )
+    refs = pd.read_parquet(res.refs_path)
+    assert sorted(refs["video_id"]) == sorted(c.video_id for c in clips)
+    assert len(res.rows) == 5
+    assert json.loads(res.meta_path.read_text())["n_clips"] == 5
+
+
+async def test_resume_with_fewer_providers_keeps_their_meta(tmp_settings, clips):
+    await run([FakeProvider(), SkipsOne()], "verified", clips=clips, settings=tmp_settings, progress=False,
+              run_id="r-meta")  # fmt: skip
+    res = await run([FakeProvider()], "verified", clips=clips, settings=tmp_settings, progress=False, run_id="r-meta")
+    ids = [p["id"] for p in json.loads(res.meta_path.read_text())["providers"]]
+    assert sorted(ids) == ["fake", "fake-skip"]
+
+
+def test_cli_pipeline_accepts_latest(tmp_settings, fake_references, monkeypatch, tmp_path):
+    """README and the Makefile run score, errors, report and export with `latest`."""
+    from clipbench.cli import app
+
+    monkeypatch.setenv("CLIPBENCH_WEB_DIR", str(tmp_path / "web"))
+    r = CliRunner().invoke(app, ["run", "--providers", "fake", "--run-id", "cli-latest"])
+    assert r.exit_code == 0, r.output
+    for cmd in ("score", "errors", "report", "export"):
+        r = CliRunner().invoke(app, [cmd, "latest"])
+        assert r.exit_code == 0, f"{cmd}: {r.output}"
+    assert (tmp_settings.results_dir / "cli-latest" / "errors.json").exists()
+    assert (tmp_settings.results_dir / "cli-latest" / "report.md").exists()
+    assert not (tmp_settings.results_dir / "latest").exists()

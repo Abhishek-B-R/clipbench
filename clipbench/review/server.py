@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from clipbench.config import Settings, get_settings
@@ -13,6 +14,17 @@ from clipbench.models import TAGS
 from clipbench.review import store
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+# Names this server answers to. Anything else is a DNS rebinding attempt from another site.
+# "testserver" is the host name of FastAPI's TestClient.
+ALLOWED_HOSTS = ("127.0.0.1", "localhost", "[::1]", "testserver")
+UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def _hostname(netloc: str) -> str:
+    netloc = netloc.strip().lower()
+    if netloc.startswith("["):
+        return netloc.split("]")[0] + "]"
+    return netloc.split(":")[0]
 
 
 class NonspeechSpan(BaseModel):
@@ -44,6 +56,20 @@ def create_app(
 ) -> FastAPI:
     settings = settings or get_settings()
     app = FastAPI(title="clipbench review", docs_url=None, redoc_url=None, openapi_url=None)
+
+    @app.middleware("http")
+    async def same_site_only(request: Request, call_next):
+        """Creator captions and audio never leave this machine: refuse a foreign Host (DNS rebinding)
+        and any write sent from another site's page (a bodyless POST needs no CORS preflight)."""
+        if _hostname(request.headers.get("host", "")) not in ALLOWED_HOSTS:
+            return PlainTextResponse("unknown host", status_code=400)
+        if request.method in UNSAFE_METHODS:
+            origin = request.headers.get("origin")
+            if origin and _hostname(urlsplit(origin).netloc) not in ALLOWED_HOSTS:
+                return PlainTextResponse("cross-site request refused", status_code=403)
+            if request.headers.get("sec-fetch-site", "") == "cross-site":
+                return PlainTextResponse("cross-site request refused", status_code=403)
+        return await call_next(request)
     queue = store.load_queue(settings, only_rereview=only_rereview)
     creator_cache: dict[str, tuple[str, list[dict] | None, str | None]] = {}
     peaks_cache: dict[tuple[str, int], dict] = {}
@@ -110,7 +136,16 @@ def create_app(
         if saved:
             for sp in rec.get("codeswitch_spans") or []:
                 try:
-                    spans.append({**sp, "text": text[int(sp["start"]) : int(sp["end"])]})
+                    start, end = int(sp["start"]), int(sp["end"])
+                    # The page works in UTF-16 units (JS strings); the file in code points.
+                    spans.append(
+                        {
+                            **sp,
+                            "start": store.index_to_utf16(text, start),
+                            "end": store.index_to_utf16(text, end),
+                            "text": text[start:end],
+                        }
+                    )
                 except (KeyError, TypeError, ValueError):
                     continue
         saved_category = rec.get("category") if saved else None
@@ -165,7 +200,7 @@ def create_app(
                     [s.model_dump() for s in body.nonspeech_spans], wav_duration_ms(item.video_id)
                 )
                 codeswitch, dropped = store.clean_codeswitch(
-                    body.text, [s.model_dump() for s in body.codeswitch_spans]
+                    body.text, store.spans_from_browser(body.text, [s.model_dump() for s in body.codeswitch_spans])
                 )
                 record = store.build_record(
                     settings,

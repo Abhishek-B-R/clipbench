@@ -101,3 +101,39 @@ def test_cli_reports_missing_extra(monkeypatch):
     res = CliRunner().invoke(app, [])
     assert res.exit_code == 1
     assert "not available" in res.output
+
+
+def test_cli_records_wav_hash_and_redoes_stale_text(tmp_settings, monkeypatch):
+    """The alignment records the hash of the WAV it was made from (the verified file may carry none),
+    and a reference edited after aligning is aligned again instead of keeping words of the old text."""
+    pytest.importorskip("uroman")
+    import hashlib
+
+    import soundfile
+    import typer
+    from typer.testing import CliRunner
+
+    s = tmp_settings
+    s.audio_dir.mkdir(parents=True)
+    s.verified_dir.mkdir(parents=True)
+    wav = s.audio_dir / "-clip1.wav"
+    soundfile.write(str(wav), np.zeros(16000, dtype="float32"), 16000)
+    wav_sha = hashlib.sha256(wav.read_bytes()).hexdigest()
+    ver = s.verified_dir / "-clip1.json"
+    ver.write_text(json.dumps({"video_id": "-clip1", "language": "en", "text": "hi you", "tags": []}))
+
+    monkeypatch.setattr(al, "availability", lambda: (True, "ok"))
+    monkeypatch.setattr(al, "MMSAligner", lambda: FakeModel("hiyouyo"))
+    app = typer.Typer()
+    al.register(app)
+    res = CliRunner().invoke(app, ["--clip", "-clip1"])
+    assert res.exit_code == 0, res.output
+    data = json.loads((s.data_dir / "align" / "-clip1.json").read_text())
+    assert data["audio_sha256"] == wav_sha
+    assert [w["text"] for w in data["words"]] == ["hi", "you"]
+
+    ver.write_text(json.dumps({"video_id": "-clip1", "language": "en", "text": "hi you yo", "tags": []}))
+    res = CliRunner().invoke(app, ["--clip", "-clip1"])
+    assert res.exit_code == 0, res.output
+    data = json.loads((s.data_dir / "align" / "-clip1.json").read_text())
+    assert [w["text"] for w in data["words"]] == ["hi", "you", "yo"]

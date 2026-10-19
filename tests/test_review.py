@@ -669,3 +669,13 @@ def test_suggest_japanese_kana_reading():
     pytest.importorskip("fugashi")
     pytest.importorskip("unidic_lite")
     assert "きょう" in store.suggest_alternatives("ja", "今日")
+
+
+def test_index_has_detail_tag_tools(data):
+    """The page ships the v3 tools: the Detail tags panel, the speaker lane and the text span picker, and
+    sends every v3 field when saving."""
+    html = client(data[0]).get("/").text
+    for needle in ('id="detail"', 'id="lane"', 'id="picker"', 'id="conds"', "/api/suggest",
+                   "speaker_turns", "entity_spans", "alternatives", "itn_spans", "conditions"):  # fmt: skip
+        assert needle in html
+    assert "–" not in html and "—" not in html  # no en or em dashes

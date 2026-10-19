@@ -26,6 +26,13 @@
   --sfx: rgba(214, 120, 30, 0.30);
   --silence: rgba(120, 120, 128, 0.30);
   --cs: rgba(214, 160, 30, 0.35);
+  --ent: #7a4fd0;
+  --itn: #0f8a8a;
+  --alt: rgba(40, 160, 90, 0.26);
+  --spk0: #3b6fd8;
+  --spk1: #d0702a;
+  --spk2: #2f9a5a;
+  --spk3: #a2479b;
   --cjk: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic",
     "Meiryo", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", "Malgun Gothic", system-ui,
     -apple-system, "Segoe UI", sans-serif;
@@ -52,6 +59,13 @@
     --sfx: rgba(240, 150, 60, 0.30);
     --silence: rgba(160, 160, 170, 0.25);
     --cs: rgba(240, 190, 60, 0.30);
+    --ent: #b79cff;
+    --itn: #5fd0d0;
+    --alt: rgba(90, 210, 140, 0.24);
+    --spk0: #6f9bff;
+    --spk1: #f0a060;
+    --spk2: #6fd49a;
+    --spk3: #e08ad8;
   }
 }
 * { box-sizing: border-box; }
@@ -101,7 +115,11 @@ button.on kbd, button.primary kbd { color: inherit; border-color: currentColor; 
 .editor textarea { position: relative; display: block; width: 100%; min-height: 170px; resize: vertical;
   color: var(--text); background: transparent; border-radius: 8px; }
 .backdrop { position: absolute; inset: 0; overflow: hidden; color: transparent; pointer-events: none; }
-.backdrop mark { color: transparent; background: var(--cs); border-radius: 3px; }
+.backdrop mark { color: transparent; background: transparent; border-radius: 3px; }
+.backdrop mark.alt { background: var(--alt); }
+.backdrop mark.cs { background: var(--cs); }
+.backdrop mark.ent { box-shadow: inset 0 -3px 0 var(--ent); border-radius: 0; }
+.backdrop mark.itn { border-bottom: 2px dotted var(--itn); border-radius: 0; }
 .diff { font: 18px/1.8 var(--cjk); white-space: pre-wrap; word-break: break-word; min-height: 1.8em; }
 .diff del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; border-radius: 3px; }
 .diff ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: none; border-radius: 3px; }
@@ -130,6 +148,34 @@ canvas#wave { display: block; width: 100%; height: 96px; border-radius: 6px; bac
 .cs-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 10px; border-radius: 999px;
   background: var(--cs); font-size: 13px; cursor: pointer; }
 .cs-chip button { border: 0; background: transparent; padding: 0 6px; }
+canvas#lane { display: block; width: 100%; height: 34px; margin-top: 4px; border-radius: 6px; background: var(--bg); cursor: pointer; touch-action: none; }
+details.detail > summary { font-size: 14px; color: var(--text); font-weight: 600; }
+details.detail > summary .muted { font-weight: 400; font-size: 13px; }
+.dsec { margin-top: 14px; }
+.dsec .label { margin-bottom: 6px; }
+.conds { display: flex; flex-wrap: wrap; gap: 6px; }
+.conds button { border-radius: 999px; padding: 4px 10px; }
+.conds button.implied { border-style: dashed; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.dchip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 8px; border-radius: 999px;
+  border: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+.dchip.ent { box-shadow: inset 0 -2px 0 var(--ent); }
+.dchip.itn { border-bottom: 2px dotted var(--itn); }
+.dchip.alt { background: var(--alt); }
+.dchip select { font-size: 12px; padding: 0 4px; }
+.dchip button { border: 0; background: transparent; padding: 0 6px; }
+.picker { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--panel)); display: flex; flex-direction: column; gap: 8px; }
+.picker .pk-text { font: 17px/1.4 var(--cjk); padding: 0 6px; border-radius: 4px; background: var(--bg); }
+.picker input.field { flex: 1; min-width: 180px; font-size: 15px; }
+.opt { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-radius: 999px; background: var(--alt); font-size: 14px; }
+.opt button { border: 0; background: transparent; padding: 0 6px; }
+.turn-bad { color: var(--del-fg); }
+.legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 3px 24px; font-size: 12px; margin-top: 14px;
+  padding-top: 10px; border-top: 1px dashed var(--line); color: var(--muted); }
+.legend div { display: flex; justify-content: space-between; gap: 10px; }
+.chord { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--accent);
+  border-radius: 8px; padding: 6px 12px; font-size: 13px; z-index: 6; box-shadow: 0 4px 18px rgba(0,0,0,0.12); }
 @media (max-width: 600px) {
   .editor textarea, .backdrop { font-size: 19px; }
   .diff { font-size: 16px; }
@@ -175,7 +221,8 @@ canvas#wave { display: block; width: 100%; height: 96px; border-radius: 6px; bac
         <label class="small muted"><input type="checkbox" id="autoplay"> autoplay</label>
       </div>
       <div id="audio-error" class="error" hidden>No audio file for this clip.</div>
-      <div class="wave"><canvas id="wave" height="96"></canvas></div>
+      <div class="wave"><canvas id="wave" height="96"></canvas><canvas id="lane" height="34" hidden
+        title="Speaker turns: t new turn at the playhead, drag an edge to adjust, click to select"></canvas></div>
       <div class="row small" style="margin-top:8px">
         <span class="muted">Non-speech: drag on the waveform, or <kbd>i</kbd> in and <kbd>o</kbd> out at the playhead. New spans are</span>
         <span id="kinds" class="row"></span>
@@ -193,6 +240,16 @@ canvas#wave { display: block; width: 100%; height: 96px; border-radius: 6px; bac
         <textarea id="text" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
       </div>
       <div id="caption-error" class="error" hidden></div>
+      <div id="picker" class="picker" hidden>
+        <div class="row"><b id="pk-title"></b><span class="pk-text" id="pk-text"></span><span class="spacer"></span>
+          <span class="small muted" id="pk-help"></span></div>
+        <div class="row" id="pk-opts"></div>
+        <div class="row" id="pk-alt" hidden>
+          <span id="pk-chosen" class="row"></span>
+          <input class="field" id="pk-input" placeholder="type another valid spelling, enter to add" autocomplete="off" spellcheck="false">
+          <button class="tiny" id="pk-done">Done <kbd>enter</kbd></button>
+        </div>
+      </div>
       <div class="row" style="margin-top:10px">
         <label class="tag" id="punct-label" title="."><input type="checkbox" id="punctuated" tabindex="-1">
           <kbd>.</kbd> punctuation and casing checked</label>
@@ -228,6 +285,52 @@ canvas#wave { display: block; width: 100%; height: 96px; border-radius: 6px; bac
       <button id="skip">Skip <kbd>alt+s</kbd></button>
       <button id="save" class="primary">Save and next <kbd>ctrl+enter</kbd></button>
     </div>
+
+    <details class="panel detail" id="detail">
+      <summary>Detail tags <span class="muted" id="detail-count"></span></summary>
+      <div class="dsec">
+        <p class="label">Audio conditions <span class="muted" style="text-transform:none;letter-spacing:0">(<kbd>q</kbd> then a number)</span></p>
+        <div class="conds" id="conds"></div>
+      </div>
+      <div class="dsec">
+        <div class="row">
+          <p class="label" style="margin:0">Speaker turns</p>
+          <span class="small muted">on the lane under the waveform</span>
+          <span class="spacer"></span>
+          <button class="tiny" id="turn-new">New turn <kbd>t</kbd></button>
+          <button class="tiny" id="turn-end">End turn <kbd>shift+t</kbd></button>
+          <button class="tiny" id="turn-suggest">Suggest from pauses</button>
+        </div>
+        <div id="turn-error" class="error" style="margin-top:6px" hidden></div>
+        <div class="spans" id="turns"></div>
+      </div>
+      <div class="dsec">
+        <div class="row">
+          <p class="label" style="margin:0">Text spans</p>
+          <span class="small muted">select text in the transcript, then</span>
+          <span class="spacer"></span>
+          <button class="tiny" id="ent-add">Entity <kbd>alt+p</kbd></button>
+          <button class="tiny" id="alt-add">Alternatives <kbd>alt+a</kbd></button>
+          <button class="tiny" id="itn-add">Formatting <kbd>alt+f</kbd></button>
+        </div>
+        <div class="chips" id="ent-list"></div>
+        <div class="chips" id="alt-list"></div>
+        <div class="chips" id="itn-list"></div>
+      </div>
+      <div class="legend">
+        <div><span>Condition 1 to 7</span><span><kbd>q</kbd> then <kbd>1</kbd>..<kbd>7</kbd> (<kbd>alt+q</kbd> while typing)</span></div>
+        <div><span>New speaker turn at the playhead</span><span><kbd>t</kbd>, <kbd>alt+t</kbd> anywhere</span></div>
+        <div><span>End the current turn at the playhead</span><span><kbd>shift+t</kbd></span></div>
+        <div><span>Next speaker for the selected turn</span><span><kbd>y</kbd>, <kbd>alt+y</kbd></span></div>
+        <div><span>Delete selected turn</span><span><kbd>delete</kbd></span></div>
+        <div><span>Entity (proper noun, brand) on selection</span><span><kbd>alt+p</kbd> then <kbd>1</kbd>..<kbd>5</kbd></span></div>
+        <div><span>Alternative spellings on selection</span><span><kbd>alt+a</kbd>, <kbd>alt+1</kbd>.. picks a suggestion</span></div>
+        <div><span>Formatting (ITN) on selection</span><span><kbd>alt+f</kbd> then <kbd>1</kbd>..<kbd>6</kbd></span></div>
+        <div><span>Highlights</span><span><span style="box-shadow:inset 0 -3px 0 var(--ent)">entity</span>
+          <span style="background:var(--alt)">alternatives</span> <span style="border-bottom:2px dotted var(--itn)">formatting</span>
+          <span style="background:var(--cs)">code-switch</span></span></div>
+      </div>
+    </details>
   </main>
 
   <details class="panel">
@@ -249,6 +352,7 @@ canvas#wave { display: block; width: 100%; height: 96px; border-radius: 6px; bac
       <div><span>Reset text to the creator caption</span><span><kbd>alt+r</kbd> (undo with ctrl+z)</span></div>
       <div><span>Edit text</span><span><kbd>enter</kbd> or <kbd>e</kbd></span></div>
       <div><span>Stop typing, clear span selection / pending in-mark</span><span><kbd>esc</kbd></span></div>
+      <div><span>Detail tags (conditions, speakers, entities, alternatives, formatting)</span><span>see the legend in the Detail tags panel</span></div>
     </div>
     <p class="small muted">Space inside the text box types a space. Press <kbd>esc</kbd> first, or use <kbd>alt+space</kbd>.
       Skipped clips are saved with <span class="mono">"skipped": true</span> and left out of the verified set.
@@ -258,6 +362,7 @@ canvas#wave { display: block; width: 100%; height: 96px; border-radius: 6px; bac
   </details>
 </div>
 <div class="toast" id="toast"></div>
+<div class="chord" id="chord" hidden></div>
 
 <script>
 "use strict";
@@ -281,7 +386,19 @@ const state = {
   peaks: null,      // {duration_ms, min, max}
   gaps: [],         // caption gaps >= 1 s from creator word timings
   drag: null,
+  // v3 detail tags (docs/V3.md). Text spans hold UTF-16 offsets plus the tagged text, like codeswitch.
+  conditions: [],   // explicit conditions; music is also implied by the tag or a music span
+  turns: [],        // [{start_ms, end_ms, speaker}]
+  selTurn: -1,
+  laneDrag: null,
+  entities: [],     // [{start, end, type, text}]
+  alts: [],         // [{start, end, options (other spellings), text}]
+  itn: [],          // [{start, end, kind, text}]
+  picker: null,     // open text span picker
+  chord: null,      // pending "q" chord timer
 };
+// Text span lists that follow transcript edits: [state key, label for warnings].
+const TEXT_LISTS = [["codeswitch", "Code-switch"], ["entities", "Entity"], ["alts", "Alternative"], ["itn", "Formatting"]];
 
 function storeGet(key, fallback) {
   try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch { return fallback; }
@@ -411,15 +528,17 @@ function findNearest(text, needle, near) {
   return best;
 }
 function adjustSpans(prev, now) {
-  if (prev === now || !state.codeswitch.length) { state.prevText = now; return; }
+  if (prev === now || !TEXT_LISTS.some(([k]) => state[k].length)) { state.prevText = now; return; }
   let pre = 0;
   const minLen = Math.min(prev.length, now.length);
   while (pre < minLen && prev[pre] === now[pre]) pre++;
   let suf = 0;
   while (suf < minLen - pre && prev[prev.length - 1 - suf] === now[now.length - 1 - suf]) suf++;
   const oldEnd = prev.length - suf, delta = now.length - prev.length;
-  const kept = [], lost = [];
-  for (const sp of state.codeswitch) {
+  const lost = [];
+  for (const [key, label] of TEXT_LISTS) {
+    const kept = [];
+    for (const sp of state[key]) {
     let { start, end } = sp;
     if (end <= pre) { /* before the edit */ }
     else if (start >= oldEnd) { start += delta; end += delta; }
@@ -427,15 +546,17 @@ function adjustSpans(prev, now) {
     else if (start <= pre && oldEnd <= end && !(start === pre && oldEnd === end) && end + delta > start) { end += delta; }
     else {
       const at = findNearest(now, sp.text, start);
-      if (at === -1) { lost.push(sp.text); continue; }
+      if (at === -1) { lost.push(label + ' "' + sp.text + '"'); continue; }
       start = at; end = at + sp.text.length;
     }
     kept.push({ ...sp, start, end, text: now.slice(start, end) });
+    }
+    state[key] = kept;
   }
-  state.codeswitch = kept;
   state.prevText = now;
-  if (lost.length) toast("Code-switch span removed (text edited): " + lost.map((t) => '"' + t + '"').join(", "), 3000);
+  if (lost.length) toast("Span removed (text edited): " + lost.join(", "), 3000);
   renderCodeswitch();
+  renderTextSpans();
 }
 function addCodeswitch() {
   const ta = $("text");
@@ -450,6 +571,7 @@ function addCodeswitch() {
   if (state.codeswitch.some((s) => s.start === start && s.end === end)) { toast("Already marked"); return; }
   state.codeswitch.push({ start, end, lang, text: v.slice(start, end) });
   state.codeswitch.sort((a, b) => a.start - b.start || a.end - b.end);
+  autoCondition("code_switching");
   renderCodeswitch();
   updateDirty();
 }
@@ -472,16 +594,20 @@ function renderCodeswitch() {
 }
 function renderBackdrop() {
   const v = $("text").value;
-  let html = "", pos = 0;
-  // Overlapping spans are drawn as their union.
-  const spans = state.codeswitch.slice().sort((a, b) => a.start - b.start);
-  for (const sp of spans) {
-    const s = Math.max(sp.start, pos);
-    if (sp.end <= s) continue;
-    html += esc(v.slice(pos, s)) + "<mark>" + esc(v.slice(s, sp.end)) + "</mark>";
-    pos = sp.end;
+  // Every text span layer at once: cut the text at each span edge, then mark each piece with the layers
+  // that cover it (overlaps show as combined styles).
+  const layers = [["cs", state.codeswitch], ["ent", state.entities], ["alt", state.alts], ["itn", state.itn]];
+  const clamp = (n) => Math.max(0, Math.min(v.length, n));
+  const cuts = new Set([0, v.length]);
+  for (const [, list] of layers) for (const sp of list) { cuts.add(clamp(sp.start)); cuts.add(clamp(sp.end)); }
+  const pts = Array.from(cuts).sort((a, b) => a - b);
+  let html = "";
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const cls = layers.filter(([, list]) => list.some((sp) => sp.start <= a && b <= sp.end)).map(([c]) => c);
+    html += cls.length ? `<mark class="${cls.join(" ")}">${esc(v.slice(a, b))}</mark>` : esc(v.slice(a, b));
   }
-  html += esc(v.slice(pos)) + "\n ";
+  html += "\n ";
   $("backdrop").innerHTML = html;
   $("backdrop").scrollTop = $("text").scrollTop;
 }
@@ -494,7 +620,10 @@ function buildTags(tags) {
     const label = document.createElement("label");
     label.className = "tag " + tag;
     label.innerHTML = `<input type="checkbox" value="${tag}" tabindex="-1"><kbd>${i + 1}</kbd> ${tag.replace(/_/g, " ")}`;
-    label.querySelector("input").addEventListener("change", () => { syncTagStyles(); updateDirty(); });
+    label.querySelector("input").addEventListener("change", (e) => {
+      if (e.target.checked) autoCondition(tag);
+      syncTagStyles(); updateDirty();
+    });
     box.appendChild(label);
   });
 }
@@ -505,11 +634,13 @@ function syncTagStyles() {
   for (const x of tagInputs()) x.parentElement.classList.toggle("checked", x.checked);
   $("punct-label").classList.toggle("checked", $("punctuated").checked);
   renderMusicHint();
+  renderConditions();
 }
 function toggleTag(i) {
   const x = tagInputs()[i];
   if (!x) return;
   x.checked = !x.checked;
+  if (x.checked) autoCondition(x.value);
   syncTagStyles();
   updateDirty();
 }
@@ -595,6 +726,7 @@ function drawWave() {
   const a = $("audio");
   ctx.fillStyle = cssVar("--del-fg");
   ctx.fillRect(x(a.currentTime * 1000) - 0.5, 0, 1.5, h);
+  drawLane();
 }
 let waveLoop = 0;
 function waveTick() { drawWave(); if (!$("audio").paused) waveLoop = requestAnimationFrame(waveTick); }
@@ -619,10 +751,11 @@ function renderSpans() {
     box.appendChild(row);
   });
   renderMusicHint();
+  renderConditions();
   drawWave();
 }
 function afterSpanChange() { renderSpans(); updateDirty(); }
-function selectSpan(i) { state.selSpan = i; renderSpans(); }
+function selectSpan(i) { state.selSpan = i; if (state.selTurn >= 0) { state.selTurn = -1; renderTurns(); } renderSpans(); }
 function deleteSpan(i) {
   if (i < 0 || i >= state.nonspeech.length) return;
   state.nonspeech.splice(i, 1);
@@ -750,6 +883,478 @@ async function loadPeaks(id) {
   } catch { /* no waveform, spans still work from the audio element */ }
 }
 
+/* ---------- detail tags: conditions (A4) ---------- */
+function impliedConditions() {
+  const out = [];
+  if (currentTags().includes("background_music") || state.nonspeech.some((s) => s.kind === "music")) out.push("music");
+  return out;
+}
+function buildConditions(conds) {
+  const box = $("conds");
+  box.innerHTML = "";
+  conds.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.dataset.cond = c;
+    b.innerHTML = `<kbd>${i + 1}</kbd> ${c.replace(/_/g, " ")}`;
+    b.addEventListener("click", () => toggleCondition(c));
+    box.appendChild(b);
+  });
+}
+function renderConditions() {
+  if (!state.queue) return;
+  const implied = impliedConditions();
+  for (const b of $("conds").querySelectorAll("button")) {
+    const c = b.dataset.cond, imp = implied.includes(c);
+    b.classList.toggle("on", imp || state.conditions.includes(c));
+    b.classList.toggle("implied", imp && !state.conditions.includes(c));
+    b.title = imp ? "on because of the background music tag or a music span" : "";
+  }
+  renderDetailCount();
+}
+function toggleCondition(c) {
+  if (!c) return;
+  const i = state.conditions.indexOf(c);
+  if (i >= 0) {
+    state.conditions.splice(i, 1);
+    if (impliedConditions().includes(c)) toast("music stays on: implied by the background music tag or a music span", 2500);
+  } else state.conditions.push(c);
+  renderConditions();
+  updateDirty();
+}
+// Turn a condition on when a matching tag or tool says so (never turns one off).
+function autoCondition(c) {
+  if (!state.queue || !state.queue.conditions.includes(c) || state.conditions.includes(c)) return;
+  state.conditions.push(c);
+  renderConditions();
+}
+function startChord() {
+  clearTimeout(state.chord);
+  const names = state.queue.conditions.map((c, i) => `<kbd>${i + 1}</kbd> ${c.replace(/_/g, " ")}`).join("  ");
+  $("chord").innerHTML = "Condition: " + names + '  <span class="muted">esc to cancel</span>';
+  $("chord").hidden = false;
+  state.chord = setTimeout(endChord, 2500);
+}
+function endChord() { clearTimeout(state.chord); state.chord = null; $("chord").hidden = true; }
+
+/* ---------- detail tags: speaker turns (B15) ---------- */
+function laneVisible() { return $("detail").open || state.turns.length > 0; }
+function speakerList() { return Array.from(new Set(state.turns.map((t) => t.speaker))).sort(); }
+function nextLetter(labels) {
+  for (let i = 0; i < 26; i++) { const l = String.fromCharCode(65 + i); if (!labels.includes(l)) return l; }
+  return "Z";
+}
+function speakerColor(sp) {
+  const i = Math.max(0, speakerList().indexOf(sp));
+  return cssVar("--spk" + (i % 4));
+}
+// Same speaker overlaps and turns past the audio end, as messages.
+function turnProblems() {
+  const dur = durationMs(), out = [];
+  const byStart = state.turns.slice().sort((a, b) => a.start_ms - b.start_ms);
+  const lastEnd = {};
+  for (const t of byStart) {
+    if (t.start_ms < (lastEnd[t.speaker] ?? -1)) out.push(`speaker ${t.speaker} overlaps itself at ${fmtMs(t.start_ms)}`);
+    lastEnd[t.speaker] = Math.max(lastEnd[t.speaker] ?? -1, t.end_ms);
+    if (dur && t.start_ms >= dur) out.push(`turn at ${fmtMs(t.start_ms)} starts after the audio ends`);
+  }
+  return out;
+}
+function badTurn(t) {
+  return state.turns.some((u) => u !== t && u.speaker === t.speaker && u.start_ms < t.end_ms && t.start_ms < u.end_ms);
+}
+function drawLane() {
+  const cv = $("lane");
+  cv.hidden = !laneVisible();
+  if (cv.hidden) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const dur = durationMs();
+  if (!dur) return;
+  const x = (ms) => (ms / dur) * w;
+  const labels = speakerList();
+  const rows = Math.max(1, labels.length), rh = h / rows;
+  ctx.font = "11px system-ui, sans-serif";
+  if (!state.turns.length) {
+    ctx.fillStyle = cssVar("--muted");
+    ctx.fillText("speaker lane: press t at each change of speaker, or Suggest from pauses", 8, h / 2 + 4);
+  }
+  state.turns.forEach((t, i) => {
+    const r = labels.indexOf(t.speaker), y = r * rh;
+    const col = speakerColor(t.speaker);
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = col;
+    ctx.fillRect(x(t.start_ms), y + 1, Math.max(2, x(t.end_ms) - x(t.start_ms)), rh - 2);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = col;
+    ctx.fillRect(x(t.start_ms), y + 1, 2, rh - 2);
+    ctx.fillRect(x(t.end_ms) - 2, y + 1, 2, rh - 2);
+    if (badTurn(t) || i === state.selTurn) {
+      ctx.strokeStyle = badTurn(t) ? cssVar("--del-fg") : cssVar("--accent");
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x(t.start_ms) + 1, y + 1, Math.max(2, x(t.end_ms) - x(t.start_ms) - 2), rh - 2);
+      ctx.lineWidth = 1;
+    }
+    ctx.fillStyle = cssVar("--text");
+    if (rh >= 10) ctx.fillText(t.speaker, x(t.start_ms) + 5, y + rh / 2 + 4);
+  });
+  const a = $("audio");
+  ctx.fillStyle = cssVar("--del-fg");
+  ctx.fillRect(x(a.currentTime * 1000) - 0.5, 0, 1.5, h);
+}
+function renderTurns() {
+  state.turns.sort((a, b) => a.start_ms - b.start_ms || a.end_ms - b.end_ms);
+  const box = $("turns");
+  box.innerHTML = "";
+  const labels = speakerList();
+  const choices = labels.concat([nextLetter(labels)]);
+  state.turns.forEach((t, i) => {
+    const row = document.createElement("div");
+    row.className = "span-row" + (i === state.selTurn ? " sel" : "") + (badTurn(t) ? " turn-bad" : "");
+    const opts = choices.map((l) => `<option value="${l}"${l === t.speaker ? " selected" : ""}>${l}</option>`).join("");
+    row.innerHTML = `<span class="swatch" style="background:${speakerColor(t.speaker)}"></span>
+      <select aria-label="speaker">${opts}</select>
+      <span class="mono">${fmtMs(t.start_ms)} to ${fmtMs(t.end_ms)}</span>
+      <button class="tiny" data-act="play">play</button>
+      <button class="tiny" data-act="del">delete</button>`;
+    row.querySelector("select").addEventListener("change", (e) => { t.speaker = e.target.value; e.target.blur(); afterTurnChange(); });
+    row.querySelector('[data-act="del"]').addEventListener("click", () => deleteTurn(i));
+    row.querySelector('[data-act="play"]').addEventListener("click", () => { selectTurn(i); playFrom(t.start_ms); });
+    row.addEventListener("click", (e) => { if (e.target === row || e.target.tagName === "SPAN") selectTurn(i); });
+    box.appendChild(row);
+  });
+  const probs = turnProblems();
+  $("turn-error").hidden = !probs.length;
+  $("turn-error").textContent = probs.length ? "Fix before saving: " + probs.join("; ") : "";
+  drawLane();
+  renderDetailCount();
+}
+function afterTurnChange() {
+  if (speakerList().length >= 2) autoCondition("multiple_speakers");
+  renderTurns();
+  updateDirty();
+}
+function selectTurn(i) { state.selTurn = i; state.selSpan = -1; renderTurns(); renderSpans(); }
+function deleteTurn(i) {
+  if (i < 0 || i >= state.turns.length) return;
+  state.turns.splice(i, 1);
+  state.selTurn = -1;
+  afterTurnChange();
+}
+// t: a new turn starts at the playhead. The turn under the playhead ends there; the new one runs to the
+// next turn (or the end) and goes to the most recent other speaker, so a two person clip alternates A, B.
+function newTurn() {
+  const dur = durationMs();
+  if (!dur) { toast("No audio length yet"); return; }
+  const p = Math.round($("audio").currentTime * 1000);
+  let prev = null;
+  for (const t of state.turns.filter((t) => t.start_ms <= p && p < t.end_ms)) {
+    prev = t;
+    t.end_ms = p;
+  }
+  state.turns = state.turns.filter((t) => t.end_ms - t.start_ms >= 50);
+  const before = state.turns.filter((t) => t.start_ms < p).sort((a, b) => b.start_ms - a.start_ms);
+  if (!prev) prev = before[0] || null;
+  let speaker = "A";
+  if (prev) {
+    const other = before.find((t) => t.speaker !== prev.speaker);
+    speaker = other ? other.speaker : nextLetter([prev.speaker]);
+  }
+  const later = state.turns.filter((t) => t.start_ms > p).map((t) => t.start_ms);
+  const end = Math.min(dur, ...later);
+  if (end - p < 100) { toast("No room for a turn here"); afterTurnChange(); return; }
+  const t = { start_ms: p, end_ms: Math.round(end), speaker };
+  state.turns.push(t);
+  state.turns.sort((a, b) => a.start_ms - b.start_ms || a.end_ms - b.end_ms);
+  state.selTurn = state.turns.indexOf(t);
+  afterTurnChange();
+  toast(`Turn ${speaker} from ${fmtMs(p)} (y: next speaker)`);
+}
+function endTurn() {
+  const p = Math.round($("audio").currentTime * 1000);
+  const open = state.turns.filter((t) => t.start_ms < p && p < t.end_ms).sort((a, b) => b.start_ms - a.start_ms)[0];
+  if (!open) { toast("No turn under the playhead"); return; }
+  if (p - open.start_ms < 100) { toast("Turn would be too short"); return; }
+  open.end_ms = p;
+  state.selTurn = state.turns.indexOf(open);
+  afterTurnChange();
+}
+function cycleSpeaker() {
+  const t = state.turns[state.selTurn];
+  if (!t) { toast("Select a turn first (click it on the lane)"); return; }
+  // The other turns' speakers plus one new letter, so y wraps back to A instead of inventing E, F, ...
+  const others = Array.from(new Set(state.turns.filter((u) => u !== t).map((u) => u.speaker))).sort();
+  const choices = others.concat([nextLetter(others)]);
+  const at = choices.indexOf(t.speaker);
+  t.speaker = choices[(at + 1) % choices.length];
+  afterTurnChange();
+  state.selTurn = state.turns.indexOf(t);
+  renderTurns();
+}
+// Voiced stretches between pauses of at least 350 ms (from the waveform peaks, else the caption gaps),
+// as alternating A / B turns. A first draft only: the reviewer fixes speakers by ear.
+function suggestTurns() {
+  const dur = durationMs();
+  if (!dur) { toast("No audio length yet"); return; }
+  if (state.turns.length && !confirm("Replace the current speaker turns with suggested ones?")) return;
+  let segs = [];
+  if (state.peaks && state.peaks.max.length) {
+    const n = state.peaks.max.length, msPer = dur / n;
+    const amp = (i) => Math.max(Math.abs(state.peaks.min[i]), Math.abs(state.peaks.max[i]));
+    let cur = null, quiet = 0;
+    for (let i = 0; i < n; i++) {
+      if (amp(i) >= 0.08) {
+        if (!cur) cur = { start_ms: i * msPer, end_ms: (i + 1) * msPer };
+        cur.end_ms = (i + 1) * msPer;
+        quiet = 0;
+      } else if (cur && (quiet += msPer) >= 350) { segs.push(cur); cur = null; quiet = 0; }
+    }
+    if (cur) segs.push(cur);
+  } else {
+    let cursor = 0;
+    for (const g of state.gaps) { if (g.start_ms > cursor) segs.push({ start_ms: cursor, end_ms: g.start_ms }); cursor = g.end_ms; }
+    if (cursor < dur) segs.push({ start_ms: cursor, end_ms: dur });
+  }
+  segs = segs.filter((s) => s.end_ms - s.start_ms >= 250);
+  state.turns = segs.map((s, i) => ({ start_ms: Math.round(s.start_ms), end_ms: Math.round(Math.min(dur, s.end_ms)), speaker: i % 2 ? "B" : "A" }));
+  state.selTurn = -1;
+  afterTurnChange();
+  toast(segs.length ? `Suggested ${segs.length} turns from pauses, check speakers by ear` : "No pauses found", 2500);
+}
+(function wireLane() {
+  const cv = $("lane");
+  const msAt = (e) => { const r = cv.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * durationMs(); };
+  const pxPerMs = () => cv.clientWidth / (durationMs() || 1);
+  const rowAt = (e) => {
+    const labels = speakerList(), r = cv.getBoundingClientRect();
+    return labels[Math.min(labels.length - 1, Math.floor(((e.clientY - r.top) / r.height) * labels.length))];
+  };
+  function hit(e) {
+    const ms = msAt(e), tol = 6 / pxPerMs(), sp = rowAt(e);
+    let best = null;
+    state.turns.forEach((t, i) => {
+      if (t.speaker !== sp) return;
+      for (const edge of ["start_ms", "end_ms"]) {
+        const d = Math.abs(t[edge] - ms);
+        if (d <= tol && (!best || d < best.d)) best = { i, edge, d };
+      }
+    });
+    if (best) return best;
+    const inside = state.turns.findIndex((t) => t.speaker === sp && t.start_ms <= ms && ms <= t.end_ms);
+    return inside >= 0 ? { i: inside, edge: null } : null;
+  }
+  cv.addEventListener("pointermove", (e) => {
+    const d = state.laneDrag;
+    if (!d) { const h = hit(e); cv.style.cursor = h && h.edge ? "ew-resize" : "pointer"; return; }
+    const t = state.turns[d.i], ms = Math.round(msAt(e));
+    if (d.edge === "start_ms") t.start_ms = Math.max(0, Math.min(ms, t.end_ms - 100));
+    else t.end_ms = Math.min(durationMs(), Math.max(ms, t.start_ms + 100));
+    d.moved = true;
+    drawLane();
+  });
+  cv.addEventListener("pointerdown", (e) => {
+    if (!durationMs()) return;
+    const h = hit(e);
+    if (h && h.edge) { cv.setPointerCapture(e.pointerId); state.laneDrag = { ...h, moved: false }; selectTurn(h.i); return; }
+    if (h) { selectTurn(h.i); return; }
+    $("audio").currentTime = msAt(e) / 1000;
+    drawWave();
+  });
+  cv.addEventListener("pointerup", () => {
+    const d = state.laneDrag;
+    state.laneDrag = null;
+    if (d && d.moved) { const t = state.turns[d.i]; afterTurnChange(); state.selTurn = state.turns.indexOf(t); renderTurns(); }
+  });
+})();
+
+/* ---------- detail tags: entity, alternative and formatting spans (B17, A7, A6) ---------- */
+function textSelection() {
+  const ta = $("text");
+  let start = ta.selectionStart, end = ta.selectionEnd;
+  const v = ta.value;
+  while (start < end && /\s/.test(v[start])) start++;
+  while (end > start && /\s/.test(v[end - 1])) end--;
+  return end > start ? { start, end, text: v.slice(start, end) } : null;
+}
+function chip(cls, html, onSelect, onRemove) {
+  const el = document.createElement("span");
+  el.className = "dchip " + cls;
+  el.innerHTML = html + ' <button aria-label="remove">x</button>';
+  el.addEventListener("mousedown", (e) => { if (e.target.tagName !== "SELECT") e.preventDefault(); });
+  el.addEventListener("click", (e) => {
+    if (e.target.tagName === "BUTTON") { onRemove(); return; }
+    if (e.target.tagName !== "SELECT") onSelect();
+  });
+  return el;
+}
+function selectInText(sp) { const ta = $("text"); ta.focus(); ta.setSelectionRange(sp.start, sp.end); }
+function renderTextSpans() {
+  if (!state.queue) return;
+  const typed = (box, list, key, choices, cls) => {
+    box.innerHTML = "";
+    list.forEach((sp, i) => {
+      const opts = choices.map((c) => `<option${c === sp[key] ? " selected" : ""}>${c}</option>`).join("");
+      const el = chip(cls, `<select aria-label="${key}">${opts}</select> ${esc(sp.text)}`, () => selectInText(sp),
+        () => { list.splice(i, 1); renderTextSpans(); renderBackdrop(); updateDirty(); });
+      el.querySelector("select").addEventListener("change", (e) => { sp[key] = e.target.value; e.target.blur(); updateDirty(); });
+      box.appendChild(el);
+    });
+  };
+  typed($("ent-list"), state.entities, "type", state.queue.entity_types, "ent");
+  typed($("itn-list"), state.itn, "kind", state.queue.itn_kinds, "itn");
+  const box = $("alt-list");
+  box.innerHTML = "";
+  state.alts.forEach((sp, i) => {
+    box.appendChild(chip("alt", `${esc(sp.text)} <span class="muted">or</span> ${sp.options.map(esc).join(" / ")}`,
+      () => { selectInText(sp); openPicker("alt", sp); },
+      () => { state.alts.splice(i, 1); renderTextSpans(); renderBackdrop(); updateDirty(); }));
+  });
+  renderBackdrop();
+  renderDetailCount();
+}
+function renderDetailCount() {
+  if (!state.queue) return;
+  const n = (k, one, many) => (k ? `${k} ${k === 1 ? one : many}` : null);
+  const conds = new Set(state.conditions.concat(impliedConditions())).size;
+  const parts = [n(conds, "condition", "conditions"), n(state.turns.length, "turn", "turns"),
+    n(state.entities.length, "entity", "entities"), n(state.alts.length, "alternative", "alternatives"),
+    n(state.itn.length, "formatting span", "formatting spans")].filter(Boolean);
+  $("detail-count").textContent = parts.length ? "(" + parts.join(", ") + ")" : "(none)";
+}
+const PICKERS = {
+  ent: { title: "Entity type", list: "entities", key: "type", choices: () => state.queue.entity_types },
+  itn: { title: "Formatting kind", list: "itn", key: "kind", choices: () => state.queue.itn_kinds },
+  alt: { title: "Alternatives for", list: "alts" },
+};
+// Opens the picker on the text selection (or on an existing alternatives span to edit it).
+function openPicker(kind, existing) {
+  const sel = existing ? { start: existing.start, end: existing.end, text: existing.text } : textSelection();
+  if (!sel) { toast("Select the text in the transcript first"); return; }
+  if (kind === "alt" && !existing) {
+    const same = state.alts.find((s) => s.start === sel.start && s.end === sel.end);
+    if (same) existing = same;
+    else {
+      const clash = state.alts.find((s) => s.start < sel.end && sel.start < s.end);
+      if (clash) { toast(`Overlaps the alternatives on "${clash.text}": remove that one first`, 2500); return; }
+    }
+  }
+  const pk = { kind, ...sel, existing: existing || null, options: existing ? existing.options.slice() : [], suggestions: [] };
+  state.picker = pk;
+  const cfg = PICKERS[kind];
+  $("picker").hidden = false;
+  $("pk-title").textContent = cfg.title;
+  $("pk-text").textContent = sel.text;
+  $("pk-alt").hidden = kind !== "alt";
+  const box = $("pk-opts");
+  box.innerHTML = "";
+  if (kind === "alt") {
+    $("pk-help").innerHTML = "<kbd>enter</kbd> adds, empty <kbd>enter</kbd> saves, <kbd>esc</kbd> cancels";
+    renderPickerOptions();
+    $("pk-input").value = "";
+    $("pk-input").focus();
+    api("/api/suggest", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: sel.text, language: state.clip.language }) })
+      .then((r) => { if (state.picker === pk) { pk.suggestions = r.options; renderSuggestions(); } })
+      .catch(() => { /* suggestions are optional */ });
+  } else {
+    $("pk-help").innerHTML = "press a number, <kbd>esc</kbd> cancels";
+    cfg.choices().forEach((c, i) => {
+      const b = document.createElement("button");
+      b.className = "tiny";
+      b.innerHTML = `<kbd>${i + 1}</kbd> ${c}`;
+      b.addEventListener("mousedown", (e) => e.preventDefault());
+      b.addEventListener("click", () => pickChoice(i));
+      box.appendChild(b);
+    });
+  }
+}
+function renderSuggestions() {
+  const pk = state.picker, box = $("pk-opts");
+  box.innerHTML = "";
+  const fresh = pk.suggestions.filter((o) => !pk.options.includes(o));
+  if (!fresh.length) { box.innerHTML = '<span class="small muted">no suggestions; type a spelling</span>'; return; }
+  box.insertAdjacentHTML("beforeend", '<span class="small muted">suggestions:</span>');
+  fresh.forEach((o, i) => {
+    const b = document.createElement("button");
+    b.className = "tiny";
+    b.innerHTML = `<kbd>alt+${i + 1}</kbd> ${esc(o)}`;
+    b.addEventListener("mousedown", (e) => e.preventDefault());
+    b.addEventListener("click", () => addAltOption(o));
+    box.appendChild(b);
+  });
+}
+function renderPickerOptions() {
+  const pk = state.picker, box = $("pk-chosen");
+  box.innerHTML = "";
+  pk.options.forEach((o, i) => {
+    const el = document.createElement("span");
+    el.className = "opt";
+    el.innerHTML = `${esc(o)} <button aria-label="remove">x</button>`;
+    el.querySelector("button").addEventListener("click", () => { pk.options.splice(i, 1); renderPickerOptions(); renderSuggestions(); });
+    box.appendChild(el);
+  });
+}
+function addAltOption(o) {
+  const pk = state.picker;
+  o = (o || "").trim();
+  if (!pk || !o) return;
+  if (o === pk.text) { toast("The transcript text is always valid already"); return; }
+  if (!pk.options.includes(o)) pk.options.push(o);
+  renderPickerOptions();
+  renderSuggestions();
+  $("pk-input").focus();
+}
+// Where the picked text is now (the transcript may have been edited while the picker was open).
+function pickerAnchor(pk) {
+  const v = $("text").value;
+  if (v.slice(pk.start, pk.end) === pk.text) return { start: pk.start, end: pk.end };
+  const at = findNearest(v, pk.text, pk.start);
+  return at === -1 ? null : { start: at, end: at + pk.text.length };
+}
+function pickChoice(i) {
+  const pk = state.picker, cfg = PICKERS[pk.kind];
+  const value = cfg.choices()[i];
+  if (!value) return;
+  const pos = pickerAnchor(pk);
+  closePicker();
+  if (!pos) { toast("The selected text changed, select it again"); return; }
+  const list = state[cfg.list];
+  const same = list.find((s) => s.start === pos.start && s.end === pos.end);
+  if (same) same[cfg.key] = value;
+  else list.push({ ...pos, [cfg.key]: value, text: pk.text });
+  list.sort((a, b) => a.start - b.start || a.end - b.end);
+  renderTextSpans();
+  updateDirty();
+  toast(`${pk.text}: ${value}`);
+}
+function commitAltPicker() {
+  const pk = state.picker;
+  if (!pk || pk.kind !== "alt") return;
+  addAltOption($("pk-input").value);
+  const pos = pickerAnchor(pk);
+  closePicker();
+  if (!pos) { toast("The selected text changed, select it again"); return; }
+  const i = pk.existing ? state.alts.indexOf(pk.existing) : -1;
+  if (!pk.options.length) {
+    if (i >= 0) state.alts.splice(i, 1); else toast("No alternative added");
+  } else if (i >= 0) state.alts[i] = { ...pos, options: pk.options, text: pk.text };
+  else state.alts.push({ ...pos, options: pk.options, text: pk.text });
+  state.alts.sort((a, b) => a.start - b.start || a.end - b.end);
+  renderTextSpans();
+  updateDirty();
+}
+function closePicker() {
+  const pk = state.picker;
+  state.picker = null;
+  $("picker").hidden = true;
+  if (pk && document.activeElement === $("pk-input")) {
+    const ta = $("text"); ta.focus(); ta.setSelectionRange(pk.start, pk.end);
+  }
+}
+
 /* ---------- form snapshot and dirty state ---------- */
 function snapshot() {
   return {
@@ -759,10 +1364,24 @@ function snapshot() {
     nonspeech_spans: state.nonspeech.map((s) => ({ start_ms: s.start_ms, end_ms: s.end_ms, kind: s.kind })),
     codeswitch_spans: state.codeswitch.map((s) => ({ start: s.start, end: s.end, lang: s.lang, text: s.text })),
     punctuated: $("punctuated").checked,
+    ...detailForm(state.conditions, state.turns, state.entities, state.alts, state.itn),
+  };
+}
+// The v3 part of the form, in a stable shape for the dirty check.
+function detailForm(conditions, turns, entities, alts, itn) {
+  const order = (state.queue && state.queue.conditions) || [];
+  return {
+    conditions: order.filter((c) => conditions.includes(c)),
+    speaker_turns: turns.map((t) => ({ start_ms: Math.round(t.start_ms), end_ms: Math.round(t.end_ms), speaker: t.speaker }))
+      .sort((a, b) => a.start_ms - b.start_ms || a.end_ms - b.end_ms || (a.speaker < b.speaker ? -1 : 1)),
+    entity_spans: entities.map((s) => ({ start: s.start, end: s.end, type: s.type, text: s.text })),
+    alternatives: alts.map((s) => ({ start: s.start, end: s.end, options: s.options.slice(), text: s.text })),
+    itn_spans: itn.map((s) => ({ start: s.start, end: s.end, kind: s.kind, text: s.text })),
   };
 }
 function isDirty() { return !!state.clip && JSON.stringify(snapshot()) !== state.base; }
 function updateDirty() {
+  renderDetailCount();
   const d = isDirty();
   $("dirty").hidden = !d;
   if (!state.clip) return;
@@ -776,10 +1395,19 @@ function applySnapshot(s) {
   $("punctuated").checked = !!s.punctuated;
   state.nonspeech = s.nonspeech_spans.map((x) => ({ ...x }));
   state.codeswitch = s.codeswitch_spans.map((x) => ({ ...x }));
+  state.conditions = (s.conditions || []).slice();
+  state.turns = (s.speaker_turns || []).map((x) => ({ ...x }));
+  state.entities = (s.entity_spans || []).map((x) => ({ ...x }));
+  state.alts = (s.alternatives || []).map((x) => ({ ...x, options: x.options.slice() }));
+  state.itn = (s.itn_spans || []).map((x) => ({ ...x }));
   state.selSpan = -1;
+  state.selTurn = -1;
   state.markIn = null;
+  closePicker();
   syncTagStyles();
   renderCodeswitch();
+  renderTextSpans();
+  renderTurns();
 }
 
 function renderProgress() {
@@ -829,6 +1457,8 @@ async function loadClip(index, { play = false } = {}) {
     nonspeech_spans: clip.nonspeech_spans.map((s) => ({ start_ms: s.start_ms, end_ms: s.end_ms, kind: s.kind })),
     codeswitch_spans: clip.codeswitch_spans.map((s) => ({ start: s.start, end: s.end, lang: s.lang, text: s.text })),
     punctuated: !!clip.punctuated,
+    ...detailForm(clip.conditions || [], clip.speaker_turns || [], clip.entity_spans || [], clip.alternatives || [],
+      clip.itn_spans || []),
   };
   // Order the tags like currentTags() so the snapshot comparison is stable.
   base.tags = q.tags.filter((t) => base.tags.includes(t));
@@ -870,6 +1500,8 @@ function nextOpenIndex(from) {
 
 async function submit(skip) {
   if (!state.clip || state.busy) return;
+  if (!skip && state.picker && state.picker.kind === "alt") commitAltPicker();
+  closePicker();
   state.busy = true;
   const id = state.clip.video_id;
   try {
@@ -877,11 +1509,13 @@ async function submit(skip) {
       ? { method: "POST" }
       : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(snapshot()) };
     const res = await api("/api/clip/" + encodeURIComponent(id) + (skip ? "/skip" : ""), opts);
+    // The saved form is the new base, so loadClip's dirty check does not re-file it as a draft.
+    if (state.clip && state.clip.video_id === id) state.base = JSON.stringify(snapshot());
     state.drafts.delete(id);
     state.queue = res.queue;
     renderProgress();
-    const dropped = res.dropped_codeswitch_spans || [];
-    if (dropped.length) toast(`Saved, but ${dropped.length} code-switch span(s) no longer matched the text and were dropped`, 3500);
+    const dropped = Object.values(res.dropped || { codeswitch_spans: res.dropped_codeswitch_spans || [] }).flat();
+    if (dropped.length) toast(`Saved, but ${dropped.length} text span(s) no longer matched the text and were dropped`, 3500);
     else toast(skip ? "Skipped" : "Saved");
     const nxt = nextOpenIndex(state.index);
     if (nxt === -1) { await loadClip(state.index); toast("All clips done. Nice work.", 2500); }
@@ -940,9 +1574,30 @@ document.addEventListener("keydown", (e) => {
   const digit = /^Digit([1-9])$/.exec(e.code) || (!e.code && /^([1-9])$/.exec(e.key));
 
   if (mod && e.key === "Enter") { e.preventDefault(); submit(false); return; }
+  // An open text span picker takes the next number (alt+number for alternative suggestions) and esc.
+  if (state.picker) {
+    const pk = state.picker;
+    if (e.key === "Escape") { e.preventDefault(); closePicker(); return; }
+    if (digit && !mod && pk.kind !== "alt" && !e.shiftKey) { e.preventDefault(); pickChoice(Number(digit[1]) - 1); return; }
+    if (digit && !mod && pk.kind === "alt" && e.altKey && !e.shiftKey) {
+      e.preventDefault();
+      addAltOption(pk.suggestions.filter((o) => !pk.options.includes(o))[Number(digit[1]) - 1]);
+      return;
+    }
+  }
+  // "q" chord: the next number toggles a condition.
+  if (state.chord) {
+    if (digit && !mod && !e.shiftKey) {
+      e.preventDefault();
+      toggleCondition(state.queue.conditions[Number(digit[1]) - 1]);
+      endChord();
+      return;
+    }
+    if (!["Alt", "Shift", "Control", "Meta"].includes(e.key)) { endChord(); if (e.key === "Escape") return; }
+  }
   if (e.key === "Escape") {
     if (typing) document.activeElement.blur();
-    else { state.selSpan = -1; state.markIn = null; renderSpans(); }
+    else { state.selSpan = -1; state.selTurn = -1; state.markIn = null; renderSpans(); renderTurns(); }
     return;
   }
 
@@ -957,6 +1612,9 @@ document.addEventListener("keydown", (e) => {
       Space: togglePlay, ArrowLeft: () => seek(-2), ArrowRight: () => seek(2),
       KeyS: () => submit(true), KeyR: resetToOriginal, KeyC: addCodeswitch, Period: togglePunct,
       BracketLeft: () => go(-1), BracketRight: () => go(1),
+      // detail tags (keys chosen to avoid the macOS option dead keys e, i, n, u and the grave accent)
+      KeyQ: startChord, KeyT: () => (e.shiftKey ? endTurn() : newTurn()), KeyY: cycleSpeaker,
+      KeyP: () => openPicker("ent"), KeyA: () => openPicker("alt"), KeyF: () => openPicker("itn"),
     }[e.code];
     if (handled) { e.preventDefault(); handled(); }
     return;
@@ -986,7 +1644,14 @@ document.addEventListener("keydown", (e) => {
     case "m": setKind("music"); refreshGaps(); break;
     case "f": setKind("sfx"); refreshGaps(); break;
     case "l": setKind("silence"); refreshGaps(); break;
-    case "Delete": case "Backspace": if (state.selSpan >= 0) { e.preventDefault(); deleteSpan(state.selSpan); } break;
+    case "Delete": case "Backspace":
+      if (state.selTurn >= 0) { e.preventDefault(); deleteTurn(state.selTurn); }
+      else if (state.selSpan >= 0) { e.preventDefault(); deleteSpan(state.selSpan); }
+      break;
+    case "q": e.preventDefault(); startChord(); break;
+    case "t": e.preventDefault(); newTurn(); break;
+    case "T": e.preventDefault(); endTurn(); break;
+    case "y": e.preventDefault(); cycleSpeaker(); break;
     case "Enter": case "e": e.preventDefault(); $("text").focus(); break;
   }
 });
@@ -1007,6 +1672,22 @@ $("punctuated").addEventListener("change", () => { syncTagStyles(); updateDirty(
 $("cs-add").addEventListener("mousedown", (e) => e.preventDefault());
 $("cs-add").addEventListener("click", addCodeswitch);
 $("cs-lang").value = storeGet("clipbench.cslang", "en");
+for (const [id, kind] of [["ent-add", "ent"], ["alt-add", "alt"], ["itn-add", "itn"]]) {
+  $(id).addEventListener("mousedown", (e) => e.preventDefault());
+  $(id).addEventListener("click", () => openPicker(kind));
+}
+$("pk-input").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || e.ctrlKey || e.metaKey || e.isComposing) return;
+  e.preventDefault();
+  const v = e.target.value.trim();
+  if (v) { addAltOption(v); e.target.value = ""; } else commitAltPicker();
+});
+$("pk-done").addEventListener("click", commitAltPicker);
+$("turn-new").addEventListener("click", newTurn);
+$("turn-end").addEventListener("click", endTurn);
+$("turn-suggest").addEventListener("click", suggestTurns);
+$("detail").open = storeGet("clipbench.detail", false);
+$("detail").addEventListener("toggle", () => { storeSet("clipbench.detail", $("detail").open); drawLane(); });
 $("goto").addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
   const n = Number(e.target.value);
@@ -1031,6 +1712,7 @@ async function init() {
   buildTags(q.tags);
   buildCategories(q.categories);
   buildKinds(q.nonspeech_kinds);
+  buildConditions(q.conditions || []);
   setKind(storeGet("clipbench.kind", "music"));
   setRate(storeGet("clipbench.rate", 1));
   renderProgress();

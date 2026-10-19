@@ -26,6 +26,7 @@ _MODULES = [
     "clipbench.report.export",  # clipbench export
     "clipbench.canary",  # clipbench canary select|run|due|drift
     "clipbench.scoring.reliability",  # clipbench reliability
+    "clipbench.sweeps.cli",  # clipbench sweep build|fetch-beds|beds|run|score
 ]
 
 for _name in _MODULES:

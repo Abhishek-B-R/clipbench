@@ -168,21 +168,17 @@ def aligned_hyp_span(
     """Hypothesis piece offsets aligned to the reference characters [start, end).
 
     Reference units overlapping the span are found; the hypothesis units aligned to them (hits and
-    substitutions) plus insertions between them or right after the last one give the hypothesis range,
+    substitutions) plus insertions right before, between or right after them give the hypothesis range,
     widened to whole pieces (so attached symbols like $ and % come along). None when every reference
     unit in the span was deleted."""
     idx = [k for k, u in enumerate(ref_units) if u.start < end and u.end > start]
     if not idx:
         return None
     lo, hi = idx[0], idx[-1]
-    hyp_idx = []
-    for o in ops:
-        if o.op in ("equal", "sub") and lo <= o.ref_index <= hi:
-            hyp_idx.append(o.hyp_index)
-        elif o.op == "ins" and lo < o.ref_index <= hi + 1 and hyp_idx:
-            hyp_idx.append(o.hyp_index)
+    hyp_idx = [o.hyp_index for o in ops if o.op in ("equal", "sub") and lo <= o.ref_index <= hi]
     if not hyp_idx:
         return None
+    hyp_idx += [o.hyp_index for o in ops if o.op == "ins" and lo <= o.ref_index <= hi + 1]
     first, last = hyp_units[min(hyp_idx)], hyp_units[max(hyp_idx)]
     return first.piece_start, last.piece_end
 

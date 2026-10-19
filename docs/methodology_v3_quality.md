@@ -71,7 +71,7 @@ here so the formatting table is complete.
 
 **Inverse text normalisation (ITN).** The reviewer tags `itn_spans` (kinds number, date, time, currency,
 percent, unit). For each span the hypothesis text aligned to it is found: the hypothesis units aligned (hit or
-substitution) to the reference units overlapping the span, plus insertions between them or right after,
+substitution) to the reference units overlapping the span, plus insertions right before, between or right after them,
 widened to whole whitespace pieces so attached symbols ($, %, 円) come along. Each span gets:
 
 - `found`: some hypothesis text aligns to it (false when every unit was deleted);
@@ -88,3 +88,30 @@ intervals for `punct_error_rate`, `casing_acc` and `itn_form_acc`, plus `itn_sty
 `itn_found_rate`; slices `all`, `condition`, `category`, and `slice_kind = itn_kind` (one row per kind present)
 for the per kind breakdown. A written form is a style choice as much as an error: the table says which
 providers write numbers the way the reference does, not which are wrong.
+
+### Proper nouns and brands
+
+The reviewer tags `entity_spans` (types person, brand, place, product, other) in the verified text. Each
+span is located in the hypothesis the same way as an ITN span (aligned units, widened to whole words) and
+scored, per provider and entity, in `results/<run_id>/entities.parquet`:
+
+- `exact`: the hypothesis text equals the entity after the language's metric normaliser with all spaces
+  removed (so "iPhone", "i phone" and "IPHONE" match), or equals the reference widened to the same whole
+  words (so a possessive or particle attached to the name does not break the match);
+- `lenient`: 1 minus the character edit distance over the entity's characters, floored at 0, the partial
+  credit for a near miss ("Appel" for "Apple" scores 0.6);
+- `anywhere`: the normalised entity appears anywhere in the normalised hypothesis, a check that does not
+  depend on the alignment;
+- for hi, a Devanagari entity also matches its loose romanisation (दिल्ली and dilli).
+
+**Keyterms.** Each row carries the run options (`options` json). A row ran with keyterms when `options`
+has a non-empty `keyterms` entry (the same term list for every provider that supports custom vocabulary).
+Aggregates in `entities_aggregates.parquet` are per provider, tier, language and `keyterms` (true or false),
+with slices `all`, `condition`, `category` and `slice_kind = entity_type`: `exact_acc` and `lenient_acc` are
+corpus rates over entities with 95% clip bootstrap intervals, plus `anywhere_rate` and `found_rate`.
+
+**Keyterms on versus off.** When the same clips were run with and without keyterms (in this run or another
+run of the same language under `results/`), entities are paired by (provider, clip, entity) and a paired clip
+bootstrap compares the miss rates: `diff` = miss rate with keyterms minus without, with its interval;
+`verdict` `a_better` means keyterms helped. A provider that does not support keyterms records that in its raw
+response and shows no difference.

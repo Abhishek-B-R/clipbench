@@ -409,7 +409,7 @@ function v3Sections({ createdAt, providers, rows, clips, aggregates, seed }: V3I
         const bb = sclips.filter((x) => x.provider === sIds[j] && sl.test(x.clip));
         const diffs = a.map((x, k) => x.er - bb[k]!.er);
         const d = stat(diffs, sd++);
-        streamPaired.push({ tier: "verified", slice_kind: sl.kind, slice: sl.name, provider_a: sIds[i], provider_b: sIds[j], n_clips: diffs.length, diff: d.value, ci_low: d.ci_low, ci_high: d.ci_high, p_value: round(clamp(Math.abs(d.value!) < 0.004 ? 0.4 + r() * 0.5 : r() * 0.02), 3), verdict: d.ci_low! > 0 ? "b_better" : d.ci_high! < 0 ? "a_better" : "no_difference" });
+        streamPaired.push({ tier: "verified", slice_kind: sl.kind, slice: sl.name, provider_a: sIds[i], provider_b: sIds[j], n_clips: diffs.length, diff: d.value, ci_low: d.ci_low, ci_high: d.ci_high, p_value: round(d.ci_low! > 0 || d.ci_high! < 0 ? r() * 0.02 : 0.08 + r() * 0.8, 3), verdict: d.ci_low! > 0 ? "b_better" : d.ci_high! < 0 ? "a_better" : "no_difference" });
       }
   }
 

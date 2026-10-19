@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import { ArrowRight, Check, Clock, Cpu, Minus, Scale, Timer, Wallet, X } from "lucide-react";
+import { ArrowRight, Check, Clock, Cpu, Minus, Radio, Scale, Timer, Users, Wallet, X } from "lucide-react";
 import type { Run } from "@/lib/types";
 import { useRunFor, useSource } from "@/lib/data";
 import { LANGUAGE_NAME, isPublished, languageProgress, providerById, providerColor, providerLabel } from "@/lib/analysis";
@@ -18,7 +18,8 @@ import { Chip } from "@/components/ui/Chip";
 import { Badge, SeriesDot } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Button, buttonClass } from "@/components/ui/Button";
-import { ErrorState } from "@/components/ui/State";
+import { EmptyState, ErrorState } from "@/components/ui/State";
+import { v3 } from "@/lib/v3";
 import { TierNote } from "@/components/ui/TierControl";
 import { Gated } from "@/components/ui/Gate";
 
@@ -38,7 +39,7 @@ export default function Picker() {
   const lang = params.get("lang") || firstPublished || latestLang || "en";
   const state = useRunFor(src.data ? lang : null);
   const run = state.data?.run ?? null;
-  const { audio, budget, latency } = parsePickParams(params);
+  const { audio, budget, latency, mode, diarization } = parsePickParams(params);
   const timing = params.get("timing") === "1";
   const local = params.get("local") === "1";
   const set = (patch: Record<string, string | null>) => {
@@ -46,9 +47,9 @@ export default function Picker() {
     for (const [k, v] of Object.entries(patch)) (v == null ? p.delete(k) : p.set(k, v));
     setParams(p, { replace: true });
   };
-  const input: PickInput = { audio, budget, timing, latency, local };
+  const input: PickInput = { audio, budget, timing, latency: mode === "streaming" ? "any" : latency, local, mode, diarization };
   const published = Boolean(run && isPublished(run));
-  const result = useMemo(() => (run && published ? pick(run, input) : null), [run, published, audio, budget, timing, latency, local]); // eslint-disable-line react-hooks/exhaustive-deps
+  const result = useMemo(() => (run && published ? pick(run, input) : null), [run, published, audio, budget, timing, latency, local, mode, diarization]); // eslint-disable-line react-hooks/exhaustive-deps
   const loading = src.status === "loading" || state.status === "loading";
 
   return (
@@ -56,7 +57,7 @@ export default function Picker() {
       <PageHeader
         eyebrow="Pick a provider"
         title="Which speech-to-text for my app?"
-        description="Describe your clips and your limits. You get a short list ranked by error on audio like yours, with the numbers behind each model, and we say so when the top two are a statistical tie."
+        description="Describe your clips and your limits. You get a short list ranked by error on audio like yours, batch or streaming, with the numbers behind each model, and we say so when the top two are a statistical tie."
       />
       <div className="frame py-8">
         {(src.status === "error" || state.status === "error") && <ErrorState title="Could not load the run data." body="The results files did not load. Check your connection and try again." onRetry={() => location.reload()} />}
@@ -95,10 +96,37 @@ export default function Picker() {
                   ]}
                 />
               </Step>
-              <Step n={3} title="Budget per hour of audio" hint={budget == null ? "No limit" : `Up to ${usdPerHour(budget)}`} >
+              <Step n={3} title="Batch or streaming?" hint={mode === "streaming" ? "Live captions" : "Files"}>
+                <Segmented
+                  label="Batch or streaming"
+                  value={mode}
+                  onChange={(v) => set({ mode: v === "batch" ? null : v, lat: null })}
+                  options={[
+                    { value: "batch", label: "Batch files" },
+                    { value: "streaming", label: "Streaming" },
+                  ]}
+                />
+                {mode === "batch" ? (
+                  <div className="mt-3">
+                    <Segmented
+                      label="Latency need"
+                      value={latency}
+                      onChange={(v) => set({ lat: v === "any" ? null : v })}
+                      options={[
+                        { value: "any", label: "Any wait" },
+                        { value: "3000", label: "Under 3 s" },
+                        { value: "1500", label: "Under 1.5 s" },
+                      ]}
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[12px] text-ink-3">Ranked on the streaming board: final error rate, with time to final text.</p>
+                )}
+              </Step>
+              <Step n={4} title="Budget per hour of audio" hint={budget == null ? "No limit" : `Up to ${usdPerHour(budget)}`} >
                 {run ? <Budget run={run} value={budget} onChange={(v) => set({ budget: v == null ? null : v.toFixed(2) })} /> : null}
               </Step>
-              <Step n={4} title="Do you need word timings?" hint="Word-by-word captions">
+              <Step n={5} title="Do you need word timings?" hint="Word-by-word captions">
                 <Segmented
                   label="Need word timings"
                   value={timing ? "yes" : "no"}
@@ -109,19 +137,18 @@ export default function Picker() {
                   ]}
                 />
               </Step>
-              <Step n={5} title="Latency" hint="Median per clip">
+              <Step n={6} title="Do you need speaker labels?" hint="Who said what">
                 <Segmented
-                  label="Latency need"
-                  value={latency}
-                  onChange={(v) => set({ lat: v === "any" ? null : v })}
+                  label="Need speaker labels"
+                  value={diarization ? "yes" : "no"}
+                  onChange={(v) => set({ diar: v === "yes" ? "1" : null })}
                   options={[
-                    { value: "any", label: "Batch is fine" },
-                    { value: "3000", label: "Under 3 s" },
-                    { value: "1500", label: "Under 1.5 s" },
+                    { value: "no", label: "No" },
+                    { value: "yes", label: "Yes" },
                   ]}
                 />
               </Step>
-              <Step n={6} title="Can audio leave your machine?" last>
+              <Step n={7} title="Can audio leave your machine?" last>
                 <Segmented
                   label="Can audio leave your machine"
                   value={local ? "no" : "yes"}
@@ -132,7 +159,7 @@ export default function Picker() {
                   ]}
                 />
               </Step>
-              {(audio !== "any" || budget != null || timing || latency !== "any" || local) && (
+              {(audio !== "any" || budget != null || timing || latency !== "any" || local || mode !== "batch" || diarization) && (
                 <div className="border-t border-line px-5 py-3">
                   <button type="button" onClick={() => setParams(new URLSearchParams(params.get("lang") ? { lang } : {}), { replace: true })} className="text-[12.5px] text-ink-3 underline decoration-line-strong underline-offset-4 hover:text-ink">
                     Reset all
@@ -151,11 +178,20 @@ export default function Picker() {
                 result && (
                   <>
                     <TierNote tier={result.tier} />
+                    {mode === "streaming" && !v3(run).streaming ? (
+                      <EmptyState icon={<Radio size={16} />} title="No streaming results for this language yet." body="The streaming track runs separately. Switch to batch files for a pick from the batch board." />
+                    ) : (
+                    <>
+                    {result.mode === "streaming" && !result.paired && (
+                      <p className="rounded-md border border-line bg-sunken/60 px-4 py-2.5 text-[13px] text-ink-2">The streaming export has no paired test, so close results are not called ties here. Compare the intervals.</p>
+                    )}
                     {result.fellBack && audio !== "any" && (
                       <p className="rounded-md border border-line bg-sunken/60 px-4 py-2.5 text-[13px] text-ink-2">This run has no music or speech-only slices yet, so the list uses all clips.</p>
                     )}
                     <Recommendation run={run} result={result} input={input} lang={lang} onRelax={set} />
                     <Ranked run={run} result={result} input={input} lang={lang} />
+                    </>
+                    )}
                   </>
                 )
               )}
@@ -246,6 +282,17 @@ function whereText(r: Result) {
 
 function evidence(lang: string, r: Result, input: PickInput) {
   const q = new URLSearchParams({ lang });
+  if (r.mode === "streaming") {
+    if (r.kind !== "all") {
+      q.set("slice_kind", r.kind);
+      q.set("slice", r.slice);
+    }
+    return `/streaming?${q}`;
+  }
+  if (input.diarization) {
+    q.set("view", "speakers");
+    return `/leaderboard?${q}`;
+  }
   if (r.kind !== "all") {
     q.set("slice_kind", r.kind);
     q.set("slice", r.slice);
@@ -282,6 +329,16 @@ function Recommendation({ run, result, input, lang, onRelax }: { run: Run; resul
               <Clock size={14} /> Allow any latency
             </Button>
           )}
+          {input.diarization && (
+            <Button variant="secondary" size="sm" onClick={() => onRelax({ diar: null })}>
+              <Users size={14} /> Drop speaker labels
+            </Button>
+          )}
+          {input.mode === "streaming" && (
+            <Button variant="secondary" size="sm" onClick={() => onRelax({ mode: null })}>
+              <Radio size={14} /> Allow batch
+            </Button>
+          )}
           {input.local && (
             <Button variant="secondary" size="sm" onClick={() => onRelax({ local: null })}>
               <Cpu size={14} /> Allow uploads
@@ -298,7 +355,7 @@ function Recommendation({ run, result, input, lang, onRelax }: { run: Run; resul
       ok: true,
       text: (
         <>
-          Lowest error on {where}: <span className="num text-ink">{pct(best.agg.error_rate)}</span> (95% interval {pct(best.agg.ci_low)} to {pct(best.agg.ci_high)}, {best.agg.n_clips} clips).
+          Lowest {result.mode === "streaming" ? "final streaming error" : "error"} on {where}: <span className="num text-ink">{pct(best.agg.error_rate)}</span> (95% interval {pct(best.agg.ci_low)} to {pct(best.agg.ci_high)}, {best.agg.n_clips} clips).
         </>
       ),
     },
@@ -313,6 +370,21 @@ function Recommendation({ run, result, input, lang, onRelax }: { run: Run; resul
                 </>
               ) : (
                 <>Returns no word timings.</>
+              ),
+          },
+        ]
+      : []),
+    ...(input.diarization
+      ? [
+          {
+            ok: best.der != null,
+            text:
+              best.der != null ? (
+                <>
+                  Labels speakers with a diarization error rate of <span className="num text-ink">{pct(best.der)}</span>.
+                </>
+              ) : (
+                <>Offers speaker labels; not measured in this run.</>
               ),
           },
         ]
@@ -343,7 +415,7 @@ function Recommendation({ run, result, input, lang, onRelax }: { run: Run; resul
       ok: true,
       text: (
         <>
-          Median latency <span className="num text-ink">{ms(best.p50)}</span> per clip. {p.uploads_audio ? "Sends audio to the provider." : "Audio never leaves your machine."}
+          {result.mode === "streaming" ? "Final text" : "Median latency"} <span className="num text-ink">{ms(best.p50)}</span> {result.mode === "streaming" ? "after each segment ends (median)." : "per clip."} {p.uploads_audio ? "Sends audio to the provider." : "Audio never leaves your machine."}
         </>
       ),
     },
@@ -367,7 +439,10 @@ function Recommendation({ run, result, input, lang, onRelax }: { run: Run; resul
               <div className="mt-6 grid grid-cols-3 gap-4">
                 <Stat label="Error rate" value={pct(best.agg.error_rate)} />
                 <Stat label={input.timing ? "Words on time" : "Per hour"} value={input.timing ? (best.timing == null ? "n/a" : pct(best.timing)) : usdPerHour(p.usd_per_hour)} />
-                <Stat label={input.audio === "music" ? "Invented / min" : "Median latency"} value={input.audio === "music" ? (best.halluc == null ? "n/a" : best.halluc.toFixed(2)) : ms(best.p50)} />
+                <Stat
+                  label={input.diarization ? "Speaker error" : result.mode === "streaming" ? "Final text" : input.audio === "music" ? "Invented / min" : "Median latency"}
+                  value={input.diarization ? (best.der == null ? "n/a" : pct(best.der)) : result.mode === "streaming" ? ms(best.ttfs) : input.audio === "music" ? (best.halluc == null ? "n/a" : best.halluc.toFixed(2)) : ms(best.p50)}
+                />
               </div>
               <div className="mt-7 flex flex-wrap gap-2">
                 <Link to={`/providers/${best.provider}`} className={buttonClass("primary", "sm", "group")}>
@@ -441,12 +516,12 @@ function Ranked({ run, result, input, lang }: { run: Run; result: Result; input:
   return (
     <Figure
       n={1}
-      title={`Short list, ${where}`}
+      title={`Short list${result.mode === "streaming" ? ", streaming" : ""}, ${where}`}
       caption="Error rate with its 95% interval on the matching audio, then the numbers your inputs care about. Ruled-out models stay listed, greyed, with the reason."
       source={
         <span className="flex flex-wrap items-center justify-between gap-2">
           <span>
-            source: aggregates + paired, run={run.run_id}, tier={result.tier}, metric={result.metric}, slice_kind={result.kind}, slice={result.slice}
+            source: {result.mode === "streaming" ? "streaming" : "aggregates + paired"}{input.diarization ? " + diarization" : ""}, run={run.run_id}, tier={result.tier}, metric={result.metric}, slice_kind={result.kind}, slice={result.slice}
           </span>
           <Link to={evidence(lang, result, input)} className="inline-flex items-center gap-1 text-ink-2 hover:text-ink">
             Evidence <ArrowRight size={12} />
@@ -472,6 +547,8 @@ function Ranked({ run, result, input, lang }: { run: Run; result: Result; input:
               {(input.timing || r.timing != null) && <Num label="on time" v={r.timing == null ? "n/a" : pct(r.timing)} />}
               {input.audio === "music" && <Num label="invented / min" v={r.halluc == null ? "n/a" : r.halluc.toFixed(2)} />}
               {input.latency !== "any" && <Num label="p50" v={ms(r.p50)} />}
+              {result.mode === "streaming" && <Num label="final text" v={ms(r.ttfs)} />}
+              {input.diarization && <Num label="speaker error" v={r.der == null ? "n/a" : pct(r.der)} />}
             </span>
             <span className="flex justify-start md:justify-end">
               <Status r={r} best={best} />

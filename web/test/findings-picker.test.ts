@@ -58,15 +58,44 @@ describe("pick a provider", () => {
   });
 });
 
+describe("pick a provider v2", () => {
+  const base = { audio: "any" as const, budget: null, timing: false, latency: "any" as const, local: false };
+
+  it("needs speaker labels: rules out models without diarization", () => {
+    const r = pick(run, { ...base, diarization: true });
+    expect(r.eligible.length).toBeGreaterThan(0);
+    for (const x of r.eligible) expect(x.der).not.toBeNull();
+    expect(r.rows.some((x) => x.excluded.includes("No speaker labels"))).toBe(true);
+  });
+
+  it("streaming ranks on the streaming board only, with ties from its paired table", () => {
+    const r = pick(run, { ...base, mode: "streaming" });
+    expect(r.mode).toBe("streaming");
+    expect(r.paired).toBe(true);
+    const ids = new Set(((run as unknown as { streaming: { aggregates: { provider: string }[] } }).streaming.aggregates).map((a) => a.provider));
+    for (const x of r.rows) expect(ids.has(x.provider)).toBe(true);
+    const errs = r.eligible.map((x) => x.agg.error_rate);
+    expect([...errs].sort((a, b) => a - b)).toEqual(errs);
+    for (const t of r.tied) expect(t.vsPick?.tied).toBe(true);
+  });
+
+  it("streaming without streaming data picks nothing rather than falling back to batch", () => {
+    const r = pick({ ...run, streaming: null }, { ...base, mode: "streaming" });
+    expect(r.rows).toEqual([]);
+    expect(r.best).toBeUndefined();
+  });
+});
+
 describe("picker URL inputs", () => {
   const parse = (q: string) => parsePickParams(new URLSearchParams(q));
   it("keeps valid values", () => {
-    expect(parse("audio=music&lat=1500&budget=0.5")).toEqual({ audio: "music", latency: "1500", budget: 0.5 });
-    expect(parse("budget=0")).toEqual({ audio: "any", latency: "any", budget: 0 });
+    expect(parse("audio=music&lat=1500&budget=0.5")).toEqual({ audio: "music", latency: "1500", budget: 0.5, mode: "batch", diarization: false });
+    expect(parse("budget=0")).toEqual({ audio: "any", latency: "any", budget: 0, mode: "batch", diarization: false });
+    expect(parse("mode=streaming&diar=1")).toMatchObject({ mode: "streaming", diarization: true });
   });
   it("falls back to defaults for hand-edited links, never NaN or an unknown option", () => {
-    for (const q of ["audio=bad&lat=bad&budget=abc", "budget=-5", "budget=Infinity", "budget=", "budget=%20"]) {
-      expect(parse(q)).toEqual({ audio: "any", latency: "any", budget: null });
+    for (const q of ["audio=bad&lat=bad&budget=abc", "budget=-5", "budget=Infinity", "budget=", "budget=%20", "mode=live&diar=yes"]) {
+      expect(parse(q)).toEqual({ audio: "any", latency: "any", budget: null, mode: "batch", diarization: false });
     }
   });
 });

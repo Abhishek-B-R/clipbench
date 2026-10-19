@@ -115,3 +115,58 @@ run of the same language under `results/`), entities are paired by (provider, cl
 bootstrap compares the miss rates: `diff` = miss rate with keyterms minus without, with its interval;
 `verdict` `a_better` means keyterms helped. A provider that does not support keyterms records that in its raw
 response and shows no difference.
+
+### Fillers, stutters and profanity (style, not errors)
+
+Caption apps choose differently here: some keep "um" and stutters for a verbatim feel, most drop them for a
+clean read; some write profanity, others mask it. These are reported as **style properties** of each
+provider, never as errors, in `results/<run_id>/style.parquet` (per provider and clip) and
+`style_aggregates.parquet`.
+
+**Tokens.** Un-normalised text after NFKC, with bracket annotations removed. Bleep markers (`[ __ ]` as
+YouTube writes masked words, `[bleep]`, `[beep]`, `[censored]`, `[expletive]`, `[pitido]`, `[삐]`, `[ピー]`)
+become a masked token first. en, es, ko, hi: whitespace separated words, lowercased, with edge punctuation
+removed; a word containing `*`, `＊`, `●`, `○`, `■`, `□`, `×` or `#` is masked ("f***", "sh*t"). ja:
+fugashi morphemes, with the filler forms below matched first so えーと stays one token, and runs of the mask
+characters becoming a masked token.
+
+**Fillers.** Always fillers:
+
+- en: um, umm, uh, uhh, uhm, er, erm, hmm, hm, mm, mmm
+- es: eh, ehh, em, emm, ehm, mm, mmm, hmm
+- ko: 음, 으음, 어, 어어, 에, 흠, 엄
+- hi: um, umm, uh, hmm, अं, उम्म, हम्म, अ
+- ja: えーっと, えーと, ええと, えっと, えと, えー, えぇ, あのー, あのう, そのー, うーん, んー, まー
+
+Fillers only when followed by a pause (a comma, ellipsis, sentence mark or another filler), because they are
+also ordinary words: en like; es este, pues, bueno; ko 그, 저, 뭐, 막, 아, 저기; hi matlab, मतलब, woh, wo,
+वो, yaani, यानी, basically; ja あの, その, まあ, なんか (also at the end of the text). This undercounts
+unpunctuated hypotheses, which is why keep rates are computed against the reference (below).
+
+**Repetitions and stutters.** A token equal to the previous one ("I I think"), or a hyphen stutter ("b-but",
+counted as the word after the hyphen); for ja a one character token, a pause and a word starting with that
+character (わ、わたし). Fillers and masked tokens are not repetitions.
+
+**Profanity.** Prefix match on the lowercased word (substring for ja and ko) against short per language
+lists: en fuck, motherfuck, shit, bullshit, bitch, bastard, asshole, dick, cunt, damn, goddamn, piss, crap,
+wtf; es mierda, puta, puto, joder, jodid-, coño, carajo, pendej-, cabrón, chingar, chingad-, verga,
+gilipollas, hostia, culero; ko 씨발, 시발, 씨바, 존나, 졸라, 개새끼, 새끼, 병신, 지랄, 젠장, ㅅㅂ, ㅈㄴ;
+hi chutiya, chutiye, bhenchod, behenchod, madarchod, gaandu, gandu, harami, kamina, kamine and their
+Devanagari spellings; ja くそ, クソ, 糞, ちくしょう, チクショウ, 畜生, くたばれ, ふざけんな, ぶっ殺.
+
+**Per clip.** Reference and hypothesis tokens are aligned (profane and masked tokens share one alignment key,
+so a masked word lines up with the word it hides). Then:
+
+- `filler_keep_rate` = reference fillers whose aligned hypothesis token is a filler / reference fillers, and
+  `hyp_fillers_per_min` = hypothesis fillers per minute of audio (works without reference fillers);
+- `repetition_keep_rate` = reference repetitions kept (both words hit, and the hypothesis repeats too; a
+  hyphen stutter must be written as a stutter) / reference repetitions;
+- for each profane reference word: `written` (aligned to a profane word), `masked` (aligned to a masked
+  token), `dropped` (deleted) or `replaced` (aligned to some other word); for each bleep in the reference:
+  masked, dropped or other; plus hypothesis masked tokens and profane words.
+
+**Aggregates.** Corpus keep rates with 95% clip bootstrap intervals, fillers and masked tokens per minute, the
+share of reference profanity written, masked, dropped and replaced, and plain labels: `filler_style` and
+`repetition_style` are `keeps` (keep rate at least 0.8), `drops` (at most 0.2) or `mixed`, and
+`profanity_style` is the most common outcome; each label is null below 5 reference occurrences. Slices `all`,
+`condition` and `category`.

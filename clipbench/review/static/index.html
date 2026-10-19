@@ -21,6 +21,11 @@
   --flag-fg: #8a5a00;
   --ok: #1b6e34;
   --focus: rgba(59, 111, 216, 0.35);
+  --wave: #9aa3b2;
+  --music: rgba(59, 111, 216, 0.28);
+  --sfx: rgba(214, 120, 30, 0.30);
+  --silence: rgba(120, 120, 128, 0.30);
+  --cs: rgba(214, 160, 30, 0.35);
   --cjk: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic",
     "Meiryo", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", "Malgun Gothic", system-ui,
     -apple-system, "Segoe UI", sans-serif;
@@ -42,13 +47,18 @@
     --flag-fg: #f3c775;
     --ok: #8fe0a6;
     --focus: rgba(111, 155, 255, 0.4);
+    --wave: #6c7380;
+    --music: rgba(111, 155, 255, 0.30);
+    --sfx: rgba(240, 150, 60, 0.30);
+    --silence: rgba(160, 160, 170, 0.25);
+    --cs: rgba(240, 190, 60, 0.30);
   }
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
 body { font: 15px/1.5 var(--cjk); }
-.wrap { max-width: 920px; margin: 0 auto; padding: 16px 16px 48px; }
+.wrap { max-width: 960px; margin: 0 auto; padding: 16px 16px 48px; }
 header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
 header h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
 .progress { flex: 1; min-width: 200px; display: flex; align-items: center; gap: 10px; }
@@ -70,39 +80,58 @@ audio { flex: 1; min-width: 260px; height: 36px; }
 button { font: inherit; font-size: 13px; color: var(--text); background: var(--panel); border: 1px solid var(--line);
   border-radius: 7px; padding: 6px 12px; cursor: pointer; }
 button:hover { border-color: var(--muted); }
-button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
 button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+button.tiny { padding: 2px 8px; font-size: 12px; }
 button:disabled { opacity: 0.45; cursor: default; }
 kbd { font-family: ui-monospace, Menlo, monospace; font-size: 11px; padding: 0 4px; border: 1px solid var(--line);
   border-bottom-width: 2px; border-radius: 4px; color: var(--muted); }
-.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+button.on kbd, button.primary kbd { color: inherit; border-color: currentColor; }
+.tags, .cats { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line);
   border-radius: 999px; font-size: 13px; cursor: pointer; user-select: none; }
 .tag input { margin: 0; accent-color: var(--accent); }
 .tag.checked { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .tag.unusable.checked { border-color: var(--del-fg); background: var(--del-bg); }
-textarea { width: 100%; min-height: 170px; resize: vertical; font: 22px/1.7 var(--cjk); color: var(--text);
-  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.cats button { border-radius: 999px; padding: 4px 10px; }
+.editor { position: relative; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+.editor textarea, .backdrop { font: 22px/1.7 var(--cjk); padding: 12px 14px; margin: 0; border: 0;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; letter-spacing: normal; }
+.editor textarea { position: relative; display: block; width: 100%; min-height: 170px; resize: vertical;
+  color: var(--text); background: transparent; border-radius: 8px; }
+.backdrop { position: absolute; inset: 0; overflow: hidden; color: transparent; pointer-events: none; }
+.backdrop mark { color: transparent; background: var(--cs); border-radius: 3px; }
 .diff { font: 18px/1.8 var(--cjk); white-space: pre-wrap; word-break: break-word; min-height: 1.8em; }
 .diff del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; border-radius: 3px; }
 .diff ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: none; border-radius: 3px; }
-.diff .ws { padding: 0 2px; }
 .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .spacer { flex: 1; }
 .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; }
 .error { color: var(--del-fg); font-size: 13px; }
+.hint { font-size: 13px; color: var(--flag-fg); background: var(--flag-bg); border-radius: 6px; padding: 4px 10px; }
 .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
-  padding: 7px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  padding: 7px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 5; }
 .toast.show { opacity: 0.92; }
 details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
-.keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 4px 24px; font-size: 13px; margin-top: 10px; }
+.keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 4px 24px; font-size: 13px; margin-top: 10px; }
 .keys div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dashed var(--line); padding: 2px 0; }
 .done { text-align: center; padding: 40px 16px; }
-.goto { width: 70px; font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px;
+input.field, select { font: inherit; font-size: 13px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 7px;
   background: var(--panel); color: var(--text); }
+.goto { width: 80px; }
+.lang { width: 64px; }
+.wave { position: relative; margin-top: 10px; }
+canvas#wave { display: block; width: 100%; height: 96px; border-radius: 6px; background: var(--bg); cursor: crosshair; touch-action: none; }
+.spans { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.span-row { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 2px 6px; border-radius: 6px; }
+.span-row.sel { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.cs-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 10px; border-radius: 999px;
+  background: var(--cs); font-size: 13px; cursor: pointer; }
+.cs-chip button { border: 0; background: transparent; padding: 0 6px; }
 @media (max-width: 600px) {
-  textarea { font-size: 19px; }
+  .editor textarea, .backdrop { font-size: 19px; }
   .diff { font-size: 16px; }
 }
 </style>
@@ -131,8 +160,9 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
         <span id="dirty" class="chip dirty" hidden>unsaved edits</span>
         <span>channel: <b id="channel"></b></span>
         <span>duration: <b id="duration"></b></span>
+        <span id="window" hidden>window: <b id="window-range"></b></span>
         <span class="mono" id="vid"></span>
-        <a id="yt" href="#" target="_blank" rel="noopener noreferrer">open Short</a>
+        <a id="yt" href="#" target="_blank" rel="noopener noreferrer">open on YouTube</a>
       </div>
     </div>
 
@@ -145,13 +175,34 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
         <label class="small muted"><input type="checkbox" id="autoplay"> autoplay</label>
       </div>
       <div id="audio-error" class="error" hidden>No audio file for this clip.</div>
+      <div class="wave"><canvas id="wave" height="96"></canvas></div>
+      <div class="row small" style="margin-top:8px">
+        <span class="muted">Non-speech: drag on the waveform, or <kbd>i</kbd> in and <kbd>o</kbd> out at the playhead. New spans are</span>
+        <span id="kinds" class="row"></span>
+        <span class="spacer"></span>
+        <button class="tiny" id="add-gaps" hidden></button>
+      </div>
+      <div id="music-hint" class="hint" style="margin-top:8px" hidden></div>
+      <div class="spans" id="spans"></div>
     </div>
 
     <div class="panel">
       <p class="label">Transcript (edit to match what is said)</p>
-      <textarea id="text" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+      <div class="editor">
+        <div class="backdrop" id="backdrop" aria-hidden="true"></div>
+        <textarea id="text" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+      </div>
       <div id="caption-error" class="error" hidden></div>
       <div class="row" style="margin-top:10px">
+        <label class="tag" id="punct-label" title="."><input type="checkbox" id="punctuated" tabindex="-1">
+          <kbd>.</kbd> punctuation and casing checked</label>
+        <span class="spacer"></span>
+        <span class="small muted">Code-switch: select text, then</span>
+        <input class="field lang" id="cs-lang" value="en" title="Language of the selected span" aria-label="code-switch language">
+        <button class="tiny" id="cs-add">Mark span <kbd>alt+c</kbd></button>
+      </div>
+      <div class="row" id="cs-list" style="margin-top:8px"></div>
+      <div class="row" style="margin-top:12px">
         <p class="label" style="margin:0">Changes vs creator caption</p>
         <span class="small muted" id="diff-stats"></span>
       </div>
@@ -159,18 +210,23 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
     </div>
 
     <div class="panel">
-      <p class="label">Tags</p>
+      <div class="row" style="margin-bottom:8px">
+        <p class="label" style="margin:0">Category</p>
+        <span class="small muted" id="cat-note"></span>
+      </div>
+      <div class="cats" id="cats"></div>
+      <p class="label" style="margin-top:14px">Tags</p>
       <div class="tags" id="tags"></div>
     </div>
 
     <div class="row" style="margin-bottom:12px">
       <button id="prev">Prev <kbd>[</kbd></button>
       <button id="next">Next <kbd>]</kbd></button>
-      <input class="goto" id="goto" type="number" min="1" placeholder="go to #" title="Jump to a clip number">
+      <input class="field goto" id="goto" type="number" min="1" placeholder="go to #" title="Jump to a clip number">
       <span class="spacer"></span>
-      <button id="reset">Reset to original</button>
-      <button id="skip">Skip <kbd>alt+S</kbd></button>
-      <button id="save" class="primary">Save and next <kbd style="color:inherit">ctrl+enter</kbd></button>
+      <button id="reset">Reset text</button>
+      <button id="skip">Skip <kbd>alt+s</kbd></button>
+      <button id="save" class="primary">Save and next <kbd>ctrl+enter</kbd></button>
     </div>
   </main>
 
@@ -181,16 +237,24 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
       <div><span>Play / pause</span><span><kbd>space</kbd> (not typing), <kbd>alt+space</kbd> anywhere</span></div>
       <div><span>Seek 2 s back / forward</span><span><kbd>left</kbd> <kbd>right</kbd>, <kbd>alt+left</kbd> <kbd>alt+right</kbd> anywhere</span></div>
       <div><span>Toggle tag 1 to 8</span><span><kbd>1</kbd>..<kbd>8</kbd>, <kbd>alt+1</kbd>..<kbd>alt+8</kbd> anywhere</span></div>
+      <div><span>Category 1 to 7</span><span><kbd>shift+1</kbd>..<kbd>shift+7</kbd>, <kbd>alt+shift+1</kbd>.. anywhere</span></div>
+      <div><span>Punctuation and casing checked</span><span><kbd>.</kbd>, <kbd>alt+.</kbd> anywhere</span></div>
+      <div><span>Mark selected text as code-switch</span><span><kbd>alt+c</kbd></span></div>
+      <div><span>Non-speech: mark in / out at playhead</span><span><kbd>i</kbd> <kbd>o</kbd></span></div>
+      <div><span>Non-speech kind: music / sfx / silence</span><span><kbd>m</kbd> <kbd>f</kbd> <kbd>l</kbd> (sets the selected span too)</span></div>
+      <div><span>Delete selected span</span><span><kbd>delete</kbd> / <kbd>backspace</kbd></span></div>
       <div><span>Skip clip</span><span><kbd>s</kbd>, <kbd>alt+s</kbd> anywhere</span></div>
       <div><span>Prev / next clip (keeps unsaved draft)</span><span><kbd>[</kbd> <kbd>]</kbd>, <kbd>alt+[</kbd> <kbd>alt+]</kbd> anywhere</span></div>
       <div><span>Speed 0.75x / 1x / 1.25x</span><span><kbd>z</kbd> <kbd>x</kbd> <kbd>c</kbd></span></div>
       <div><span>Reset text to the creator caption</span><span><kbd>alt+r</kbd> (undo with ctrl+z)</span></div>
       <div><span>Edit text</span><span><kbd>enter</kbd> or <kbd>e</kbd></span></div>
-      <div><span>Stop typing (then space plays)</span><span><kbd>esc</kbd></span></div>
+      <div><span>Stop typing, clear span selection / pending in-mark</span><span><kbd>esc</kbd></span></div>
     </div>
     <p class="small muted">Space inside the text box types a space. Press <kbd>esc</kbd> first, or use <kbd>alt+space</kbd>.
       Skipped clips are saved with <span class="mono">"skipped": true</span> and left out of the verified set.
-      Tag <b>unusable</b> drops the clip from scoring.</p>
+      Tag <b>unusable</b> drops the clip from scoring. Code-switch highlights follow your edits; a span whose
+      text you change across its edge is re-found by its text, or removed with a warning.
+      Click the waveform to seek, click a span to select it.</p>
   </details>
 </div>
 <div class="toast" id="toast"></div>
@@ -198,15 +262,25 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
+const KIND_KEYS = { music: "m", sfx: "f", silence: "l" };
 const state = {
   queue: null,      // /api/queue payload
   index: -1,        // position in queue.items
   clip: null,       // /api/clip payload
-  baseText: "",     // text loaded for this clip (saved or original)
-  baseTags: [],
-  drafts: new Map(),// video_id -> {text, tags} unsaved edits kept across navigation
+  base: "",         // JSON snapshot of the loaded form, for the dirty check
+  drafts: new Map(),// clip id -> form snapshot with unsaved edits, kept across navigation
   rate: 1,
   busy: false,
+  category: null,
+  nonspeech: [],    // [{start_ms, end_ms, kind}]
+  codeswitch: [],   // [{start, end, lang, text}]
+  prevText: "",
+  kind: "music",    // kind for new non-speech spans
+  selSpan: -1,      // selected non-speech span index
+  markIn: null,     // pending in-mark, ms
+  peaks: null,      // {duration_ms, min, max}
+  gaps: [],         // caption gaps >= 1 s from creator word timings
+  drag: null,
 };
 
 function storeGet(key, fallback) {
@@ -220,28 +294,35 @@ async function api(path, opts) {
   const res = await fetch(path, opts);
   if (!res.ok) {
     let msg = res.status + " " + res.statusText;
-    try { const j = await res.json(); if (j.detail) msg = String(j.detail); } catch { /* not json */ }
+    try { const j = await res.json(); if (j.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail); } catch { /* not json */ }
     throw new Error(msg);
   }
   return res.json();
 }
 
 let toastTimer = 0;
-function toast(msg) {
+function toast(msg, ms = 1400) {
   const t = $("toast");
   t.textContent = msg;
   t.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove("show"), 1400);
+  toastTimer = setTimeout(() => t.classList.remove("show"), ms);
+}
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function fmtMs(ms) {
+  const s = ms / 1000;
+  return Math.floor(s / 60) + ":" + (s % 60).toFixed(1).padStart(4, "0");
 }
 
 /* ---------- diff ---------- */
 function tokenize(s, lang) {
-  if (lang === "es") return s.match(/\s+|[^\s]+/g) || [];
-  return Array.from(s); // code points: ja and ko diff by character
+  if (lang === "es" || lang === "en") return s.match(/\s+|[^\s]+/g) || [];
+  return Array.from(s); // ja, ko and others diff by character
 }
 
-// LCS diff on tokens after trimming the common prefix and suffix. Returns [[op, text]], op in "=", "-", "+".
+// LCS diff on tokens after trimming the common prefix and suffix. Returns [[op, text, count]].
 function diffTokens(a, b) {
   let pre = 0;
   while (pre < a.length && pre < b.length && a[pre] === b[pre]) pre++;
@@ -271,7 +352,6 @@ function diffTokens(a, b) {
     while (j < m) ops.push(["+", B[j++]]);
   }
   for (let i = a.length - suf; i < a.length; i++) ops.push(["=", a[i]]);
-  // Merge runs; inside each changed stretch show deletions before insertions.
   const out = [];
   let k = 0;
   while (k < ops.length) {
@@ -291,20 +371,17 @@ function diffTokens(a, b) {
   }
   return out;
 }
-
-function esc(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
 function showWs(s) {
-  // Make changed whitespace visible.
   return esc(s).replace(/ /g, "\u00b7").replace(/\n/g, "\u21b5\n");
 }
+function wordLang() { return state.clip && (state.clip.language === "es" || state.clip.language === "en"); }
+function countWords(s) { return (s.match(/[^\s]+/g) || []).length || 1; }
 
-let diffPending = false;
-function scheduleDiff() {
-  if (diffPending) return;
-  diffPending = true;
-  requestAnimationFrame(() => { diffPending = false; renderDiff(); });
+let renderPending = false;
+function scheduleRender() {
+  if (renderPending) return;
+  renderPending = true;
+  requestAnimationFrame(() => { renderPending = false; renderDiff(); renderBackdrop(); });
 }
 function renderDiff() {
   if (!state.clip) return;
@@ -313,17 +390,103 @@ function renderDiff() {
   let html = "", dels = 0, ins = 0;
   for (const [op, s, count] of ops) {
     if (op === "=") html += esc(s);
-    else if (op === "-") { dels += lang === "es" ? countWords(s) : count; html += "<del>" + showWs(s) + "</del>"; }
-    else { ins += lang === "es" ? countWords(s) : count; html += "<ins>" + showWs(s) + "</ins>"; }
+    else if (op === "-") { dels += wordLang() ? countWords(s) : count; html += "<del>" + showWs(s) + "</del>"; }
+    else { ins += wordLang() ? countWords(s) : count; html += "<ins>" + showWs(s) + "</ins>"; }
   }
   $("diff").innerHTML = html || '<span class="muted">(empty)</span>';
-  const unit = lang === "es" ? "words" : "chars";
-  $("diff-stats").textContent = dels || ins ? `-${dels} +${ins} ${unit}` : "no changes";
+  $("diff-stats").textContent = dels || ins ? `-${dels} +${ins} ${wordLang() ? "words" : "chars"}` : "no changes";
   updateDirty();
 }
-function countWords(s) { return (s.match(/[^\s]+/g) || []).length || 1; }
 
-/* ---------- tags ---------- */
+/* ---------- code-switch spans ---------- */
+// Keep span offsets right while the text is edited: spans before the edit stay, spans after it shift,
+// an edit fully inside a span grows or shrinks it, and an edit across a span edge (or one that replaces
+// the whole span) re-finds the span by its text (nearest occurrence) or drops it with a warning.
+function findNearest(text, needle, near) {
+  if (!needle) return -1;
+  let best = -1;
+  for (let i = text.indexOf(needle); i !== -1; i = text.indexOf(needle, i + 1)) {
+    if (best === -1 || Math.abs(i - near) < Math.abs(best - near)) best = i;
+  }
+  return best;
+}
+function adjustSpans(prev, now) {
+  if (prev === now || !state.codeswitch.length) { state.prevText = now; return; }
+  let pre = 0;
+  const minLen = Math.min(prev.length, now.length);
+  while (pre < minLen && prev[pre] === now[pre]) pre++;
+  let suf = 0;
+  while (suf < minLen - pre && prev[prev.length - 1 - suf] === now[now.length - 1 - suf]) suf++;
+  const oldEnd = prev.length - suf, delta = now.length - prev.length;
+  const kept = [], lost = [];
+  for (const sp of state.codeswitch) {
+    let { start, end } = sp;
+    if (end <= pre) { /* before the edit */ }
+    else if (start >= oldEnd) { start += delta; end += delta; }
+    // Edit strictly inside the span (it keeps some of its own text): grow or shrink it.
+    else if (start <= pre && oldEnd <= end && !(start === pre && oldEnd === end) && end + delta > start) { end += delta; }
+    else {
+      const at = findNearest(now, sp.text, start);
+      if (at === -1) { lost.push(sp.text); continue; }
+      start = at; end = at + sp.text.length;
+    }
+    kept.push({ ...sp, start, end, text: now.slice(start, end) });
+  }
+  state.codeswitch = kept;
+  state.prevText = now;
+  if (lost.length) toast("Code-switch span removed (text edited): " + lost.map((t) => '"' + t + '"').join(", "), 3000);
+  renderCodeswitch();
+}
+function addCodeswitch() {
+  const ta = $("text");
+  let start = ta.selectionStart, end = ta.selectionEnd;
+  const v = ta.value;
+  while (start < end && /\s/.test(v[start])) start++;
+  while (end > start && /\s/.test(v[end - 1])) end--;
+  if (end <= start) { toast("Select the code-switched text first"); return; }
+  const lang = ($("cs-lang").value || "en").trim().toLowerCase();
+  if (!/^[a-z]{2,3}(-[a-z0-9]{1,8})?$/.test(lang)) { toast("Language must be a code like en"); return; }
+  storeSet("clipbench.cslang", lang);
+  if (state.codeswitch.some((s) => s.start === start && s.end === end)) { toast("Already marked"); return; }
+  state.codeswitch.push({ start, end, lang, text: v.slice(start, end) });
+  state.codeswitch.sort((a, b) => a.start - b.start || a.end - b.end);
+  renderCodeswitch();
+  updateDirty();
+}
+function renderCodeswitch() {
+  const box = $("cs-list");
+  box.innerHTML = "";
+  state.codeswitch.forEach((sp, i) => {
+    const chip = document.createElement("span");
+    chip.className = "cs-chip";
+    chip.title = "Click to select in the text";
+    chip.innerHTML = `<b>${esc(sp.lang)}</b> ${esc(sp.text)} <button aria-label="remove">x</button>`;
+    chip.addEventListener("mousedown", (e) => e.preventDefault());
+    chip.addEventListener("click", (e) => {
+      if (e.target.tagName === "BUTTON") { state.codeswitch.splice(i, 1); renderCodeswitch(); updateDirty(); return; }
+      const ta = $("text"); ta.focus(); ta.setSelectionRange(sp.start, sp.end);
+    });
+    box.appendChild(chip);
+  });
+  renderBackdrop();
+}
+function renderBackdrop() {
+  const v = $("text").value;
+  let html = "", pos = 0;
+  // Overlapping spans are drawn as their union.
+  const spans = state.codeswitch.slice().sort((a, b) => a.start - b.start);
+  for (const sp of spans) {
+    const s = Math.max(sp.start, pos);
+    if (sp.end <= s) continue;
+    html += esc(v.slice(pos, s)) + "<mark>" + esc(v.slice(s, sp.end)) + "</mark>";
+    pos = sp.end;
+  }
+  html += esc(v.slice(pos)) + "\n ";
+  $("backdrop").innerHTML = html;
+  $("backdrop").scrollTop = $("text").scrollTop;
+}
+
+/* ---------- tags, category, punctuated ---------- */
 function buildTags(tags) {
   const box = $("tags");
   box.innerHTML = "";
@@ -338,7 +501,11 @@ function buildTags(tags) {
 function tagInputs() { return Array.from($("tags").querySelectorAll("input")); }
 function currentTags() { return tagInputs().filter((x) => x.checked).map((x) => x.value); }
 function setTags(tags) { for (const x of tagInputs()) x.checked = tags.includes(x.value); syncTagStyles(); }
-function syncTagStyles() { for (const x of tagInputs()) x.parentElement.classList.toggle("checked", x.checked); }
+function syncTagStyles() {
+  for (const x of tagInputs()) x.parentElement.classList.toggle("checked", x.checked);
+  $("punct-label").classList.toggle("checked", $("punctuated").checked);
+  renderMusicHint();
+}
 function toggleTag(i) {
   const x = tagInputs()[i];
   if (!x) return;
@@ -346,19 +513,273 @@ function toggleTag(i) {
   syncTagStyles();
   updateDirty();
 }
+function togglePunct() { $("punctuated").checked = !$("punctuated").checked; syncTagStyles(); updateDirty(); }
 
-/* ---------- state ---------- */
-function isDirty() {
-  if (!state.clip) return false;
-  const t = currentTags();
-  return $("text").value !== state.baseText || t.length !== state.baseTags.length || t.some((x) => !state.baseTags.includes(x));
+function buildCategories(cats) {
+  const box = $("cats");
+  box.innerHTML = "";
+  cats.forEach((cat, i) => {
+    const b = document.createElement("button");
+    b.dataset.cat = cat;
+    b.innerHTML = `<kbd>shift+${i + 1}</kbd> ${cat.replace(/_/g, " ")}`;
+    b.addEventListener("click", () => setCategory(state.category === cat ? null : cat, true));
+    box.appendChild(b);
+  });
 }
+function setCategory(cat, byUser) {
+  state.category = cat;
+  for (const b of $("cats").querySelectorAll("button")) b.classList.toggle("on", b.dataset.cat === cat);
+  if (byUser) $("cat-note").textContent = cat ? "" : "not set";
+  else $("cat-note").textContent = !cat ? "not set" : state.clip && state.clip.category_prefilled ? "prefilled from the dataset, confirm or change" : "";
+  updateDirty();
+}
+
+/* ---------- non-speech spans and waveform ---------- */
+function durationMs() {
+  if (state.peaks && state.peaks.duration_ms) return state.peaks.duration_ms;
+  const a = $("audio");
+  if (a.duration && isFinite(a.duration)) return a.duration * 1000;
+  return state.clip && state.clip.duration_s ? state.clip.duration_s * 1000 : 0;
+}
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function drawWave() {
+  const cv = $("wave");
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const dur = durationMs();
+  if (!dur) return;
+  const x = (ms) => (ms / dur) * w;
+  // caption gaps (hint), dashed
+  ctx.save();
+  ctx.setLineDash([3, 3]);
+  ctx.strokeStyle = cssVar("--muted");
+  for (const g of state.gaps) ctx.strokeRect(x(g.start_ms) + 0.5, 2.5, x(g.end_ms) - x(g.start_ms) - 1, h - 5);
+  ctx.restore();
+  state.nonspeech.forEach((sp, i) => {
+    ctx.fillStyle = cssVar("--" + sp.kind);
+    ctx.fillRect(x(sp.start_ms), 0, x(sp.end_ms) - x(sp.start_ms), h);
+    if (i === state.selSpan) {
+      ctx.strokeStyle = cssVar("--accent"); ctx.lineWidth = 2;
+      ctx.strokeRect(x(sp.start_ms) + 1, 1, x(sp.end_ms) - x(sp.start_ms) - 2, h - 2);
+      ctx.lineWidth = 1;
+    }
+    ctx.fillStyle = cssVar("--text");
+    ctx.font = "11px system-ui, sans-serif";
+    ctx.fillText(sp.kind, x(sp.start_ms) + 4, 12);
+  });
+  if (state.drag && state.drag.moved) {
+    const a = Math.min(state.drag.startMs, state.drag.curMs), b = Math.max(state.drag.startMs, state.drag.curMs);
+    ctx.fillStyle = cssVar("--" + state.kind);
+    ctx.fillRect(x(a), 0, x(b) - x(a), h);
+  }
+  // peaks
+  if (state.peaks && state.peaks.max.length) {
+    const n = state.peaks.max.length, mid = h / 2;
+    ctx.fillStyle = cssVar("--wave");
+    for (let px = 0; px < w; px++) {
+      const i0 = Math.floor((px / w) * n), i1 = Math.max(i0 + 1, Math.floor(((px + 1) / w) * n));
+      let lo = 0, hi = 0;
+      for (let i = i0; i < i1 && i < n; i++) { lo = Math.min(lo, state.peaks.min[i]); hi = Math.max(hi, state.peaks.max[i]); }
+      const top = mid - hi * (mid - 4), bot = mid - lo * (mid - 4);
+      ctx.fillRect(px, top, 1, Math.max(1, bot - top));
+    }
+  }
+  if (state.markIn !== null) {
+    ctx.fillStyle = cssVar("--ok");
+    ctx.fillRect(x(state.markIn) - 1, 0, 2, h);
+  }
+  const a = $("audio");
+  ctx.fillStyle = cssVar("--del-fg");
+  ctx.fillRect(x(a.currentTime * 1000) - 0.5, 0, 1.5, h);
+}
+let waveLoop = 0;
+function waveTick() { drawWave(); if (!$("audio").paused) waveLoop = requestAnimationFrame(waveTick); }
+
+function renderSpans() {
+  state.nonspeech.sort((a, b) => a.start_ms - b.start_ms || a.end_ms - b.end_ms);
+  const box = $("spans");
+  box.innerHTML = "";
+  state.nonspeech.forEach((sp, i) => {
+    const row = document.createElement("div");
+    row.className = "span-row" + (i === state.selSpan ? " sel" : "");
+    const opts = state.queue.nonspeech_kinds.map((k) => `<option value="${k}"${k === sp.kind ? " selected" : ""}>${k}</option>`).join("");
+    row.innerHTML = `<span class="swatch" style="background:var(--${sp.kind})"></span>
+      <span class="mono">${fmtMs(sp.start_ms)} to ${fmtMs(sp.end_ms)}</span>
+      <select aria-label="kind">${opts}</select>
+      <button class="tiny" data-act="play">play</button>
+      <button class="tiny" data-act="del">delete</button>`;
+    row.querySelector("select").addEventListener("change", (e) => { sp.kind = e.target.value; e.target.blur(); afterSpanChange(); });
+    row.querySelector('[data-act="del"]').addEventListener("click", () => deleteSpan(i));
+    row.querySelector('[data-act="play"]').addEventListener("click", () => { selectSpan(i); playFrom(sp.start_ms); });
+    row.addEventListener("click", (e) => { if (e.target === row || e.target.tagName === "SPAN") selectSpan(i); });
+    box.appendChild(row);
+  });
+  renderMusicHint();
+  drawWave();
+}
+function afterSpanChange() { renderSpans(); updateDirty(); }
+function selectSpan(i) { state.selSpan = i; renderSpans(); }
+function deleteSpan(i) {
+  if (i < 0 || i >= state.nonspeech.length) return;
+  state.nonspeech.splice(i, 1);
+  state.selSpan = -1;
+  afterSpanChange();
+}
+function addSpan(a, b, kind) {
+  const dur = durationMs();
+  a = Math.max(0, Math.round(Math.min(a, b)));
+  b = Math.round(Math.min(dur || Infinity, Math.max(a, b)));
+  if (b - a < 100) { toast("Span too short"); return; }
+  const sp = { start_ms: a, end_ms: b, kind: kind || state.kind };
+  state.nonspeech.push(sp);
+  state.nonspeech.sort((p, q) => p.start_ms - q.start_ms || p.end_ms - q.end_ms);
+  state.selSpan = state.nonspeech.indexOf(sp);
+  afterSpanChange();
+}
+function setKind(kind) {
+  if (!KIND_KEYS[kind]) kind = "music";
+  state.kind = kind;
+  storeSet("clipbench.kind", kind);
+  for (const b of $("kinds").querySelectorAll("button")) b.classList.toggle("on", b.dataset.kind === kind);
+  const sp = state.nonspeech[state.selSpan];
+  if (sp && sp.kind !== kind) { sp.kind = kind; afterSpanChange(); }
+}
+function buildKinds(kinds) {
+  const box = $("kinds");
+  box.innerHTML = "";
+  for (const k of kinds) {
+    const b = document.createElement("button");
+    b.className = "tiny";
+    b.dataset.kind = k;
+    b.innerHTML = `${k} <kbd>${KIND_KEYS[k] || ""}</kbd>`;
+    b.addEventListener("click", () => setKind(k));
+    box.appendChild(b);
+  }
+}
+function markIn() { state.markIn = $("audio").currentTime * 1000; drawWave(); toast("In: " + fmtMs(state.markIn)); }
+function markOut() {
+  const now = $("audio").currentTime * 1000;
+  if (state.markIn === null) { toast("Press i first to mark the start"); return; }
+  addSpan(state.markIn, now, state.kind);
+  state.markIn = null;
+  drawWave();
+}
+function playFrom(ms) { const a = $("audio"); a.currentTime = ms / 1000; a.play().catch(() => {}); }
+function computeGaps(words, dur) {
+  const out = [];
+  if (!words || !words.length || !dur) return out;
+  const ws = words.filter((w) => w.end_ms > 0 && w.start_ms < dur).sort((a, b) => a.start_ms - b.start_ms);
+  let cursor = 0;
+  for (const w of ws) {
+    if (w.start_ms - cursor >= 1000) out.push({ start_ms: cursor, end_ms: w.start_ms });
+    cursor = Math.max(cursor, w.end_ms);
+  }
+  if (ws.length && dur - cursor >= 1000) out.push({ start_ms: cursor, end_ms: dur });
+  return out;
+}
+function refreshGaps() {
+  state.gaps = state.clip ? computeGaps(state.clip.words, durationMs()) : [];
+  const btn = $("add-gaps");
+  btn.hidden = !state.gaps.length;
+  btn.textContent = `Add ${state.gaps.length} caption gap${state.gaps.length === 1 ? "" : "s"} (dashed) as ${state.kind}`;
+}
+function addGaps() {
+  let added = 0;
+  for (const g of state.gaps) {
+    if (state.nonspeech.some((s) => s.start_ms < g.end_ms && g.start_ms < s.end_ms)) continue;
+    state.nonspeech.push({ start_ms: Math.round(g.start_ms), end_ms: Math.round(g.end_ms), kind: state.kind });
+    added++;
+  }
+  toast(added ? `Added ${added} span${added === 1 ? "" : "s"}, check them by ear` : "Gaps already covered");
+  afterSpanChange();
+}
+function renderMusicHint() {
+  if (!state.queue) return;
+  const music = currentTags().includes("background_music");
+  const nMusic = state.nonspeech.filter((s) => s.kind === "music").length;
+  const box = $("music-hint");
+  if (music && !nMusic) {
+    box.textContent = "Tagged background music: mark any music-only stretches (no speech) on the timeline above.";
+    box.hidden = false;
+  } else if (nMusic) {
+    const total = state.nonspeech.filter((s) => s.kind === "music").reduce((t, s) => t + s.end_ms - s.start_ms, 0);
+    box.textContent = `Music only: ${nMusic} stretch${nMusic === 1 ? "" : "es"}, ${(total / 1000).toFixed(1)} s.`;
+    box.hidden = false;
+  } else box.hidden = true;
+}
+
+// Pointer handling on the waveform: drag makes a span, click on a span selects it, click elsewhere seeks.
+(function wireWave() {
+  const cv = $("wave");
+  const msAt = (e) => { const r = cv.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * durationMs(); };
+  cv.addEventListener("pointerdown", (e) => {
+    if (!durationMs()) return;
+    cv.setPointerCapture(e.pointerId);
+    const ms = msAt(e);
+    state.drag = { startMs: ms, curMs: ms, x0: e.clientX, moved: false };
+  });
+  cv.addEventListener("pointermove", (e) => {
+    if (!state.drag) return;
+    state.drag.curMs = msAt(e);
+    if (Math.abs(e.clientX - state.drag.x0) > 4) state.drag.moved = true;
+    drawWave();
+  });
+  cv.addEventListener("pointerup", (e) => {
+    const d = state.drag;
+    state.drag = null;
+    if (!d) return;
+    if (d.moved) { addSpan(d.startMs, msAt(e), state.kind); return; }
+    const hit = state.nonspeech.findIndex((s) => s.start_ms <= d.startMs && d.startMs <= s.end_ms);
+    if (hit >= 0 && hit !== state.selSpan) { selectSpan(hit); return; }
+    $("audio").currentTime = d.startMs / 1000;
+    drawWave();
+  });
+  window.addEventListener("resize", drawWave);
+})();
+
+async function loadPeaks(id) {
+  state.peaks = null;
+  try {
+    const n = Math.min(4000, Math.max(200, Math.round($("wave").clientWidth * (window.devicePixelRatio || 1))));
+    const p = await api("/api/clip/" + encodeURIComponent(id) + "/peaks?n=" + n);
+    if (state.clip && state.clip.video_id === id) { state.peaks = p; refreshGaps(); drawWave(); }
+  } catch { /* no waveform, spans still work from the audio element */ }
+}
+
+/* ---------- form snapshot and dirty state ---------- */
+function snapshot() {
+  return {
+    text: $("text").value,
+    tags: currentTags(),
+    category: state.category,
+    nonspeech_spans: state.nonspeech.map((s) => ({ start_ms: s.start_ms, end_ms: s.end_ms, kind: s.kind })),
+    codeswitch_spans: state.codeswitch.map((s) => ({ start: s.start, end: s.end, lang: s.lang, text: s.text })),
+    punctuated: $("punctuated").checked,
+  };
+}
+function isDirty() { return !!state.clip && JSON.stringify(snapshot()) !== state.base; }
 function updateDirty() {
   const d = isDirty();
   $("dirty").hidden = !d;
   if (!state.clip) return;
-  if (d) state.drafts.set(state.clip.video_id, { text: $("text").value, tags: currentTags() });
+  if (d) state.drafts.set(state.clip.video_id, snapshot());
   else state.drafts.delete(state.clip.video_id);
+}
+function applySnapshot(s) {
+  $("text").value = s.text;
+  state.prevText = s.text;
+  setTags(s.tags);
+  $("punctuated").checked = !!s.punctuated;
+  state.nonspeech = s.nonspeech_spans.map((x) => ({ ...x }));
+  state.codeswitch = s.codeswitch_spans.map((x) => ({ ...x }));
+  state.selSpan = -1;
+  state.markIn = null;
+  syncTagStyles();
+  renderCodeswitch();
 }
 
 function renderProgress() {
@@ -369,7 +790,6 @@ function renderProgress() {
 }
 
 const STATUS_TEXT = { todo: "not reviewed", reviewed: "reviewed", skipped: "skipped", rereview: "needs re-review" };
-
 function fmtDuration(s) {
   if (s === null || s === undefined) return "?";
   return s < 60 ? s.toFixed(1) + " s" : Math.floor(s / 60) + ":" + String(Math.round(s % 60)).padStart(2, "0");
@@ -385,7 +805,7 @@ async function loadClip(index, { play = false } = {}) {
   state.index = index;
   state.clip = clip;
   q.items[index].status = clip.status;
-  history.replaceState(null, "", "#" + id);
+  history.replaceState(null, "", "#" + encodeURIComponent(id));
 
   $("pos").textContent = `#${index + 1} of ${q.total}`;
   $("flag").hidden = !clip.flagged;
@@ -393,40 +813,58 @@ async function loadClip(index, { play = false } = {}) {
   $("status").className = "chip " + clip.status;
   $("channel").textContent = clip.channel || "?";
   $("duration").textContent = fmtDuration(clip.duration_s);
+  $("window").hidden = clip.start_ms === null || clip.start_ms === undefined;
+  if (!$("window").hidden) $("window-range").textContent = `${fmtMs(clip.start_ms)} to ${fmtMs(clip.end_ms)} of the video`;
   $("vid").textContent = id;
   $("yt").href = clip.youtube_url;
   $("caption-error").hidden = !clip.error;
   $("caption-error").textContent = clip.error || "";
-
-  state.baseText = clip.text;
-  state.baseTags = clip.tags.slice();
-  const draft = state.drafts.get(id);
-  const ta = $("text");
-  ta.lang = clip.language;
+  $("text").lang = clip.language;
   $("diff").lang = clip.language;
-  ta.value = draft ? draft.text : clip.text;
-  setTags(draft ? draft.tags : clip.tags);
+
+  const base = {
+    text: clip.text,
+    tags: clip.tags.slice(),
+    category: clip.category || null,
+    nonspeech_spans: clip.nonspeech_spans.map((s) => ({ start_ms: s.start_ms, end_ms: s.end_ms, kind: s.kind })),
+    codeswitch_spans: clip.codeswitch_spans.map((s) => ({ start: s.start, end: s.end, lang: s.lang, text: s.text })),
+    punctuated: !!clip.punctuated,
+  };
+  // Order the tags like currentTags() so the snapshot comparison is stable.
+  base.tags = q.tags.filter((t) => base.tags.includes(t));
+  state.base = JSON.stringify(base);
+  const draft = state.drafts.get(id);
+  const form = draft || base;
+  state.category = null;
+  applySnapshot(form);
+  setCategory(form.category, false);
 
   const audio = $("audio");
   $("audio-error").hidden = clip.audio_available;
+  state.peaks = null;
   if (clip.audio_available) {
     audio.src = "/audio/" + encodeURIComponent(id);
     audio.defaultPlaybackRate = state.rate;
     audio.playbackRate = state.rate;
     if (play && $("autoplay").checked) audio.play().catch(() => {});
+    loadPeaks(id);
   } else {
     audio.removeAttribute("src");
     audio.load();
   }
+  refreshGaps();
   $("prev").disabled = index === 0;
   $("next").disabled = index === q.items.length - 1;
+  renderSpans();
   renderDiff();
+  renderBackdrop();
 }
 
 function nextOpenIndex(from) {
   const items = state.queue.items;
-  for (let i = from + 1; i < items.length; i++) if (items[i].status === "todo" || items[i].status === "rereview") return i;
-  for (let i = 0; i < from; i++) if (items[i].status === "todo" || items[i].status === "rereview") return i;
+  const open = (it) => it.status === "todo" || it.status === "rereview";
+  for (let i = from + 1; i < items.length; i++) if (open(items[i])) return i;
+  for (let i = 0; i < from; i++) if (open(items[i])) return i;
   return -1;
 }
 
@@ -437,22 +875,19 @@ async function submit(skip) {
   try {
     const opts = skip
       ? { method: "POST" }
-      : { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: $("text").value, tags: currentTags() }) };
+      : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(snapshot()) };
     const res = await api("/api/clip/" + encodeURIComponent(id) + (skip ? "/skip" : ""), opts);
     state.drafts.delete(id);
     state.queue = res.queue;
     renderProgress();
-    toast(skip ? "Skipped" : "Saved");
+    const dropped = res.dropped_codeswitch_spans || [];
+    if (dropped.length) toast(`Saved, but ${dropped.length} code-switch span(s) no longer matched the text and were dropped`, 3500);
+    else toast(skip ? "Skipped" : "Saved");
     const nxt = nextOpenIndex(state.index);
-    if (nxt === -1) {
-      await loadClip(state.index);
-      toast("All clips done. Nice work.");
-    } else {
-      await loadClip(nxt, { play: true });
-    }
+    if (nxt === -1) { await loadClip(state.index); toast("All clips done. Nice work.", 2500); }
+    else await loadClip(nxt, { play: true });
   } catch (e) {
-    toast("Save failed: " + e.message);
+    toast("Save failed: " + e.message, 3500);
   } finally {
     state.busy = false;
   }
@@ -463,9 +898,11 @@ function resetToOriginal() {
   const ta = $("text");
   ta.focus();
   ta.select();
-  // execCommand keeps the change on the undo stack; fall back to plain assignment.
-  if (!document.execCommand("insertText", false, state.clip.original_text)) ta.value = state.clip.original_text;
-  scheduleDiff();
+  // execCommand keeps the change on the undo stack (and fires input); fall back to plain assignment.
+  if (!document.execCommand("insertText", false, state.clip.original_text)) {
+    ta.value = state.clip.original_text;
+    onTextInput();
+  }
 }
 
 function setRate(r) {
@@ -485,6 +922,7 @@ function seek(delta) {
   const a = $("audio");
   if (!a.src) return;
   a.currentTime = Math.max(0, Math.min((a.duration || 1e9), a.currentTime + delta));
+  drawWave();
 }
 function go(delta) {
   const i = state.index + delta;
@@ -493,30 +931,45 @@ function go(delta) {
 
 /* ---------- keyboard ---------- */
 function isTyping(el) {
-  return el && (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && el.type !== "checkbox"));
+  return el && (el.tagName === "TEXTAREA" || el.tagName === "SELECT" || (el.tagName === "INPUT" && el.type !== "checkbox"));
 }
 document.addEventListener("keydown", (e) => {
   if (!state.clip) return;
   const typing = isTyping(document.activeElement);
   const mod = e.ctrlKey || e.metaKey;
+  const digit = /^Digit([1-9])$/.exec(e.code) || (!e.code && /^([1-9])$/.exec(e.key));
 
   if (mod && e.key === "Enter") { e.preventDefault(); submit(false); return; }
-  if (e.key === "Escape") { if (typing) document.activeElement.blur(); return; }
+  if (e.key === "Escape") {
+    if (typing) document.activeElement.blur();
+    else { state.selSpan = -1; state.markIn = null; renderSpans(); }
+    return;
+  }
 
   if (e.altKey && !mod) {
-    const digit = /^Digit([1-9])$/.exec(e.code);
+    if (digit) {
+      e.preventDefault();
+      const n = Number(digit[1]) - 1;
+      if (e.shiftKey) setCategory(state.queue.categories[n] ?? state.category, true); else toggleTag(n);
+      return;
+    }
     const handled = {
       Space: togglePlay, ArrowLeft: () => seek(-2), ArrowRight: () => seek(2),
-      KeyS: () => submit(true), KeyR: resetToOriginal, BracketLeft: () => go(-1), BracketRight: () => go(1),
+      KeyS: () => submit(true), KeyR: resetToOriginal, KeyC: addCodeswitch, Period: togglePunct,
+      BracketLeft: () => go(-1), BracketRight: () => go(1),
     }[e.code];
-    if (handled) { e.preventDefault(); handled(); return; }
-    if (digit) { e.preventDefault(); toggleTag(Number(digit[1]) - 1); return; }
+    if (handled) { e.preventDefault(); handled(); }
     return;
   }
   if (typing || mod) return;
 
-  const digit = /^Digit([1-9])$/.exec(e.code);
-  if (digit) { e.preventDefault(); toggleTag(Number(digit[1]) - 1); return; }
+  if (digit) {
+    e.preventDefault();
+    const n = Number(digit[1]) - 1;
+    if (e.shiftKey) { if (state.queue.categories[n]) setCategory(state.queue.categories[n], true); }
+    else toggleTag(n);
+    return;
+  }
   switch (e.key) {
     case " ": e.preventDefault(); togglePlay(); break;
     case "ArrowLeft": e.preventDefault(); seek(-2); break;
@@ -527,26 +980,46 @@ document.addEventListener("keydown", (e) => {
     case "z": setRate(0.75); break;
     case "x": setRate(1); break;
     case "c": setRate(1.25); break;
+    case ".": e.preventDefault(); togglePunct(); break;
+    case "i": markIn(); break;
+    case "o": markOut(); break;
+    case "m": setKind("music"); refreshGaps(); break;
+    case "f": setKind("sfx"); refreshGaps(); break;
+    case "l": setKind("silence"); refreshGaps(); break;
+    case "Delete": case "Backspace": if (state.selSpan >= 0) { e.preventDefault(); deleteSpan(state.selSpan); } break;
     case "Enter": case "e": e.preventDefault(); $("text").focus(); break;
   }
 });
 
 /* ---------- wiring ---------- */
-$("text").addEventListener("input", scheduleDiff);
+function onTextInput() { adjustSpans(state.prevText, $("text").value); scheduleRender(); }
+$("text").addEventListener("input", onTextInput);
+$("text").addEventListener("scroll", () => { $("backdrop").scrollTop = $("text").scrollTop; });
+new ResizeObserver(() => renderBackdrop()).observe($("text"));
 $("save").addEventListener("click", () => submit(false));
 $("skip").addEventListener("click", () => submit(true));
 $("reset").addEventListener("click", resetToOriginal);
 $("prev").addEventListener("click", () => go(-1));
 $("next").addEventListener("click", () => go(1));
+$("add-gaps").addEventListener("click", addGaps);
+$("punctuated").addEventListener("change", () => { syncTagStyles(); updateDirty(); });
+// Keep the textarea selection when clicking the mark button.
+$("cs-add").addEventListener("mousedown", (e) => e.preventDefault());
+$("cs-add").addEventListener("click", addCodeswitch);
+$("cs-lang").value = storeGet("clipbench.cslang", "en");
 $("goto").addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
   const n = Number(e.target.value);
   if (n >= 1 && n <= state.queue.items.length) { loadClip(n - 1); e.target.value = ""; e.target.blur(); }
 });
 for (const b of document.querySelectorAll("[data-rate]")) b.addEventListener("click", () => setRate(Number(b.dataset.rate)));
-// Clicking a button should not leave focus on it, so space keeps meaning play/pause.
-for (const b of document.querySelectorAll("button")) b.addEventListener("mouseup", () => b.blur());
-$("audio").addEventListener("play", () => { if (document.activeElement === $("audio")) $("audio").blur(); });
+// Buttons should not keep focus, so space keeps meaning play/pause.
+document.addEventListener("mouseup", (e) => { const b = e.target.closest && e.target.closest("button"); if (b) b.blur(); });
+const audioEl = $("audio");
+audioEl.addEventListener("play", () => { if (document.activeElement === audioEl) audioEl.blur(); cancelAnimationFrame(waveLoop); waveTick(); });
+audioEl.addEventListener("pause", drawWave);
+audioEl.addEventListener("seeked", drawWave);
+audioEl.addEventListener("loadedmetadata", () => { if (!state.peaks) { refreshGaps(); drawWave(); } });
 $("autoplay").checked = storeGet("clipbench.autoplay", true);
 $("autoplay").addEventListener("change", (e) => storeSet("clipbench.autoplay", e.target.checked));
 window.addEventListener("beforeunload", (e) => { if (state.drafts.size) { e.preventDefault(); e.returnValue = ""; } });
@@ -556,6 +1029,9 @@ async function init() {
   const q = state.queue;
   $("reviewer").textContent = q.reviewer;
   buildTags(q.tags);
+  buildCategories(q.categories);
+  buildKinds(q.nonspeech_kinds);
+  setKind(storeGet("clipbench.kind", "music"));
   setRate(storeGet("clipbench.rate", 1));
   renderProgress();
   if (!q.items.length) { $("empty").hidden = false; return; }

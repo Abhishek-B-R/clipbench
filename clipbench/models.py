@@ -48,6 +48,9 @@ CATEGORIES = [
 ]
 
 
+NONSPEECH_KINDS = ["music", "sfx", "silence"]
+
+
 class NonSpeechSpan(BaseModel):
     start_ms: int
     end_ms: int

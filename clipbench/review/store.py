@@ -1,14 +1,18 @@
-"""Storage for the review UI: the queue, verified files, audio hashes and creator captions.
+"""Storage for the review UI: the queue, verified files, audio, waveform peaks and creator captions.
 
 The queue is data/sample.parquet ordered by sample_rank. Clips listed in data/rereview.json
-(written by error analysis) come first. Verified files follow the format in docs/INTERFACES.md
-and are written atomically (tmp file + rename).
+(written by error analysis) come first. Verified files follow docs/INTERFACES.md plus the
+"Reference additions" in docs/V2.md, and are written atomically (tmp file + rename).
+
+Clip ids are `<video_id>` for a whole video or `<video_id>@<start>-<end>` for a window.
 """
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
+import math
 import os
 import re
 import tempfile
@@ -17,19 +21,48 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from clipbench import models
 from clipbench.config import Settings
 from clipbench.models import TAGS
 
-VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+# Platform ids are [A-Za-z0-9_-]; a window adds "@<start>-<end>". No dots or slashes, so a clip id
+# can never leave data/verified or data/audio.
+VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}(?:@\d{1,9}-\d{1,9})?$")
+WINDOW_RE = re.compile(r"^(?P<vid>[A-Za-z0-9_-]+)@(?P<start>\d+)-(?P<end>\d+)$")
+LANG_RE = re.compile(r"^[a-z]{2,3}(?:-[A-Za-z0-9]{1,8})?$")
+
+CATEGORIES: list[str] = list(
+    getattr(
+        models,
+        "CATEGORIES",
+        ["talking_head", "vlog_music", "gaming", "comedy_skit", "cooking_tutorial", "news_explainer", "other"],
+    )
+)
+NONSPEECH_KINDS: list[str] = list(getattr(models, "NONSPEECH_KINDS", ["music", "sfx", "silence"]))
 
 
 @dataclass
 class QueueItem:
-    video_id: str
+    video_id: str  # the clip id
     language: str
     channel: str | None
     duration_s: float | None
     flagged: bool = False
+    source_id: str | None = None  # raw platform id
+    start_ms: int | None = None  # window start, None for a whole video
+    end_ms: int | None = None
+    category: str | None = None  # prefill from sample, manifest or datasets/<lang>/clips.csv
+
+    @property
+    def kind(self) -> str:
+        return "window" if self.start_ms is not None else "short"
+
+    @property
+    def youtube_url(self) -> str:
+        vid = self.source_id or self.video_id
+        if self.start_ms is None:
+            return f"https://www.youtube.com/shorts/{vid}"
+        return f"https://www.youtube.com/watch?v={vid}&t={self.start_ms // 1000}"
 
 
 @dataclass
@@ -40,12 +73,10 @@ class Queue:
 
     def __post_init__(self) -> None:
         self.by_id = {it.video_id: it for it in self.items}
+        self._pos = {it.video_id: i for i, it in enumerate(self.items)}
 
     def index_of(self, video_id: str) -> int:
-        for i, it in enumerate(self.items):
-            if it.video_id == video_id:
-                return i
-        raise KeyError(video_id)
+        return self._pos[video_id]
 
 
 def rereview_path(settings: Settings) -> Path:
@@ -67,14 +98,75 @@ def load_rereview_ids(settings: Settings) -> list[str]:
 
 def _clean(value: Any) -> Any:
     """Turn pandas NA/NaN into None."""
+    if value is None:
+        return None
+    if isinstance(value, float) and math.isnan(value):
+        return None
     try:
         import pandas as pd
 
-        if value is None or (not isinstance(value, (list, dict, str)) and pd.isna(value)):
+        if not isinstance(value, (list, dict, str)) and pd.isna(value):
             return None
     except (TypeError, ValueError):
         pass
     return value
+
+
+def _category(value: Any) -> str | None:
+    value = _clean(value)
+    return value if isinstance(value, str) and value in CATEGORIES else None
+
+
+def _manifest_categories(settings: Settings) -> dict[str, str]:
+    """video_id -> category from the manifest, when it has that column."""
+    import pandas as pd
+
+    if not settings.manifest_path.exists():
+        return {}
+    try:
+        m = pd.read_parquet(settings.manifest_path)
+    except Exception:  # an unreadable manifest only loses the prefill
+        return {}
+    if "category" not in m.columns or "video_id" not in m.columns:
+        return {}
+    out = {}
+    for vid, cat in zip(m["video_id"], m["category"], strict=False):
+        if (c := _category(cat)) is not None:
+            out[str(vid)] = c
+    return out
+
+
+def _dataset_categories(settings: Settings, language: str) -> dict[str, str]:
+    """clip id (and plain video id) -> category from datasets/<lang>/clips.csv (docs/V2.md)."""
+    path = settings.root / "datasets" / language / "clips.csv"
+    if not path.exists():
+        return {}
+    out: dict[str, str] = {}
+    try:
+        with path.open(encoding="utf-8", newline="") as f:
+            for row in csv.DictReader(f):
+                cat = _category(row.get("category"))
+                vid = (row.get("video_id") or "").strip()
+                if not cat or not vid:
+                    continue
+                start, end = (row.get("start_ms") or "").strip(), (row.get("end_ms") or "").strip()
+                out[f"{vid}@{start}-{end}" if start and end else vid] = cat
+                out.setdefault(vid, cat)
+    except (OSError, csv.Error):
+        return {}
+    return out
+
+
+def _window_ms(row: dict, clip_id: str) -> tuple[int | None, int | None]:
+    """Window bounds in ms: sample columns first, then the clip id (ms per docs/V2.md)."""
+    for start_col, end_col, scale in (("start_ms", "end_ms", 1), ("window_start_s", "window_end_s", 1000)):
+        start, end = _clean(row.get(start_col)), _clean(row.get(end_col))
+        if start is not None and end is not None:
+            return int(round(float(start) * scale)), int(round(float(end) * scale))
+    m = WINDOW_RE.match(clip_id)
+    if m:
+        return int(m["start"]), int(m["end"])
+    return None, None
 
 
 def load_queue(settings: Settings, only_rereview: bool = False) -> Queue:
@@ -85,18 +177,38 @@ def load_queue(settings: Settings, only_rereview: bool = False) -> Queue:
     df = pd.read_parquet(settings.sample_path)
     if "sample_rank" in df.columns:
         df = df.sort_values("sample_rank", kind="stable")
+    manifest_cats: dict[str, str] | None = None
+    dataset_cats: dict[str, dict[str, str]] = {}
     items: list[QueueItem] = []
     for row in df.to_dict("records"):
-        vid = str(row["video_id"])
-        if not VIDEO_ID_RE.match(vid):
+        clip_id = str(_clean(row.get("clip_id")) or row["video_id"])
+        if not VIDEO_ID_RE.match(clip_id):
             continue
+        source = _clean(row.get("source_id")) or _clean(row.get("youtube_id"))
+        if source is None:
+            m = WINDOW_RE.match(clip_id)
+            source = m["vid"] if m else clip_id
+        language = _clean(row.get("language")) or settings.language
+        start_ms, end_ms = _window_ms(row, clip_id)
+        category = _category(row.get("category"))
+        if category is None:
+            if manifest_cats is None:
+                manifest_cats = _manifest_categories(settings)
+            if language not in dataset_cats:
+                dataset_cats[language] = _dataset_categories(settings, language)
+            ds = dataset_cats[language]
+            category = ds.get(clip_id) or manifest_cats.get(str(source)) or ds.get(str(source))
         dur = _clean(row.get("duration_s"))
         items.append(
             QueueItem(
-                video_id=vid,
-                language=_clean(row.get("language")) or settings.language,
+                video_id=clip_id,
+                language=language,
                 channel=_clean(row.get("channel")),
                 duration_s=float(dur) if dur is not None else None,
+                source_id=str(source),
+                start_ms=start_ms,
+                end_ms=end_ms,
+                category=category,
             )
         )
     flagged = set(load_rereview_ids(settings))
@@ -111,7 +223,7 @@ def load_queue(settings: Settings, only_rereview: bool = False) -> Queue:
 
 def verified_path(settings: Settings, video_id: str) -> Path:
     if not VIDEO_ID_RE.match(video_id):
-        raise ValueError(f"bad video id: {video_id!r}")
+        raise ValueError(f"bad clip id: {video_id!r}")
     return settings.verified_dir / f"{video_id}.json"
 
 
@@ -152,7 +264,7 @@ def clip_status(settings: Settings, queue: Queue, item: QueueItem) -> str:
 
 def audio_path(settings: Settings, video_id: str) -> Path:
     if not VIDEO_ID_RE.match(video_id):
-        raise ValueError(f"bad video id: {video_id!r}")
+        raise ValueError(f"bad clip id: {video_id!r}")
     return settings.audio_dir / f"{video_id}.wav"
 
 
@@ -174,6 +286,30 @@ def audio_sha256(settings: Settings, video_id: str) -> str | None:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def waveform_peaks(path: Path, buckets: int) -> dict:
+    """Downsampled min/max peaks (scaled to -1..1 by the loudest sample) for drawing a waveform."""
+    import numpy as np
+    import soundfile
+
+    data, sr = soundfile.read(str(path), dtype="float32", always_2d=True)
+    mono = data.mean(axis=1) if data.shape[1] > 1 else data[:, 0]
+    n = len(mono)
+    duration_ms = int(round(1000 * n / sr)) if sr else 0
+    if n == 0:
+        return {"duration_ms": 0, "sample_rate": sr, "min": [], "max": []}
+    buckets = max(1, min(buckets, n))
+    edges = np.linspace(0, n, buckets + 1).astype(int)
+    lo = np.minimum.reduceat(mono, edges[:-1])
+    hi = np.maximum.reduceat(mono, edges[:-1])
+    scale = float(max(np.abs(lo).max(), np.abs(hi).max())) or 1.0
+    return {
+        "duration_ms": duration_ms,
+        "sample_rate": sr,
+        "min": [round(float(v) / scale, 3) for v in lo],
+        "max": [round(float(v) / scale, 3) for v in hi],
+    }
 
 
 def load_creator(video_id: str, settings: Settings) -> tuple[str, list[dict] | None]:
@@ -213,6 +349,83 @@ def clean_tags(tags: list[str]) -> list[str]:
     return [t for t in TAGS if t in set(tags)]  # canonical order, no duplicates
 
 
+def clean_category(category: str | None) -> str | None:
+    if category in (None, ""):
+        return None
+    if category not in CATEGORIES:
+        raise ValueError(f"unknown category: {category!r}")
+    return category
+
+
+def clean_nonspeech(spans: list[dict], duration_ms: int | None = None) -> list[dict]:
+    """Validate {start_ms, end_ms, kind} spans, clip them to the audio, sort by start."""
+    out = []
+    for s in spans:
+        kind = s.get("kind")
+        if kind not in NONSPEECH_KINDS:
+            raise ValueError(f"unknown nonspeech kind: {kind!r}")
+        try:
+            start, end = int(round(float(s["start_ms"]))), int(round(float(s["end_ms"])))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"bad nonspeech span: {s!r}") from exc
+        start = max(0, start)
+        if duration_ms:
+            end = min(end, duration_ms)
+        if end <= start:
+            raise ValueError(f"empty nonspeech span: {s!r}")
+        out.append({"start_ms": start, "end_ms": end, "kind": kind})
+    return sorted(out, key=lambda s: (s["start_ms"], s["end_ms"]))
+
+
+def reanchor_span(text: str, span_text: str, start: int) -> tuple[int, int] | None:
+    """Where `span_text` now sits in `text`: at `start` if unchanged, else the nearest occurrence."""
+    if not span_text:
+        return None
+    if text[start : start + len(span_text)] == span_text:
+        return start, start + len(span_text)
+    best = None
+    i = text.find(span_text)
+    while i != -1:
+        if best is None or abs(i - start) < abs(best - start):
+            best = i
+        i = text.find(span_text, i + 1)
+    return None if best is None else (best, best + len(span_text))
+
+
+def clean_codeswitch(text: str, spans: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Validate {start, end, lang, text?} spans against the final text.
+
+    When a span carries the `text` it was tagged on and the offsets no longer point at it, the
+    span is re-anchored to the nearest occurrence; spans that cannot be found are dropped and
+    returned separately so the UI can warn. Returns (kept, dropped); kept spans have start, end, lang.
+    """
+    kept: list[dict] = []
+    dropped: list[dict] = []
+    for s in spans:
+        lang = s.get("lang") or "en"
+        if not isinstance(lang, str) or not LANG_RE.match(lang):
+            raise ValueError(f"bad code-switch language: {lang!r}")
+        try:
+            start, end = int(s["start"]), int(s["end"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"bad code-switch span: {s!r}") from exc
+        anchor = s.get("text")
+        if isinstance(anchor, str) and anchor:
+            pos = reanchor_span(text, anchor, start)
+            if pos is None:
+                dropped.append({"start": start, "end": end, "lang": lang, "text": anchor})
+                continue
+            start, end = pos
+        if not (0 <= start < end <= len(text)):
+            dropped.append({"start": start, "end": end, "lang": lang, "text": anchor})
+            continue
+        kept.append({"start": start, "end": end, "lang": lang})
+    kept.sort(key=lambda s: (s["start"], s["end"]))
+    # Drop exact duplicates; overlapping spans are left as tagged.
+    unique = [s for i, s in enumerate(kept) if i == 0 or s != kept[i - 1]]
+    return unique, dropped
+
+
 def build_record(
     settings: Settings,
     item: QueueItem,
@@ -222,7 +435,12 @@ def build_record(
     tags: list[str],
     reviewer: str,
     skipped: bool,
+    category: str | None = None,
+    nonspeech_spans: list[dict] | None = None,
+    codeswitch_spans: list[dict] | None = None,
+    punctuated: bool = False,
 ) -> dict:
+    """The verified file. Spans must already be cleaned (clean_nonspeech, clean_codeswitch)."""
     return {
         "video_id": item.video_id,
         "language": item.language,
@@ -233,6 +451,10 @@ def build_record(
         "reviewed_at": utc_now_iso(),
         "audio_sha256": audio_sha256(settings, item.video_id),
         "skipped": skipped,
+        "category": clean_category(category),
+        "nonspeech_spans": nonspeech_spans or [],
+        "codeswitch_spans": codeswitch_spans or [],
+        "punctuated": bool(punctuated),
     }
 
 

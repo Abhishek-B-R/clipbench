@@ -14,6 +14,38 @@ export interface Source {
   /** "/data" or "/data/sample" */
   base: string;
   demo: boolean;
+  /** True when the demo was chosen on purpose (?demo=1) while real data exists. */
+  forced: boolean;
+}
+
+/**
+ * Demo mode: `?demo=1` shows the synthetic sample even when a real export exists (for design review and for
+ * seeing every view filled in); `?demo=0` goes back. The choice is sticky for the tab (sessionStorage).
+ */
+const DEMO_KEY = "clipbench-demo";
+export function demoForced(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const q = new URLSearchParams(window.location.search).get("demo");
+    if (q === "1") sessionStorage.setItem(DEMO_KEY, "1");
+    if (q === "0") sessionStorage.removeItem(DEMO_KEY);
+    return sessionStorage.getItem(DEMO_KEY) === "1";
+  } catch {
+    return new URLSearchParams(window.location.search).get("demo") === "1";
+  }
+}
+
+/** Switch between the real export and the demo, then reload so every cached view refetches. */
+export function setDemo(on: boolean) {
+  try {
+    if (on) sessionStorage.setItem(DEMO_KEY, "1");
+    else sessionStorage.removeItem(DEMO_KEY);
+  } catch {
+    /* falls back to the URL flag */
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set("demo", on ? "1" : "0");
+  window.location.assign(url.toString());
 }
 
 const cache = new Map<string, Promise<unknown>>();
@@ -37,11 +69,12 @@ let sourcePromise: Promise<Source> | null = null;
 
 export function loadSource(): Promise<Source> {
   if (!sourcePromise) {
-    sourcePromise = getJSON<RunIndex>("/data/index.json")
-      .then((index) => ({ index, base: "/data", demo: Boolean(index.demo) }))
-      .catch(() =>
-        getJSON<RunIndex>("/data/sample/index.json").then((index) => ({ index, base: "/data/sample", demo: true })),
-      );
+    const sample = (forced: boolean) => getJSON<RunIndex>("/data/sample/index.json").then((index) => ({ index, base: "/data/sample", demo: true, forced }));
+    sourcePromise = demoForced()
+      ? sample(true)
+      : getJSON<RunIndex>("/data/index.json")
+          .then((index) => ({ index, base: "/data", demo: Boolean(index.demo), forced: false }))
+          .catch(() => sample(false));
     sourcePromise.catch(() => {
       sourcePromise = null;
     });
@@ -82,4 +115,15 @@ export function useSource() {
 /** Latest run when runId is undefined. */
 export function useRun(runId?: string) {
   return useAsync(() => loadRun(runId), [runId]);
+}
+
+/** Every published run, oldest first (for trends, rank history and the changelog). Failed runs are skipped. */
+export async function loadAllRuns(): Promise<{ runs: Run[]; source: Source }> {
+  const source = await loadSource();
+  const runs = await Promise.all(source.index.runs.map((r) => getJSON<Run>(`${source.base}/runs/${encodeURIComponent(r.run_id)}.json`).catch(() => null)));
+  return { runs: (runs.filter(Boolean) as Run[]).sort((a, b) => a.created_at.localeCompare(b.created_at)), source };
+}
+
+export function useAllRuns() {
+  return useAsync(loadAllRuns, []);
 }

@@ -34,6 +34,15 @@ export interface Provider {
   usd_per_hour: number;
   paid: boolean;
   uploads_audio: boolean;
+  /** Data policy, checked on pricing_checked_on (contract addition, see docs/WEB.md). Optional until the exporter writes them. */
+  /** Days the provider keeps uploaded audio. 0 = not stored, null = unknown or not applicable (local). */
+  retention_days?: number | null;
+  /** Whether the provider trains on API audio unless told not to. null = not applicable (local). */
+  trains_by_default?: boolean | null;
+  /** What clipbench did about it: "applied" (opt-out set), "not_offered", "not_needed" (no training, or local). */
+  opt_out?: "applied" | "not_offered" | "not_needed";
+  /** Link to the provider's data policy page. */
+  policy_url?: string;
 }
 
 export interface Aggregate {
@@ -107,6 +116,10 @@ export interface Clip {
   duration_s: number | null;
   channel: string;
   tags: string[];
+  /** "short" (a whole Short) or "window" (a cut from a longer video). Contract addition. */
+  kind?: "short" | "window";
+  /** Window start in the source video, seconds (windows only). Contract addition. */
+  start_s?: number | null;
 }
 
 export interface PerClip {

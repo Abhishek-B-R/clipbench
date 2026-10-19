@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { motion, useReducedMotion } from "motion/react";
 import { ArrowRight } from "lucide-react";
 import type { Run } from "@/lib/types";
-import { LANGUAGE_NAME, TAG_PHRASE, headline, overall, providerLabel, totalClips } from "@/lib/analysis";
+import { LANGUAGE_NAME, TAG_PHRASE, headline, overall, providerLabel, totalClips, defaultTier } from "@/lib/analysis";
 import { date, int, ms, pct, pValue, usdPerHour } from "@/lib/format";
 import { buttonClass } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -29,7 +29,7 @@ export function Hero({ run }: { run: Run | undefined }) {
             </span>
             {run && (
               <span className="label">
-                {LANGUAGE_NAME[run.language] ?? run.language} / {totalClips(run)} verified clips / {run.providers.length} models
+                {LANGUAGE_NAME[run.language] ?? run.language} / {totalClips(run)} {defaultTier(run) === "verified" ? "verified" : "creator-captioned"} clips / {run.providers.length} models
               </span>
             )}
           </motion.div>
@@ -61,20 +61,33 @@ function Claim({ run }: { run: Run }) {
   if (!h) return <h1 id="hero-title" className="display mt-7 text-[44px] sm:text-[64px]">Speech-to-text on {lang} short-form video, measured.</h1>;
   const where = h.tag ? (
     <>
-      with <span className="whitespace-nowrap">{TAG_PHRASE[h.tag] ?? h.tag}</span>
+      {" "}with <span className="whitespace-nowrap">{TAG_PHRASE[h.tag] ?? h.tag}</span>
     </>
   ) : null;
   const winner = providerLabel(run, h.winner.provider);
   const loser = providerLabel(run, h.loser.provider);
   const significant = h.p < 0.05;
+  const verified = defaultTier(run) === "verified";
+  if (!significant)
+    return (
+      <>
+        <h1 id="hero-title" className="display mt-7 text-[38px] leading-[1.05] text-ink sm:text-[52px] xl:text-[58px]">
+          On {lang} Shorts{where}, {winner} and {loser} are <Underlined>too close to call</Underlined> so far.
+        </h1>
+        <p className="mt-6 max-w-[52ch] text-[16px] leading-relaxed text-ink-2 sm:text-[17px]">
+          {winner} is ahead at <span className="num text-ink">{pct(h.winner.error_rate)}</span> against <span className="num text-ink">{pct(h.loser.error_rate)}</span>, but the paired bootstrap test finds no detectable difference ({pValue(h.p)}) on <span className="num text-ink">{int(h.n)}</span>{" "}
+          {verified ? "hand-checked clips" : "clips scored against creator captions"}. More clips and more models come with the next run.
+        </p>
+      </>
+    );
   return (
     <>
       <h1 id="hero-title" className="display mt-7 text-[38px] leading-[1.05] text-ink sm:text-[52px] xl:text-[58px]">
-        On {lang} Shorts {where}, {winner} makes <Underlined>{Math.round(h.fewer * 100)}% fewer errors</Underlined> than {loser}.
+        On {lang} Shorts{where}, {winner} makes <Underlined>{Math.round(h.fewer * 100)}% fewer errors</Underlined> than {loser}.
       </h1>
       <p className="mt-6 max-w-[52ch] text-[16px] leading-relaxed text-ink-2 sm:text-[17px]">
         {winner} costs <span className="num text-ink">{usdPerHour(h.winner.cost_per_hour)}</span> per hour of audio. Measured on{" "}
-        <span className="num text-ink">{int(h.n)}</span> hand-checked clips with a paired bootstrap test ({significant ? pValue(h.p) : "no tested difference"}). {countWord(run.providers.length)} models, one clip set, and code anyone can rerun.
+        <span className="num text-ink">{int(h.n)}</span> {verified ? "hand-checked clips" : "clips scored against creator captions"} with a paired bootstrap test ({pValue(h.p)}). {countWord(run.providers.length)} models, one clip set, and code anyone can rerun.
       </p>
     </>
   );
@@ -119,13 +132,15 @@ function StatStrip({ run }: { run: Run }) {
   const best = rows[0];
   const paid = rows.filter((r) => (r.cost_per_hour ?? 0) > 0).sort((a, b) => (a.cost_per_hour ?? 0) - (b.cost_per_hour ?? 0))[0];
   const fastest = [...rows].filter((r) => r.latency_p50 != null).sort((a, b) => (a.latency_p50 ?? 0) - (b.latency_p50 ?? 0))[0];
-  const clips = run.clips.filter((c) => c.tier === "verified");
+  const clips = run.clips.filter((c) => c.tier === defaultTier(run));
   const channels = new Set(clips.map((c) => c.channel)).size;
   const stats = [
     best && { value: pct(best.error_rate), label: "Lowest error overall", note: `${providerLabel(run, best.provider)}, 95% interval ${pct(best.ci_low)} to ${pct(best.ci_high)}.` },
     paid && { value: usdPerHour(paid.cost_per_hour), label: "Cheapest paid model, per hour", note: `${providerLabel(run, paid.provider)}, at ${pct(paid.error_rate)} error.` },
     fastest && { value: ms(fastest.latency_p50), label: "Fastest median latency", note: `${providerLabel(run, fastest.provider)}, per clip, upload included.` },
-    { value: int(clips.length), label: "Clips checked by a person", note: `From ${channels} channels. References corrected by ear.` },
+    defaultTier(run) === "verified"
+      ? { value: int(clips.length), label: "Clips checked by a person", note: `From ${channels} channels. References corrected by ear.` }
+      : { value: int(clips.length), label: "Clips scored so far", note: `From ${channels} channels, against creator captions. None verified by ear yet.` },
   ].filter(Boolean) as { value: string; label: string; note: string }[];
   return (
     <>

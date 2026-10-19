@@ -15,9 +15,13 @@ import {
   Search,
   Sparkles,
   Trophy,
+  User,
   Vote,
+  KeyRound,
+  Home,
+  FlaskRound,
 } from "lucide-react";
-import { useRun } from "@/lib/data";
+import { setDemo, useRun, useSource } from "@/lib/data";
 import { setTheme, useTheme } from "@/lib/theme";
 import { providerColor } from "@/lib/analysis";
 import { REPO_SLUG } from "@/lib/config";
@@ -52,6 +56,9 @@ const PAGES = [
   { to: "/requests", label: "Requests", icon: Vote, hint: "Vote for the next model or language" },
   { to: "/changelog", label: "Changelog", icon: History, hint: "Runs over time" },
   { to: "/docs/api", label: "API docs", icon: Code2, hint: "Public data API" },
+  { to: "/account", label: "Account", icon: User, hint: "Watchlist, alerts, saved comparisons" },
+  { to: "/account#keys", label: "API keys", icon: KeyRound, hint: "Create or revoke a key" },
+  { to: "/", label: "Overview", icon: Home, hint: "The landing page" },
 ];
 
 /**
@@ -63,6 +70,7 @@ export function CommandMenu() {
   const navigate = useNavigate();
   const { resolved } = useTheme();
   const run = useRun();
+  const src = useSource();
   const [q, setQ] = useState("");
 
   useEffect(() => {
@@ -153,6 +161,19 @@ export function CommandMenu() {
             <Copy size={16} strokeWidth={1.75} className="text-ink-3" aria-hidden />
             <span className="text-ink">Copy the clone command</span>
           </Command.Item>
+          {src.data && (src.data.forced || !src.data.demo) && (
+            <Command.Item
+              value="demo data synthetic toggle real results"
+              onSelect={() => {
+                setCommandMenuOpen(false);
+                setDemo(!src.data!.forced);
+              }}
+              className={item}
+            >
+              <FlaskRound size={16} strokeWidth={1.75} className="text-ink-3" aria-hidden />
+              <span className="text-ink">{src.data.forced ? "Back to real results" : "View the demo data"}</span>
+            </Command.Item>
+          )}
           <Command.Item value="read methodology docs" onSelect={() => go("/methodology")} className={item}>
             <BookOpen size={16} strokeWidth={1.75} className="text-ink-3" aria-hidden />
             <span className="text-ink">Read how scoring works</span>

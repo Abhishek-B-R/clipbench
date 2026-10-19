@@ -171,7 +171,7 @@ export function CostAccuracy({ run, rows, height = 360 }: { run: Run; rows: Aggr
           </div>
         </div>
       )}
-      <table className="sr-only">
+      <div className="sr-only"><table>
         <caption>Cost and error per model</caption>
         <thead>
           <tr>
@@ -189,7 +189,7 @@ export function CostAccuracy({ run, rows, height = 360 }: { run: Run; rows: Aggr
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 }

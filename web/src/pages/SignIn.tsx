@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useSearchParams } from "react-router";
-import { ArrowLeft, BellRing, KeyRound, Loader2, MailCheck, Star } from "lucide-react";
+import { ArrowLeft, BellRing, CircleAlert, KeyRound, Loader2, MailCheck, Star } from "lucide-react";
 import { signInMagicLink, signInSocial, useSession } from "@/lib/auth";
+import { useAuthProviders } from "@/lib/api";
 import { useRun } from "@/lib/data";
 import { overall, providerColor, providerLabel } from "@/lib/analysis";
 import { pct } from "@/lib/format";
@@ -46,6 +47,9 @@ export default function SignIn() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const last = readLast();
+  const auth = useAuthProviders();
+  const show = auth.providers;
+  const off = auth.status !== "ready";
 
   useEffect(() => {
     document.title = "Sign in | clipbench";
@@ -109,29 +113,48 @@ export default function SignIn() {
             <>
               <h1 className="display text-[44px] leading-none">Sign in</h1>
               <p className="mt-3 text-[15px] text-ink-2">Watch models, get run alerts, save comparisons and create API keys. Browsing results never needs an account.</p>
-              <div className="mt-8 grid gap-2.5">
-                <SocialButton onClick={() => social("github")} busy={busy === "github"} last={last === "github"} icon={<GitHubIcon size={17} />}>
-                  Continue with GitHub
-                </SocialButton>
-                <SocialButton onClick={() => social("google")} busy={busy === "google"} last={last === "google"} icon={<GoogleIcon size={17} />}>
-                  Continue with Google
-                </SocialButton>
-              </div>
-              <div className="my-6 flex items-center gap-3 text-[12px] text-ink-3">
-                <span className="h-px flex-1 bg-line" />
-                or with email
-                <span className="h-px flex-1 bg-line" />
-              </div>
-              <form onSubmit={magic} noValidate className="grid gap-3">
-                <Field label="Email" htmlFor="email" error={error ?? undefined} hint="We send a one-time link. No password.">
-                  <Input id="email" type="email" autoComplete="email" inputMode="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} invalid={Boolean(error)} />
-                </Field>
-                <Button type="submit" size="lg" disabled={busy !== null} className="relative w-full">
-                  {busy === "email" ? <Loader2 size={16} className="animate-spin" /> : null}
-                  Email me a sign-in link
-                  {last === "email" && <LastUsed />}
-                </Button>
-              </form>
+              {auth.status === "down" && (
+                <p role="status" className="mt-6 flex gap-2.5 rounded-sm border border-line bg-sunken px-3 py-2.5 text-[13px] text-ink-2">
+                  <CircleAlert size={15} className="mt-0.5 shrink-0 text-ink-3" aria-hidden />
+                  Sign in is unavailable right now. Browsing results works without an account.
+                </p>
+              )}
+              {auth.status === "ready" && !show.github && !show.google && !show.email && (
+                <p role="status" className="mt-6 text-[13px] text-ink-2">No sign-in method is configured on this server yet.</p>
+              )}
+              {(show.github || show.google) && (
+                <div className={auth.status === "down" ? "mt-5 grid gap-2.5" : "mt-8 grid gap-2.5"}>
+                  {show.github && (
+                    <SocialButton onClick={() => social("github")} busy={busy === "github"} disabled={off} last={last === "github"} icon={<GitHubIcon size={17} />}>
+                      Continue with GitHub
+                    </SocialButton>
+                  )}
+                  {show.google && (
+                    <SocialButton onClick={() => social("google")} busy={busy === "google"} disabled={off} last={last === "google"} icon={<GoogleIcon size={17} />}>
+                      Continue with Google
+                    </SocialButton>
+                  )}
+                </div>
+              )}
+              {(show.github || show.google) && show.email && (
+                <div className="my-6 flex items-center gap-3 text-[12px] text-ink-3">
+                  <span className="h-px flex-1 bg-line" />
+                  or with email
+                  <span className="h-px flex-1 bg-line" />
+                </div>
+              )}
+              {show.email && (
+                <form onSubmit={magic} noValidate className={show.github || show.google ? "grid gap-3" : "mt-8 grid gap-3"}>
+                  <Field label="Email" htmlFor="email" error={error ?? undefined} hint="We send a one-time link. No password.">
+                    <Input id="email" type="email" autoComplete="email" inputMode="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} invalid={Boolean(error)} disabled={off} />
+                  </Field>
+                  <Button type="submit" size="lg" disabled={busy !== null || off} className="relative w-full">
+                    {busy === "email" ? <Loader2 size={16} className="animate-spin" /> : null}
+                    Email me a sign-in link
+                    {last === "email" && <LastUsed />}
+                  </Button>
+                </form>
+              )}
               <p className="mt-8 text-[12px] leading-relaxed text-ink-3">
                 By continuing you agree to store a session cookie on this site. We keep your email and name, nothing else. No tracking.
               </p>
@@ -144,9 +167,9 @@ export default function SignIn() {
   );
 }
 
-function SocialButton({ children, icon, onClick, busy, last }: { children: React.ReactNode; icon: React.ReactNode; onClick: () => void; busy: boolean; last: boolean }) {
+function SocialButton({ children, icon, onClick, busy, last, disabled }: { children: React.ReactNode; icon: React.ReactNode; onClick: () => void; busy: boolean; last: boolean; disabled?: boolean }) {
   return (
-    <Button variant="secondary" size="lg" onClick={onClick} disabled={busy} className="relative w-full">
+    <Button variant="secondary" size="lg" onClick={onClick} disabled={busy || disabled} className="relative w-full">
       {busy ? <Loader2 size={16} className="animate-spin" /> : icon}
       {children}
       {last && <LastUsed />}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { ArrowUpRight } from "lucide-react";
 import type { Run, Tier } from "@/lib/types";
-import { TIER_LABEL, overall, pair, primaryMetric, providerColor, providerLabel } from "@/lib/analysis";
+import { TIER_LABEL, defaultTier, tiersInRun, overall, pair, primaryMetric, providerColor, providerLabel } from "@/lib/analysis";
 import { ms, pct, usdPerHour } from "@/lib/format";
 import { Figure } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
@@ -13,7 +13,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import type { Aggregate } from "@/lib/types";
 
 export function MiniLeaderboard({ run }: { run: Run }) {
-  const [tier, setTier] = useState<Tier>("verified");
+  const [tier, setTier] = useState<Tier>(defaultTier(run));
   const metric = primaryMetric(run);
   const rows = overall(run, tier, metric.name);
   const leader = rows[0];
@@ -76,15 +76,17 @@ export function MiniLeaderboard({ run }: { run: Run }) {
       title={`Overall ${metric.label.toLowerCase()}, ${TIER_LABEL[tier].toLowerCase()}`}
       caption="Lower is better. The dot is the error rate; the band is its 95% bootstrap interval."
       controls={
-        <Segmented
-          label="Reference tier"
-          value={tier}
-          onChange={setTier}
-          options={[
-            { value: "verified", label: "Verified" },
-            { value: "creator", label: "Creator captions" },
-          ]}
-        />
+        tiersInRun(run).length > 1 ? (
+          <Segmented
+            label="Reference tier"
+            value={tier}
+            onChange={setTier}
+            options={[
+              { value: "verified", label: "Verified" },
+              { value: "creator", label: "Creator captions" },
+            ]}
+          />
+        ) : undefined
       }
       source={
         <span className="flex flex-wrap items-center justify-between gap-2">

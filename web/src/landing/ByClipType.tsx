@@ -1,11 +1,12 @@
 import { useId, useState, type KeyboardEvent } from "react";
 import { motion } from "motion/react";
 import type { Run } from "@/lib/types";
-import { TAG_LABEL, TAG_PHRASE, aggregatesFor, pair, primaryMetric, providerColor, providerLabel, winnersByTag } from "@/lib/analysis";
+import { TAG_LABEL, TAG_PHRASE, aggregatesFor, pair, primaryMetric, providerColor, providerLabel, winnersByTag, defaultTier } from "@/lib/analysis";
 import { pct, pValue } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { Figure } from "@/components/ui/Card";
 import { Badge, SeriesDot } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/State";
 
 /**
  * "Which model wins on which kind of clip" (Pangram pattern). Numbered clip types on the left act as tabs;
@@ -16,8 +17,8 @@ export function ByClipType({ run }: { run: Run }) {
   const [tag, setTag] = useState(winners[0]?.tag ?? "background_music");
   const id = useId();
   const metric = primaryMetric(run);
-  const rows = aggregatesFor(run, { tier: "verified", metric: metric.name, kind: "tag", slice: tag });
-  const max = Math.max(0.01, ...run.aggregates.filter((a) => a.tier === "verified" && a.metric === metric.name && a.slice_kind === "tag").map((a) => a.ci_high)) * 1.05;
+  const rows = aggregatesFor(run, { tier: defaultTier(run), metric: metric.name, kind: "tag", slice: tag });
+  const max = Math.max(0.01, ...run.aggregates.filter((a) => a.tier === defaultTier(run) && a.metric === metric.name && a.slice_kind === "tag").map((a) => a.ci_high)) * 1.05;
   const cur = winners.find((w) => w.tag === tag);
 
   const onKey = (e: KeyboardEvent, i: number) => {
@@ -33,7 +34,7 @@ export function ByClipType({ run }: { run: Run }) {
 
   let sentence = "";
   if (cur?.first && cur.second) {
-    const t = pair(run, { tier: "verified", metric: metric.name, kind: "tag", slice: tag }, cur.first.provider, cur.second.provider);
+    const t = pair(run, { tier: defaultTier(run), metric: metric.name, kind: "tag", slice: tag }, cur.first.provider, cur.second.provider);
     const a = providerLabel(run, cur.first.provider);
     const b = providerLabel(run, cur.second.provider);
     if (cur.tooSmall) sentence = `Only ${cur.first.n_clips} clips have ${TAG_PHRASE[tag]}. Too few to conclude anything.`;
@@ -41,6 +42,13 @@ export function ByClipType({ run }: { run: Run }) {
     else sentence = `${a} and ${b} are within each other's noise on ${TAG_PHRASE[tag]}. The paired test finds no clear leader.`;
   }
 
+  if (winners.length === 0)
+    return (
+      <EmptyState
+        title="No clip types tagged in this run yet."
+        body="Clip types (music under speech, fast talkers, slang and more) are tagged when a person verifies a clip. Once verified clips land, this view shows which model leads on each kind."
+      />
+    );
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:gap-8">
       <div role="tablist" aria-label="Clip type" aria-orientation="vertical" className="grid content-start gap-1.5">
@@ -85,7 +93,7 @@ export function ByClipType({ run }: { run: Run }) {
         title={`Error rate on ${TAG_PHRASE[tag] ?? tag}`}
         caption={sentence}
         controls={cur?.tooSmall ? <Badge tone="warn">Too small to conclude</Badge> : cur?.clear ? <Badge tone="good">Paired test: clear lead</Badge> : <Badge>No clear lead</Badge>}
-        source={`source: aggregates + paired, tier=verified, metric=${metric.name}, slice=tag:${tag}`}
+        source={`source: aggregates + paired, tier=${defaultTier(run)}, metric=${metric.name}, slice=tag:${tag}`}
         className="self-start"
       >
         <div id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-tab-${winners.findIndex((w) => w.tag === tag)}`} className="grid gap-3.5">

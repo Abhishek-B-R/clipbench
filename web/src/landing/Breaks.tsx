@@ -66,6 +66,11 @@ export function Breaks({ run }: { run: Run }) {
           </Reveal>
         );
       })}
+      {/* Fill the last row so the hairline grid never shows a grey hole. */}
+      {Array.from({ length: (3 - (order.length % 3)) % 3 }, (_, i) => (
+        <div key={`f${i}`} aria-hidden className="hidden bg-surface lg:block" />
+      ))}
+      {order.length % 2 === 1 && <div aria-hidden className="hidden bg-surface sm:block lg:hidden" />}
     </div>
   );
 }

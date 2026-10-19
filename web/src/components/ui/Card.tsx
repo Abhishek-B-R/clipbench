@@ -33,7 +33,7 @@ export function Figure({
   corners?: boolean;
 }) {
   return (
-    <figure className={cn("relative rounded-md border border-line bg-surface shadow-card", className)}>
+    <figure className={cn("relative min-w-0 rounded-md border border-line bg-surface shadow-card", className)}>
       {corners && <Corners />}
       <figcaption className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-4 py-3 sm:px-5">
         <div className="min-w-0">

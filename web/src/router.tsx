@@ -8,7 +8,15 @@ import { Skeleton } from "./components/ui/Skeleton";
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const Stub = lazy(() => import("./pages/Stub"));
+const Provider = lazy(() => import("./pages/Provider"));
+const Compare = lazy(() => import("./pages/Compare"));
+const Picker = lazy(() => import("./pages/Picker"));
+const Clips = lazy(() => import("./pages/Clips"));
+const Methodology = lazy(() => import("./pages/Methodology"));
+const Requests = lazy(() => import("./pages/Requests"));
+const Changelog = lazy(() => import("./pages/Changelog"));
+const Account = lazy(() => import("./pages/Account"));
+const ApiDocs = lazy(() => import("./pages/ApiDocs"));
 
 function L({ children }: { children: ReactNode }) {
   return (
@@ -26,8 +34,7 @@ function L({ children }: { children: ReactNode }) {
 }
 
 /**
- * Routes (docs/WEB.md "Pages"). Pages not built yet render <Stub>, which states what the page will hold.
- * The page author replaces each Stub with a real page under src/pages/.
+ * Routes (docs/WEB.md "Pages"). Every page but the landing is lazy-loaded.
  */
 export const router = createBrowserRouter([
   {
@@ -35,15 +42,15 @@ export const router = createBrowserRouter([
     children: [
       { path: "/", element: <Landing /> },
       { path: "/leaderboard", element: <L><Leaderboard /></L> },
-      { path: "/providers/:id", element: <L><Stub page="provider" /></L> },
-      { path: "/compare", element: <L><Stub page="compare" /></L> },
-      { path: "/picker", element: <L><Stub page="picker" /></L> },
-      { path: "/clips", element: <L><Stub page="clips" /></L> },
-      { path: "/methodology", element: <L><Stub page="methodology" /></L> },
-      { path: "/requests", element: <L><Stub page="requests" /></L> },
-      { path: "/changelog", element: <L><Stub page="changelog" /></L> },
-      { path: "/account", element: <L><Stub page="account" /></L> },
-      { path: "/docs/api", element: <L><Stub page="api" /></L> },
+      { path: "/providers/:id", element: <L><Provider /></L> },
+      { path: "/compare", element: <L><Compare /></L> },
+      { path: "/picker", element: <L><Picker /></L> },
+      { path: "/clips", element: <L><Clips /></L> },
+      { path: "/methodology", element: <L><Methodology /></L> },
+      { path: "/requests", element: <L><Requests /></L> },
+      { path: "/changelog", element: <L><Changelog /></L> },
+      { path: "/account", element: <L><Account /></L> },
+      { path: "/docs/api", element: <L><ApiDocs /></L> },
       { path: "/sign-in", element: <L><SignIn /></L> },
       { path: "*", element: <L><NotFound /></L> },
     ],

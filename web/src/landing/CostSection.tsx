@@ -1,5 +1,5 @@
 import type { Run } from "@/lib/types";
-import { overall, pair, primaryMetric, providerColor, providerLabel } from "@/lib/analysis";
+import { overall, pair, primaryMetric, providerColor, providerLabel, defaultTier } from "@/lib/analysis";
 import { pct, usdPerHour } from "@/lib/format";
 import { Figure } from "@/components/ui/Card";
 import { SeriesDot } from "@/components/ui/Badge";
@@ -8,7 +8,7 @@ import { CostAccuracy } from "@/components/charts/CostAccuracy";
 /** FIG. 04 plus three computed sentences about the price of accuracy. */
 export function CostSection({ run }: { run: Run }) {
   const metric = primaryMetric(run).name;
-  const rows = overall(run, "verified", metric);
+  const rows = overall(run, defaultTier(run), metric);
   const leader = rows[0];
   const notes: { id: string; text: React.ReactNode }[] = [];
   if (leader) {
@@ -16,7 +16,7 @@ export function CostSection({ run }: { run: Run }) {
       id: leader.provider,
       text: (
         <>
-          <b className="font-medium text-ink">{providerLabel(run, leader.provider)}</b> makes the fewest errors, at {usdPerHour(leader.cost_per_hour)} per hour.
+          <b className="font-medium text-ink">{providerLabel(run, leader.provider)}</b> makes the fewest errors, at {leader.cost_per_hour ? `${usdPerHour(leader.cost_per_hour)} per hour` : "no cost per hour (it runs locally)"}.
         </>
       ),
     });
@@ -24,7 +24,7 @@ export function CostSection({ run }: { run: Run }) {
       .filter((r) => r.provider !== leader.provider && (r.cost_per_hour ?? 0) > 0 && (r.cost_per_hour ?? 0) < (leader.cost_per_hour ?? 0))
       .sort((a, b) => a.error_rate - b.error_rate)[0];
     if (cheaper) {
-      const t = pair(run, { tier: "verified", metric, kind: "all", slice: "all" }, cheaper.provider, leader.provider);
+      const t = pair(run, { tier: defaultTier(run), metric, kind: "all", slice: "all" }, cheaper.provider, leader.provider);
       const save = 1 - (cheaper.cost_per_hour ?? 0) / (leader.cost_per_hour ?? 1);
       notes.push({
         id: cheaper.provider,
@@ -36,7 +36,7 @@ export function CostSection({ run }: { run: Run }) {
         ),
       });
     }
-    const free = rows.find((r) => (r.cost_per_hour ?? 0) === 0);
+    const free = rows.find((r) => (r.cost_per_hour ?? 0) === 0 && r.provider !== leader.provider);
     if (free)
       notes.push({
         id: free.provider,
@@ -58,7 +58,7 @@ export function CostSection({ run }: { run: Run }) {
         ))}
         <li className="pt-4 text-[13px] text-ink-3">List prices as checked on {run.providers[0]?.pricing_checked_on}. Cost is per hour of audio sent, not per hour of compute.</li>
       </ul>
-      <Figure className="min-w-0" n={4} title="Cost against accuracy" caption="Each dot is a model; the whisker is its 95% interval. The dotted line joins models nothing else beats on both price and errors." source={`source: aggregates, tier=verified, metric=${metric}, slice=all; providers.usd_per_hour`}>
+      <Figure className="min-w-0" n={4} title="Cost against accuracy" caption="Each dot is a model; the whisker is its 95% interval. The dotted line joins models nothing else beats on both price and errors." source={`source: aggregates, tier=${defaultTier(run)}, metric=${metric}, slice=all; providers.usd_per_hour`}>
         <CostAccuracy run={run} rows={rows} />
       </Figure>
     </div>

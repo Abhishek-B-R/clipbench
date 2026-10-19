@@ -30,16 +30,18 @@ const TAG_SHARE: Record<Tag, number> = {
   caption_not_verbatim: 0.08,
 };
 
-const PROVIDERS = [
-  { id: "model-a", label: "Model A", model_id: "a-nova-large", usd_per_hour: 0.258, paid: true, uploads_audio: true, base: 0.062, lat: 900 },
-  { id: "model-b", label: "Model B", model_id: "b-universal-2", usd_per_hour: 0.15, paid: true, uploads_audio: true, base: 0.078, lat: 3800 },
-  { id: "model-c", label: "Model C", model_id: "c-scribe-v2", usd_per_hour: 0.4, paid: true, uploads_audio: true, base: 0.058, lat: 2100 },
-  { id: "model-d", label: "Model D", model_id: "d-flash-lm", usd_per_hour: 0.12, paid: true, uploads_audio: true, base: 0.068, lat: 2600 },
-  { id: "model-e", label: "Model E", model_id: "e-whisper-large-v3", usd_per_hour: 0.111, paid: true, uploads_audio: true, base: 0.088, lat: 700 },
-  { id: "model-f", label: "Model F", model_id: "f-whisper-local", usd_per_hour: 0, paid: false, uploads_audio: false, base: 0.112, lat: 5200 },
+// Neutral ids only: real product names must never sit on fake numbers.
+// Data policy fields are placeholders too (see docs/WEB.md, provider fields).
+const ALL_PROVIDERS = [
+  { id: "model-a", label: "Model A", model_id: "model-a-v1", usd_per_hour: 0.258, paid: true, uploads_audio: true, base: 0.062, lat: 900, retention_days: 0, trains_by_default: false, opt_out: "not_needed" },
+  { id: "model-b", label: "Model B", model_id: "model-b-v1", usd_per_hour: 0.15, paid: true, uploads_audio: true, base: 0.078, lat: 3800, retention_days: 30, trains_by_default: true, opt_out: "applied" },
+  { id: "model-c", label: "Model C", model_id: "model-c-v1", usd_per_hour: 0.4, paid: true, uploads_audio: true, base: 0.058, lat: 2100, retention_days: 0, trains_by_default: false, opt_out: "applied" },
+  { id: "model-d", label: "Model D", model_id: "model-d-v1", usd_per_hour: 0.12, paid: true, uploads_audio: true, base: 0.068, lat: 2600, retention_days: 55, trains_by_default: true, opt_out: "not_offered" },
+  { id: "model-e", label: "Model E", model_id: "model-e-v1", usd_per_hour: 0.111, paid: true, uploads_audio: true, base: 0.088, lat: 700, retention_days: 30, trains_by_default: false, opt_out: "applied" },
+  { id: "model-f", label: "Model F", model_id: "model-f-v1", usd_per_hour: 0, paid: false, uploads_audio: false, base: 0.112, lat: 5200, retention_days: null, trains_by_default: null, opt_out: "not_needed" },
 ] as const;
 
-type PId = (typeof PROVIDERS)[number]["id"];
+type PId = (typeof ALL_PROVIDERS)[number]["id"];
 
 /** How much each clip type multiplies a model's error rate. This is where the story lives. */
 const MULT: Record<PId, Partial<Record<Tag, number>>> = {
@@ -80,15 +82,19 @@ function clipId(r: () => number) {
 
 const CHANNELS = ["Demo channel 1", "Demo channel 2", "Demo channel 3", "Demo channel 4", "Demo channel 5", "Demo channel 6", "Demo channel 7", "Demo channel 8"];
 
-type Clip = { video_id: string; tier: string; duration_s: number; channel: string; tags: Tag[] };
+type Clip = { video_id: string; tier: string; duration_s: number; channel: string; tags: Tag[]; kind: "short" | "window"; start_s: number | null };
 
 function makeClips(r: () => number, tier: string, n: number): Clip[] {
   const clips: Clip[] = [];
+  // Separate stream for short/window so adding it did not shift the numbers above.
+  const rk = rng(n * 7919 + tier.length);
   for (let i = 0; i < n; i++) {
     const tags = (Object.keys(TAG_SHARE) as Tag[]).filter((t) => r() < TAG_SHARE[t]);
     const d = r();
     const duration_s = Math.round((d < 0.18 ? 8 + r() * 7 : d < 0.62 ? 15 + r() * 15 : d < 0.9 ? 30 + r() * 30 : 60 + r() * 28) * 10) / 10;
-    clips.push({ video_id: clipId(r), tier, duration_s, channel: CHANNELS[Math.floor(r() * CHANNELS.length)]!, tags });
+    const kind = rk() < 0.22 ? "window" : "short";
+    const start_s = kind === "window" ? Math.round(30 + rk() * 600) : null;
+    clips.push({ video_id: clipId(r), tier, duration_s, channel: CHANNELS[Math.floor(r() * CHANNELS.length)]!, tags, kind, start_s });
   }
   return clips;
 }
@@ -119,8 +125,9 @@ function bootstrap(xs: number[], seed: number, B = 400) {
 
 const round = (x: number, d = 4) => Math.round(x * 10 ** d) / 10 ** d;
 
-function makeRun(runId: string, createdAt: string, seed: number, drift: Record<PId, number>) {
+function makeRun(runId: string, createdAt: string, seed: number, drift: Record<PId, number>, include: readonly PId[], versions: Partial<Record<PId, string>>) {
   const r = rng(seed);
+  const PROVIDERS = ALL_PROVIDERS.filter((p) => include.includes(p.id)).map((p) => ({ ...p, model_id: versions[p.id] ?? p.model_id }));
   const clipsV = makeClips(r, "verified", 150);
   const clipsC = makeClips(r, "creator", 240);
   const allClips = [...clipsV, ...clipsC];
@@ -238,7 +245,7 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
       { name: "cer", primary: true, label: "Character error rate" },
       { name: "cer_reading", primary: false, label: "Reading-normalised CER" },
     ],
-    providers: PROVIDERS.map((p) => ({ id: p.id, model_id: p.model_id, label: p.label, pricing_checked_on: createdAt.slice(0, 10), usd_per_hour: p.usd_per_hour, paid: p.paid, uploads_audio: p.uploads_audio })),
+    providers: PROVIDERS.map((p) => ({ id: p.id, model_id: p.model_id, label: p.label, pricing_checked_on: createdAt.slice(0, 10), usd_per_hour: p.usd_per_hour, paid: p.paid, uploads_audio: p.uploads_audio, retention_days: p.retention_days, trains_by_default: p.trains_by_default, opt_out: p.opt_out })),
     aggregates,
     paired,
     stability,
@@ -248,7 +255,7 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
       { tier: "verified", text: "DRAFT: verify. Synthetic demo finding: the local model is free but makes about twice the errors of the best paid model.", source: "aggregates, tier=verified, slice=all" },
     ],
     errors: { providers: errorsProviders, examples },
-    clips: allClips.map((c) => ({ video_id: c.video_id, tier: c.tier, duration_s: c.duration_s, channel: c.channel, tags: c.tags })),
+    clips: allClips.map((c) => ({ video_id: c.video_id, tier: c.tier, duration_s: c.duration_s, channel: c.channel, tags: c.tags, kind: c.kind, start_s: c.start_s })),
     per_clip,
     limitations: [
       "This is synthetic demo data. Model names and clip ids are placeholders, not results.",
@@ -260,15 +267,16 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
 }
 
 const RUNS = [
-  { id: "demo-2026-08-17", at: "2026-08-17T09:00:00Z", seed: 11, drift: { "model-a": 1.04, "model-b": 1.0, "model-c": 1.18, "model-d": 1.08, "model-e": 1.0, "model-f": 1.0 } },
-  { id: "demo-2026-09-18", at: "2026-09-18T09:00:00Z", seed: 23, drift: { "model-a": 1.02, "model-b": 0.98, "model-c": 1.07, "model-d": 1.03, "model-e": 1.01, "model-f": 1.0 } },
-  { id: "demo-2026-10-19", at: "2026-10-19T09:00:00Z", seed: 7, drift: { "model-a": 1, "model-b": 1, "model-c": 1, "model-d": 1, "model-e": 1, "model-f": 1 } },
+  // Run 1 has five models; Model F joins in run 2; Model C ships v2 in run 3 (so the changelog has something to say).
+  { id: "demo-2026-08-17", at: "2026-08-17T09:00:00Z", seed: 11, drift: { "model-a": 1.04, "model-b": 1.0, "model-c": 1.18, "model-d": 1.08, "model-e": 1.0, "model-f": 1.0 }, include: ["model-a", "model-b", "model-c", "model-d", "model-e"], versions: {} },
+  { id: "demo-2026-09-18", at: "2026-09-18T09:00:00Z", seed: 23, drift: { "model-a": 1.02, "model-b": 0.98, "model-c": 1.14, "model-d": 1.03, "model-e": 1.01, "model-f": 1.0 }, include: ["model-a", "model-b", "model-c", "model-d", "model-e", "model-f"], versions: {} },
+  { id: "demo-2026-10-19", at: "2026-10-19T09:00:00Z", seed: 7, drift: { "model-a": 1, "model-b": 1, "model-c": 1, "model-d": 1, "model-e": 1, "model-f": 1 }, include: ["model-a", "model-b", "model-c", "model-d", "model-e", "model-f"], versions: { "model-c": "model-c-v2" } },
 ] as const;
 
 mkdirSync(join(OUT, "runs"), { recursive: true });
 const index = { demo: true, latest: RUNS[RUNS.length - 1]!.id, runs: [] as unknown[] };
 for (const run of RUNS) {
-  const data = makeRun(run.id, run.at, run.seed, run.drift);
+  const data = makeRun(run.id, run.at, run.seed, run.drift, run.include, run.versions);
   writeFileSync(join(OUT, "runs", `${run.id}.json`), JSON.stringify(data));
   const n_clips: Record<string, number> = {};
   for (const c of data.clips) n_clips[c.tier] = (n_clips[c.tier] ?? 0) + 1;

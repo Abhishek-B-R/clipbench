@@ -26,10 +26,46 @@ export function int(x: number) {
   return new Intl.NumberFormat("en-US").format(x);
 }
 
-export function date(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "19 Oct 2026". Fixed month names so every browser prints the same thing (en-GB says "Sept" in some). */
+export function date(iso: string | number) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "n/a";
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 export function pValue(p: number) {
   return p < 0.001 ? "p < 0.001" : `p = ${p.toFixed(3)}`;
+}
+
+/** Signed percentage points, for paired differences: "+1.3 pts", "-0.4 pts". */
+export function signedPts(x: number, digits = 1) {
+  const v = (x * 100).toFixed(digits);
+  return `${x > 0 ? "+" : x < 0 ? "-" : ""}${v.replace("-", "")} pts`;
+}
+
+/** Seconds as m:ss (clip durations). */
+export function duration(s: number | null | undefined) {
+  if (s == null) return "n/a";
+  const m = Math.floor(s / 60);
+  const r = Math.round(s % 60);
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+/** Epoch milliseconds (Worker timestamps) as a short date. */
+export function dateMs(t: number | null | undefined) {
+  if (t == null) return "never";
+  return date(t);
+}
+
+/** "3 days ago" style, coarse. */
+export function ago(t: number | null | undefined) {
+  if (t == null) return "never";
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  const d = Math.floor(s / 86400);
+  return d === 1 ? "yesterday" : d < 30 ? `${d} days ago` : dateMs(t);
 }

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { Download } from "lucide-react";
 import type { Aggregate, Run, Tier } from "@/lib/types";
 import { loadRun, useRun } from "@/lib/data";
-import { TIER_LABEL, overall, pair, primaryMetric, providerColor, providerLabel } from "@/lib/analysis";
+import { TIER_LABEL, pickTier, overall, pair, primaryMetric, providerColor, providerLabel } from "@/lib/analysis";
 import { date, ms, pct, usdPerHour } from "@/lib/format";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Figure } from "@/components/ui/Card";
@@ -13,6 +13,8 @@ import { CIBar } from "@/components/ui/CIBar";
 import { Badge, SeriesDot } from "@/components/ui/Badge";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { TierControl } from "@/components/ui/TierControl";
+import { ErrorState } from "@/components/ui/State";
 import { buttonClass } from "@/components/ui/Button";
 
 /**
@@ -22,8 +24,8 @@ import { buttonClass } from "@/components/ui/Button";
 export default function Leaderboard() {
   const state = useRun();
   const [params, setParams] = useSearchParams();
-  const tier = (params.get("tier") as Tier) || "verified";
   const run = state.data?.run;
+  const tier = pickTier(run, params.get("tier"));
   const metric = params.get("metric") || (run ? primaryMetric(run).name : "cer");
   const history = useHistory(run);
   const set = (k: string, v: string) => {
@@ -46,15 +48,7 @@ export default function Leaderboard() {
           )
         }
       >
-        <Segmented
-          label="Reference tier"
-          value={tier}
-          onChange={(v) => set("tier", v)}
-          options={[
-            { value: "verified", label: "Verified" },
-            { value: "creator", label: "Creator captions" },
-          ]}
-        />
+        <TierControl run={run} value={tier} onChange={(v) => set("tier", v)} />
         {run && (
           <Segmented
             label="Metric"
@@ -65,7 +59,13 @@ export default function Leaderboard() {
         )}
       </PageHeader>
       <div className="frame py-8">
-        {run ? <Board run={run} tier={tier} metric={metric} history={history} /> : <Skeleton className="h-96 w-full" />}
+        {run ? (
+          <Board run={run} tier={tier} metric={metric} history={history} />
+        ) : state.status === "error" ? (
+          <ErrorState title="Could not load the run data." body="The results files did not load. Check your connection and try again." onRetry={() => location.reload()} />
+        ) : (
+          <Skeleton className="h-96 w-full" />
+        )}
       </div>
     </>
   );
@@ -166,7 +166,23 @@ function Board({ run, tier, metric, history }: { run: Run; tier: Tier; metric: s
     { key: "cost", header: "$ / hour", align: "right", sort: (r) => r.cost_per_hour, cell: (r) => <span className="num text-ink-2">{usdPerHour(r.cost_per_hour)}</span> },
     { key: "p50", header: "p50", align: "right", sort: (r) => r.latency_p50, cell: (r) => <span className="num text-ink-2">{ms(r.latency_p50)}</span>, headerClassName: "hidden md:table-cell", className: "hidden md:table-cell" },
     { key: "p95", header: "p95", align: "right", sort: (r) => r.latency_p95, cell: (r) => <span className="num text-ink-3">{ms(r.latency_p95)}</span>, headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
-    { key: "n", header: "Clips", align: "right", sort: (r) => r.n_clips, cell: (r) => <span className="num text-ink-3">{r.n_clips}</span>, headerClassName: "hidden sm:table-cell", className: "hidden sm:table-cell" },
+    {
+      key: "n",
+      header: "Clips",
+      align: "right",
+      sort: (r) => r.n_clips,
+      cell: (r) =>
+        r.too_small ? (
+          <span className="inline-flex items-center gap-1.5">
+            <Badge tone="warn">Too small</Badge>
+            <span className="num text-ink-3">{r.n_clips}</span>
+          </span>
+        ) : (
+          <span className="num text-ink-3">{r.n_clips}</span>
+        ),
+      headerClassName: "hidden sm:table-cell",
+      className: "hidden sm:table-cell",
+    },
   ];
 
   const m = run.metrics.find((x) => x.name === metric);
@@ -174,7 +190,7 @@ function Board({ run, tier, metric, history }: { run: Run; tier: Tier; metric: s
     <Figure
       n={1}
       title={`${m?.label ?? metric}, ${TIER_LABEL[tier].toLowerCase()}`}
-      caption="Lower is better. Click a header to sort; click a model for its page."
+      caption={rows.some((r) => r.too_small) ? "Lower is better. Fewer than 15 clips per model: read the ranking as a first look, not a result." : "Lower is better. Click a header to sort; click a model for its page."}
       source={`source: aggregates + paired, run=${run.run_id}, tier=${tier}, metric=${metric}, slice=all`}
       bodyClassName="p-0 sm:p-0"
     >

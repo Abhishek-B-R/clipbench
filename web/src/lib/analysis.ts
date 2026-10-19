@@ -1,4 +1,4 @@
-import type { Aggregate, Paired, Provider, Run, SliceKind, Tier } from "./types";
+import type { Aggregate, Clip, Paired, Provider, Run, SliceKind, Tier } from "./types";
 
 /** Plain names for clip tags (clipbench/models.py TAGS). */
 export const TAG_LABEL: Record<string, string> = {
@@ -29,6 +29,24 @@ export const TAG_ORDER = ["background_music", "fast_speech", "slang_or_dialect",
 export const LANGUAGE_NAME: Record<string, string> = { ja: "Japanese", es: "Spanish", ko: "Korean", en: "English" };
 
 export const TIER_LABEL: Record<Tier, string> = { verified: "Verified", creator: "Creator captions" };
+
+/** Tiers that have clips in this run, verified first. */
+export function tiersInRun(run: Run): Tier[] {
+  const has = new Set(run.clips.map((c) => c.tier));
+  return (["verified", "creator"] as Tier[]).filter((t) => has.has(t));
+}
+
+/** The tier a view opens on: verified when the run has it, else whatever exists (an early run may be creator only). */
+export function defaultTier(run: Run): Tier {
+  return tiersInRun(run)[0] ?? "verified";
+}
+
+/** Use a tier from the URL only if the run has it. */
+export function pickTier(run: Run | undefined, wanted: string | null): Tier {
+  if (!run) return (wanted as Tier) || "verified";
+  const tiers = tiersInRun(run);
+  return tiers.includes(wanted as Tier) ? (wanted as Tier) : defaultTier(run);
+}
 
 export function primaryMetric(run: Run) {
   return run.metrics.find((m) => m.primary) ?? run.metrics[0]!;
@@ -65,7 +83,7 @@ export function aggregatesFor(run: Run, q: SliceQuery): Aggregate[] {
     .sort((a, b) => a.error_rate - b.error_rate);
 }
 
-export function overall(run: Run, tier: Tier = "verified", metric = primaryMetric(run).name) {
+export function overall(run: Run, tier: Tier = defaultTier(run), metric = primaryMetric(run).name) {
   return aggregatesFor(run, { tier, metric, kind: "all", slice: "all" });
 }
 
@@ -91,7 +109,7 @@ export function pair(run: Run, q: SliceQuery, x: string, y: string) {
 }
 
 /** Tags with data in this run, in display order. */
-export function tagsInRun(run: Run, tier: Tier = "verified") {
+export function tagsInRun(run: Run, tier: Tier = defaultTier(run)) {
   const present = new Set(run.aggregates.filter((a) => a.tier === tier && a.slice_kind === "tag").map((a) => a.slice));
   return TAG_ORDER.filter((t) => present.has(t));
 }
@@ -111,7 +129,7 @@ export interface Headline {
  * the best overall model that the paired test says is worse on that clip type. Pick the largest gap.
  * Falls back to the overall leader vs the runner-up when no clip type has a tested difference.
  */
-export function headline(run: Run, tier: Tier = "verified"): Headline | null {
+export function headline(run: Run, tier: Tier = defaultTier(run)): Headline | null {
   const metric = primaryMetric(run).name;
   const ranks = overall(run, tier, metric).map((a) => a.provider);
   let best: Headline | null = null;
@@ -142,7 +160,7 @@ export function headline(run: Run, tier: Tier = "verified"): Headline | null {
 }
 
 /** The clip type where a model's error rate rises the most relative to its own overall rate. */
-export function breaksOn(run: Run, provider: string, tier: Tier = "verified") {
+export function breaksOn(run: Run, provider: string, tier: Tier = defaultTier(run)) {
   const metric = primaryMetric(run).name;
   const base = run.aggregates.find((a) => a.provider === provider && a.tier === tier && a.metric === metric && a.slice_kind === "all");
   if (!base) return null;
@@ -157,7 +175,7 @@ export function breaksOn(run: Run, provider: string, tier: Tier = "verified") {
 }
 
 /** Best model per clip type, plus whether the lead is backed by the paired test against the runner-up. */
-export function winnersByTag(run: Run, tier: Tier = "verified") {
+export function winnersByTag(run: Run, tier: Tier = defaultTier(run)) {
   const metric = primaryMetric(run).name;
   return tagsInRun(run, tier).map((tag) => {
     const q: SliceQuery = { tier, metric, kind: "tag", slice: tag };
@@ -182,10 +200,262 @@ export function frontier(rows: Aggregate[]) {
   return out;
 }
 
-export function totalClips(run: Run, tier: Tier = "verified") {
+export function totalClips(run: Run, tier: Tier = defaultTier(run)) {
   return run.clips.filter((c) => c.tier === tier).length;
 }
 
-export function audioHours(run: Run, tier: Tier = "verified") {
+export function audioHours(run: Run, tier: Tier = defaultTier(run)) {
   return run.clips.filter((c) => c.tier === tier).reduce((s, c) => s + (c.duration_s ?? 0), 0) / 3600;
+}
+
+// ---------------------------------------------------------------- links
+
+/** YouTube link for a clip. Windows cut from a longer video open at their start time. */
+export function youtubeUrl(clip: Pick<Clip, "video_id" | "kind" | "start_s">) {
+  if (clip.kind === "window" && clip.start_s != null) return `https://www.youtube.com/watch?v=${encodeURIComponent(clip.video_id)}&t=${Math.floor(clip.start_s)}s`;
+  return `https://www.youtube.com/shorts/${encodeURIComponent(clip.video_id)}`;
+}
+
+export function clipById(run: Run, id: string) {
+  return run.clips.find((c) => c.video_id === id);
+}
+
+// ---------------------------------------------------------------- one provider
+
+export type PairResult = NonNullable<ReturnType<typeof pair>>;
+
+/** This model against every other model in a slice, in overall rank order. */
+export function pairsFor(run: Run, q: SliceQuery, x: string) {
+  const order = overall(run, q.tier, q.metric).map((a) => a.provider);
+  return order
+    .filter((y) => y !== x)
+    .map((y) => ({ other: y, t: pair(run, q, x, y) }))
+    .filter((r): r is { other: string; t: PairResult } => r.t != null);
+}
+
+export function median(xs: number[]) {
+  if (!xs.length) return NaN;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
+}
+
+/** Per clip type: this model's row, the field median (other models) and the best model. */
+export function tagProfile(run: Run, provider: string, tier: Tier, metric: string, kind: "tag" | "duration" = "tag") {
+  const slices = kind === "tag" ? tagsInRun(run, tier) : ["<15s", "15-30s", "30-60s", "60-90s"];
+  return slices
+    .map((slice) => {
+      const rows = aggregatesFor(run, { tier, metric, kind, slice });
+      const mine = rows.find((r) => r.provider === provider);
+      const others = rows.filter((r) => r.provider !== provider);
+      return { slice, mine, rows, fieldMedian: median(others.map((r) => r.error_rate)), best: rows[0], rank: rows.findIndex((r) => r.provider === provider) + 1 };
+    })
+    .filter((r) => r.mine);
+}
+
+export interface RankPoint {
+  run_id: string;
+  created_at: string;
+  model_id: string;
+  rank: number;
+  of: number;
+  agg: Aggregate;
+}
+
+/** Rank and error rate of one provider in every run where it appears (oldest first). */
+export function rankHistory(runs: Run[], provider: string, tier: Tier, metric: string): RankPoint[] {
+  const out: RankPoint[] = [];
+  for (const r of runs) {
+    const rows = overall(r, tier, metric);
+    const i = rows.findIndex((a) => a.provider === provider);
+    if (i < 0) continue;
+    out.push({ run_id: r.run_id, created_at: r.created_at, model_id: rows[i]!.model_id, rank: i + 1, of: rows.length, agg: rows[i]! });
+  }
+  return out;
+}
+
+/** Mean run-to-run disagreement and latency spread from the stability table. */
+export function stabilityFor(run: Run, provider: string) {
+  const rows = run.stability.filter((s) => s.provider === provider);
+  if (!rows.length) return null;
+  return {
+    n: rows.length,
+    repeats: rows[0]!.n_repeats,
+    disagreement: rows.reduce((t, s) => t + s.text_disagreement, 0) / rows.length,
+    latencyStd: rows.reduce((t, s) => t + (s.latency_std ?? 0), 0) / rows.length,
+  };
+}
+
+// ---------------------------------------------------------------- per clip
+
+/** video_id -> provider -> error rate, for one tier and the primary metric. */
+export function perClipMatrix(run: Run, tier: Tier, metric = primaryMetric(run).name) {
+  const m = new Map<string, Map<string, number>>();
+  for (const r of run.per_clip) {
+    if (r.tier !== tier || r.metric !== metric) continue;
+    let row = m.get(r.video_id);
+    if (!row) m.set(r.video_id, (row = new Map()));
+    row.set(r.provider, r.error_rate);
+  }
+  return m;
+}
+
+/** Seeded RNG (mulberry32) so bootstrap figures are stable between visits. */
+export function seeded(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function quantile(sorted: number[], q: number) {
+  const i = (sorted.length - 1) * q;
+  const lo = Math.floor(i);
+  const hi = Math.ceil(i);
+  return sorted[lo]! + (sorted[hi]! - sorted[lo]!) * (i - lo);
+}
+
+/** Percentile bootstrap of a mean. Returns the resampled means too (for the methodology figure). */
+export function bootstrapMean(xs: number[], seed = 7, B = 1000) {
+  const r = seeded(seed);
+  const means: number[] = [];
+  for (let b = 0; b < B; b++) {
+    let s = 0;
+    for (let i = 0; i < xs.length; i++) s += xs[Math.floor(r() * xs.length)]!;
+    means.push(s / Math.max(xs.length, 1));
+  }
+  const sorted = [...means].sort((a, b) => a - b);
+  const mean = xs.reduce((a, b) => a + b, 0) / Math.max(xs.length, 1);
+  return { mean, ci_low: quantile(sorted, 0.025), ci_high: quantile(sorted, 0.975), samples: means };
+}
+
+/**
+ * Paired bootstrap over clips both models scored (METHODOLOGY.md, "Paired comparisons"): one set of indices per
+ * resample applied to both, diff = a minus b, p = twice the share with the opposite sign, capped at 1.
+ */
+export function pairedBootstrap(a: number[], b: number[], seed = 7, B = 1000) {
+  const diffs = a.map((x, i) => x - b[i]!);
+  const { mean, ci_low, ci_high, samples } = bootstrapMean(diffs, seed, B);
+  const opposite = samples.filter((m) => Math.sign(m) !== Math.sign(mean) || m === 0).length;
+  const p = mean === 0 ? 1 : Math.min(1, (2 * opposite) / B);
+  return { diff: mean, ci_low, ci_high, p, n: diffs.length, samples, tied: ci_low <= 0 && ci_high >= 0 };
+}
+
+// ---------------------------------------------------------------- picker
+
+export type LatencyNeed = "any" | "3000" | "1500";
+
+export interface PickerInput {
+  tags: string[];
+  /** Max USD per hour of audio; null = no limit. */
+  budget: number | null;
+  latency: LatencyNeed;
+  /** true = audio must stay on your machine. */
+  local: boolean;
+}
+
+export interface PickerRow {
+  provider: string;
+  score: number;
+  ci_low: number;
+  ci_high: number;
+  price: number;
+  p50: number | null;
+  uploads: boolean;
+  excluded: string[];
+  /** Rank on each selected clip type (aggregates), for the reasoning. */
+  tagRanks: { tag: string; rank: number; of: number; tooSmall: boolean }[];
+  /** Paired test against the pick (only for eligible models other than the pick). */
+  vsPick?: ReturnType<typeof pairedBootstrap>;
+}
+
+/**
+ * "Which model for my clips". Score = mean per-clip error over the verified clips that have any of the chosen clip
+ * types (all clips when none is chosen), with a bootstrap interval. Constraints exclude, they never reweight.
+ * Every eligible model is then paired-tested against the pick on exactly those clips.
+ */
+export function recommend(run: Run, input: PickerInput) {
+  const tier: Tier = defaultTier(run);
+  const metric = primaryMetric(run).name;
+  const clips = run.clips.filter((c) => c.tier === tier && (input.tags.length === 0 || c.tags.some((t) => input.tags.includes(t))));
+  const ids = clips.map((c) => c.video_id);
+  const m = perClipMatrix(run, tier, metric);
+  const all = overall(run, tier, metric);
+  const providers = run.providers.filter((p) => ids.every((id) => m.get(id)?.has(p.id)));
+  const vec = (p: string) => ids.map((id) => m.get(id)!.get(p)!);
+  const rows: PickerRow[] = providers.map((p, i) => {
+    const xs = vec(p.id);
+    const bs = bootstrapMean(xs, 11 + i, 600);
+    const agg = all.find((a) => a.provider === p.id);
+    const p50 = agg?.latency_p50 ?? null;
+    const excluded: string[] = [];
+    if (input.local && p.uploads_audio) excluded.push("Sends audio to a server");
+    if (input.budget != null && p.usd_per_hour > input.budget + 1e-9) excluded.push("Over budget");
+    if (input.latency !== "any" && (p50 == null || p50 > Number(input.latency))) excluded.push("Too slow");
+    const tagRanks = input.tags.map((tag) => {
+      const r = aggregatesFor(run, { tier, metric, kind: "tag", slice: tag });
+      const k = r.findIndex((a) => a.provider === p.id);
+      return { tag, rank: k + 1, of: r.length, tooSmall: Boolean(r[k]?.too_small) };
+    });
+    return { provider: p.id, score: bs.mean, ci_low: bs.ci_low, ci_high: bs.ci_high, price: p.usd_per_hour, p50, uploads: p.uploads_audio, excluded, tagRanks };
+  });
+  rows.sort((a, b) => a.score - b.score);
+  const eligible = rows.filter((r) => r.excluded.length === 0);
+  const pick = eligible[0];
+  if (pick) {
+    const pv = vec(pick.provider);
+    for (const r of rows) if (r !== pick) r.vsPick = pairedBootstrap(vec(r.provider), pv, 97, 1000);
+  }
+  const tied = pick ? eligible.filter((r) => r !== pick && r.vsPick?.tied) : [];
+  const cheaperTie = tied.filter((r) => r.price < (pick?.price ?? 0)).sort((a, b) => a.price - b.price)[0];
+  const betterExcluded = pick ? rows.filter((r) => r.excluded.length > 0 && r.score < pick.score && r.vsPick && !r.vsPick.tied) : [];
+  return { rows, eligible, pick, tied, cheaperTie, betterExcluded, nClips: ids.length };
+}
+
+// ---------------------------------------------------------------- changelog
+
+export interface RunChange {
+  run: Run;
+  prev?: Run;
+  added: string[];
+  removed: string[];
+  changed: { provider: string; from: string; to: string }[];
+  leader?: Aggregate;
+  prevLeader?: Aggregate;
+  deltas: { provider: string; now: Aggregate; before?: Aggregate; rank: number; prevRank?: number }[];
+}
+
+/** What changed from one run to the next: models added, removed or re-versioned, the leader, rank and error deltas. */
+export function runChanges(runs: Run[], wanted?: Tier): RunChange[] {
+  return runs.map((run, i) => {
+    const tier = wanted ?? defaultTier(run);
+    const prev = i > 0 ? runs[i - 1] : undefined;
+    const metric = primaryMetric(run).name;
+    const ids = new Set(run.providers.map((p) => p.id));
+    const prevIds = new Set(prev?.providers.map((p) => p.id) ?? []);
+    const now = overall(run, tier, metric);
+    const before = prev ? overall(prev, tier, metric) : [];
+    return {
+      run,
+      prev,
+      added: prev ? [...ids].filter((x) => !prevIds.has(x)) : [...ids],
+      removed: [...prevIds].filter((x) => !ids.has(x)),
+      changed: prev
+        ? run.providers.flatMap((p) => {
+            const old = prev.providers.find((q) => q.id === p.id);
+            return old && old.model_id !== p.model_id ? [{ provider: p.id, from: old.model_id, to: p.model_id }] : [];
+          })
+        : [],
+      leader: now[0],
+      prevLeader: before[0],
+      deltas: now.map((a, k) => {
+        const j = before.findIndex((b) => b.provider === a.provider);
+        return { provider: a.provider, now: a, before: before[j], rank: k + 1, prevRank: j >= 0 ? j + 1 : undefined };
+      }),
+    };
+  });
 }

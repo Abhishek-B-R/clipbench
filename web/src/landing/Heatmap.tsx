@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Run } from "@/lib/types";
-import { TAG_LABEL, overall, primaryMetric, providerColor, providerLabel, tagsInRun } from "@/lib/analysis";
+import { TAG_LABEL, overall, primaryMetric, providerColor, providerLabel, tagsInRun, defaultTier } from "@/lib/analysis";
 import { Figure } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
 import { HeatCell, HeatLegend } from "@/components/ui/HeatCell";
@@ -12,11 +12,11 @@ const BUCKETS = ["<15s", "15-30s", "30-60s", "60-90s"];
 export function Heatmap({ run }: { run: Run }) {
   const [mode, setMode] = useState<"tag" | "duration">("tag");
   const metric = primaryMetric(run).name;
-  const providers = overall(run, "verified", metric).map((a) => a.provider);
+  const providers = overall(run, defaultTier(run), metric).map((a) => a.provider);
   const cols = mode === "tag" ? tagsInRun(run) : BUCKETS.filter((b) => run.aggregates.some((a) => a.slice_kind === "duration" && a.slice === b));
   const get = (p: string, c: string) =>
-    run.aggregates.find((a) => a.provider === p && a.tier === "verified" && a.metric === metric && a.slice_kind === mode && a.slice === c);
-  const all = (p: string) => run.aggregates.find((a) => a.provider === p && a.tier === "verified" && a.metric === metric && a.slice_kind === "all");
+    run.aggregates.find((a) => a.provider === p && a.tier === defaultTier(run) && a.metric === metric && a.slice_kind === mode && a.slice === c);
+  const all = (p: string) => run.aggregates.find((a) => a.provider === p && a.tier === defaultTier(run) && a.metric === metric && a.slice_kind === "all");
   const values = providers.flatMap((p) => cols.map((c) => get(p, c)).filter((a) => a && !a.too_small).map((a) => a!.error_rate));
   const domain: [number, number] = [Math.min(...values), Math.max(...values)];
   const bestIn = (c: string) => {
@@ -42,7 +42,7 @@ export function Heatmap({ run }: { run: Run }) {
       }
       source={
         <span className="flex flex-wrap items-center justify-between gap-3">
-          <span>source: aggregates, tier=verified, metric={metric}, slice_kind={mode}</span>
+          <span>source: aggregates, tier={defaultTier(run)}, metric={metric}, slice_kind={mode}</span>
           <HeatLegend domain={domain} />
         </span>
       }

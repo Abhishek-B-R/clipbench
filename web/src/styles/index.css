@@ -289,3 +289,47 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Range slider (picker budget). Hairline track, ink fill up to the value via --fill, round thumb with a ring. */
+@layer components {
+  .range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 24px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .range::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(to right, var(--ink) 0 var(--fill, 0%), var(--line-strong) var(--fill, 0%) 100%);
+  }
+  .range::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(to right, var(--ink) 0 var(--fill, 0%), var(--line-strong) var(--fill, 0%) 100%);
+  }
+  .range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    margin-top: -7px;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1.5px solid var(--ink);
+    box-shadow: var(--shadow-card);
+    transition: transform 150ms var(--ease-out-expo);
+  }
+  .range::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1.5px solid var(--ink);
+  }
+  .range:active::-webkit-slider-thumb { transform: scale(1.12); }
+  .range:focus-visible { outline: none; }
+  .range:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .range:focus-visible::-moz-range-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
+}

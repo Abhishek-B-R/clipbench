@@ -64,8 +64,13 @@ def duration_bucket(seconds: float | None) -> str | None:
     return "60-90s"
 
 
+def _missing(value: Any) -> bool:
+    """None, NaN or pd.NA (pandas string columns use pd.NA)."""
+    return value is None or value is pd.NA or (isinstance(value, float) and pd.isna(value))
+
+
 def _parse_tags(value: Any) -> list[str]:
-    if value is None or (isinstance(value, float) and pd.isna(value)):
+    if _missing(value):
         return []
     if isinstance(value, list | tuple | np.ndarray):
         return [str(t) for t in value]
@@ -77,7 +82,7 @@ def _parse_tags(value: Any) -> list[str]:
 
 
 def _parse_words(value: Any) -> list[Word] | None:
-    if value is None or (isinstance(value, float) and pd.isna(value)) or value == "":
+    if _missing(value) or value == "":
         return None
     try:
         parsed = json.loads(value) if isinstance(value, str) else value
@@ -96,7 +101,7 @@ def _num(value: Any) -> float:
 
 
 def _text(value: Any) -> str:
-    return "" if value is None or (isinstance(value, float) and pd.isna(value)) else str(value)
+    return "" if _missing(value) else str(value)
 
 
 def _read(path: Path) -> pd.DataFrame:

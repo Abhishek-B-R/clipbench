@@ -75,6 +75,7 @@ ROW_COLUMNS = [
     "http_status",
     "detected_language",
     "options",
+    "unsupported_options",  # run options this provider ignored (from raw_response["clipbench_unsupported"])
 ]
 TEXT_COLUMNS = ["provider", "video_id", "repeat", "hyp_text", "words_json", "speakers_json"]
 REF_COLUMNS = [
@@ -261,6 +262,12 @@ def _is_done(row: dict[str, Any]) -> bool:
     return row.get("status") == "skipped" and row.get("error") != BUDGET_ERROR
 
 
+def _unsupported(result: Result) -> str | None:
+    raw = result.raw_response
+    names = raw.get("clipbench_unsupported") if isinstance(raw, dict) else None
+    return json.dumps(sorted(names)) if names else None
+
+
 def _words_json(result: Result | None) -> str | None:
     if result is None or result.words is None:
         return None
@@ -279,6 +286,7 @@ def _rows_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
     df["http_status"] = pd.to_numeric(df["http_status"], errors="coerce").astype("Int64")
     df["detected_language"] = df["detected_language"].astype("string")
     df["options"] = df["options"].astype("string")
+    df["unsupported_options"] = df["unsupported_options"].astype("string")
     for col in ("run_id", "provider", "model_id", "provider_version", "video_id", "language", "tier",
                 "status", "error", "channel", "tags"):
         df[col] = df[col].astype("string")
@@ -583,6 +591,7 @@ async def run(
             "http_status": None,
             "detected_language": None,
             "options": json.dumps(run_options, sort_keys=True),
+            "unsupported_options": None,
         }
 
     async def emit(row: dict[str, Any], result: Result | None) -> None:
@@ -623,6 +632,7 @@ async def run(
             retries=0 if cached else int(result.retries or 0),
             http_status=None if cached else result.http_status,
             detected_language=result.detected_language,
+            unsupported_options=_unsupported(result),
         )
         return row
 

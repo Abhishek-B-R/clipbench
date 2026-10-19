@@ -31,7 +31,8 @@ _MODULES = [
     "clipbench.longform",  # clipbench longform list|fetch|run|score
     "clipbench.compute",  # clipbench compute machine|bench|table
     "clipbench.streaming.cli",
-    "clipbench.providers.cli",  # clipbench providers features  # clipbench run-stream, clipbench score-stream
+    "clipbench.providers.cli",  # clipbench providers features
+    "clipbench.judge.cli",  # clipbench judge run|label|calibrate, clipbench quality  # clipbench run-stream, clipbench score-stream
 ]
 
 for _name in _MODULES:

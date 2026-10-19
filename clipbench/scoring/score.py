@@ -19,8 +19,9 @@ import numpy as np
 import pandas as pd
 
 from clipbench.config import Settings, get_settings
-from clipbench.models import CATEGORIES, TAGS, CodeSwitchSpan, NonSpeechSpan, Word
+from clipbench.models import CATEGORIES, TAGS, AlternativeSpan, CodeSwitchSpan, NonSpeechSpan, Word
 from clipbench.scoring.codeswitch import codeswitch_error
+from clipbench.scoring.lattice import Lattice, build_lattice, lattice_score
 from clipbench.scoring.metrics import align, hallucination
 from clipbench.scoring.normalize import MetricSpec, metrics_for
 from clipbench.scoring.readiness import readiness
@@ -43,6 +44,9 @@ SCORE_COLUMNS = [
     "codeswitch_errors", "codeswitch_error_rate", "category", "audio_condition",
     # counts behind the v2 rates, so aggregates can be corpus style
     "timing_n_within_200ms", "punct_tp", "punct_fp", "punct_fn", "casing_n", "casing_correct",
+    # v3 A7: closest valid path through the reference lattice (docs/methodology_v3_quality.md)
+    "error_rate_lattice", "lattice_ref_len", "lattice_errors", "lattice_hits", "lattice_subs", "lattice_dels",
+    "lattice_ins",
 ]  # fmt: skip
 AGGREGATE_COLUMNS = [
     "provider", "model_id", "tier", "metric", "slice_kind", "slice", "n_clips", "error_rate", "ci_low",
@@ -53,6 +57,8 @@ AGGREGATE_COLUMNS = [
     "nonspeech_n_clips", "nonspeech_minutes", "halluc_nonspeech_words", "halluc_per_nonspeech_min",
     "readiness_n_clips", "punct_f1", "casing_acc", "codeswitch_n_clips", "codeswitch_ref_len",
     "codeswitch_errors", "codeswitch_error_rate",
+    # v3 A7
+    "error_rate_lattice", "lattice_ci_low", "lattice_ci_high",
 ]  # fmt: skip
 PAIRED_COLUMNS = [
     "tier", "metric", "slice_kind", "slice", "provider_a", "provider_b", "n_clips", "diff", "ci_low",
@@ -173,6 +179,7 @@ class _RefInfo:
     nonspeech: list[NonSpeechSpan]
     codeswitch: list[CodeSwitchSpan]
     punctuated: bool
+    alternatives: list[AlternativeSpan] | None = None
 
 
 class _RefCache:
@@ -190,8 +197,10 @@ class _RefCache:
                 nonspeech=_parse_models(_field(r, "nonspeech_spans_json", "nonspeech_spans"), NonSpeechSpan),
                 codeswitch=_parse_models(_field(r, "codeswitch_spans_json", "codeswitch_spans"), CodeSwitchSpan),
                 punctuated=_bool(_field(r, "punctuated")),
+                alternatives=_parse_models(_field(r, "alternatives_json", "alternatives"), AlternativeSpan),
             )
         self._tokens: dict[tuple[str, str, str], list[str]] = {}
+        self._lattices: dict[tuple[str, str, str], Lattice] = {}
 
     def get(self, video_id: str, tier: str) -> _RefInfo | None:
         return self.refs.get((video_id, tier))
@@ -201,6 +210,13 @@ class _RefCache:
         if key not in self._tokens:
             self._tokens[key] = spec.tokenizer(self.refs[(video_id, tier)].text)
         return self._tokens[key]
+
+    def lattice(self, video_id: str, tier: str, spec: MetricSpec, language: str) -> Lattice:
+        key = (video_id, tier, spec.name)
+        if key not in self._lattices:
+            ref = self.refs[(video_id, tier)]
+            self._lattices[key] = build_lattice(ref.text, ref.alternatives, spec, language)
+        return self._lattices[key]
 
 
 def _clip_v2(
@@ -269,6 +285,8 @@ def _score_rows(rows: pd.DataFrame, texts: pd.DataFrame, refs: _RefCache) -> pd.
             a = align(ref_tokens, hyp_tokens)
             h = hallucination(len(ref_tokens), len(hyp_tokens), ref.words, hyp_words, spec.tokenizer)
             cs = codeswitch_error(ref.text, ref.codeswitch, hyp_tokens, spec)
+            lat = refs.lattice(row.video_id, row.tier, spec, row.language)
+            la = lattice_score(ref.text, ref.alternatives, hyp_tokens, spec, row.language, lattice=lat)
             records.append(
                 {
                     "provider": row.provider,
@@ -299,6 +317,13 @@ def _score_rows(rows: pd.DataFrame, texts: pd.DataFrame, refs: _RefCache) -> pd.
                     "codeswitch_ref_len": cs.ref_len if cs else None,
                     "codeswitch_errors": cs.errors if cs else None,
                     "codeswitch_error_rate": cs.error_rate if cs else None,
+                    "error_rate_lattice": la.error_rate,
+                    "lattice_ref_len": la.ref_len,
+                    "lattice_errors": la.errors,
+                    "lattice_hits": la.hits,
+                    "lattice_subs": la.subs,
+                    "lattice_dels": la.dels,
+                    "lattice_ins": la.ins,
                 }
             )
     return pd.DataFrame(records, columns=SCORE_COLUMNS)
@@ -366,7 +391,17 @@ def _aggregate(group: pd.DataFrame, seed: int) -> dict[str, Any]:
         "latency_p95": float(np.percentile(latency, 95)) if len(latency) else np.nan,
         "rtf": float(rtf),
         **_aggregate_v2(group),
+        **_aggregate_lattice(group, seed),
     }
+
+
+def _aggregate_lattice(group: pd.DataFrame, seed: int) -> dict[str, Any]:
+    """Corpus lattice error rate (lattice errors over the closest paths' lengths) with a bootstrap CI."""
+    if "lattice_errors" not in group or group["lattice_errors"].isna().all():
+        return {"error_rate_lattice": np.nan, "lattice_ci_low": np.nan, "lattice_ci_high": np.nan}
+    g = group[group["lattice_errors"].notna()]
+    ci = bootstrap_ci(g["lattice_errors"].to_numpy(), g["lattice_ref_len"].to_numpy(), seed=seed)
+    return {"error_rate_lattice": ci.rate, "lattice_ci_low": ci.ci_low, "lattice_ci_high": ci.ci_high}
 
 
 def _ratio(num: float, den: float) -> float:

@@ -20,6 +20,7 @@ _MODULES = [
     "clipbench.review.cli",  # clipbench review
     "clipbench.runner_cli",  # clipbench run
     "clipbench.scoring.cli",  # clipbench score
+    "clipbench.align",  # clipbench align
     "clipbench.analysis.cli",  # clipbench errors
     "clipbench.report.cli",  # clipbench report, clipbench publish
     "clipbench.report.export",  # clipbench export

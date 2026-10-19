@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
 from typing import Any
@@ -18,10 +19,13 @@ import numpy as np
 import pandas as pd
 
 from clipbench.config import Settings, get_settings
-from clipbench.models import TAGS, Word
+from clipbench.models import CATEGORIES, TAGS, CodeSwitchSpan, NonSpeechSpan, Word
+from clipbench.scoring.codeswitch import codeswitch_error
 from clipbench.scoring.metrics import align, hallucination
 from clipbench.scoring.normalize import MetricSpec, metrics_for
+from clipbench.scoring.readiness import readiness
 from clipbench.scoring.stats import bootstrap_ci, paired_bootstrap
+from clipbench.scoring.timing import nonspeech_hallucination, nonspeech_intervals, timing_error
 
 log = logging.getLogger(__name__)
 
@@ -33,11 +37,22 @@ SCORE_COLUMNS = [
     "subs", "dels", "ins", "errors", "error_rate", "hallucinated_tokens", "hallucination_rate",
     "length_ratio", "long_output", "latency_ms", "cost_usd", "audio_seconds", "duration_s",
     "duration_bucket", "tags",
+    # v2 (docs/V2.md)
+    "timing_n_words", "timing_median_ms", "timing_p90_ms", "timing_within_200ms", "nonspeech_minutes",
+    "halluc_nonspeech_words", "halluc_per_nonspeech_min", "punct_f1", "casing_acc", "codeswitch_ref_len",
+    "codeswitch_errors", "codeswitch_error_rate", "category", "audio_condition",
+    # counts behind the v2 rates, so aggregates can be corpus style
+    "timing_n_within_200ms", "punct_tp", "punct_fp", "punct_fn", "casing_n", "casing_correct",
 ]  # fmt: skip
 AGGREGATE_COLUMNS = [
     "provider", "model_id", "tier", "metric", "slice_kind", "slice", "n_clips", "error_rate", "ci_low",
     "ci_high", "too_small", "hallucination_rate", "long_output_rate", "cost_usd_total", "audio_hours",
     "cost_per_hour", "latency_p50", "latency_p95", "rtf",
+    # v2
+    "timing_n_clips", "timing_n_words", "timing_median_ms", "timing_p90_ms", "timing_within_200ms",
+    "nonspeech_n_clips", "nonspeech_minutes", "halluc_nonspeech_words", "halluc_per_nonspeech_min",
+    "readiness_n_clips", "punct_f1", "casing_acc", "codeswitch_n_clips", "codeswitch_ref_len",
+    "codeswitch_errors", "codeswitch_error_rate",
 ]  # fmt: skip
 PAIRED_COLUMNS = [
     "tier", "metric", "slice_kind", "slice", "provider_a", "provider_b", "n_clips", "diff", "ci_low",
@@ -115,21 +130,105 @@ def _read(path: Path) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
+def _field(row: Any, *names: str) -> Any:
+    """First non-missing attribute among `names` (refs.parquet columns are optional in v2)."""
+    for name in names:
+        value = getattr(row, name, None)
+        if not _missing(value):
+            return value
+    return None
+
+
+def _parse_models(value: Any, model: type) -> list:
+    if _missing(value) or value == "":
+        return []
+    try:
+        parsed = json.loads(value) if isinstance(value, str) else value
+        return [model.model_validate(x) for x in list(parsed or [])]
+    except (TypeError, ValueError):
+        return []
+
+
+def _bool(value: Any) -> bool:
+    if _missing(value):
+        return False
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "yes")
+    return bool(value)
+
+
+def audio_condition(tags: list[str], spans: list[NonSpeechSpan]) -> str:
+    """'music' if tagged background_music or any non-speech span of kind music, else 'no_music'."""
+    if "background_music" in tags or any(s.kind == "music" for s in spans):
+        return "music"
+    return "no_music"
+
+
+@dataclass
+class _RefInfo:
+    text: str
+    words: list[Word] | None
+    tags: list[str]
+    category: str | None
+    nonspeech: list[NonSpeechSpan]
+    codeswitch: list[CodeSwitchSpan]
+    punctuated: bool
+
+
 class _RefCache:
-    """Tokenised references, so a slow normaliser (ja reading) runs once per clip and metric."""
+    """Parsed references, and tokenised ones so a slow normaliser (ja reading) runs once per clip and metric."""
 
     def __init__(self, refs: pd.DataFrame) -> None:
-        self.refs = {(r.video_id, r.tier): r for r in refs.itertuples(index=False)}
+        self.refs: dict[tuple[str, str], _RefInfo] = {}
+        for r in refs.itertuples(index=False):
+            category = _field(r, "category")
+            self.refs[(r.video_id, r.tier)] = _RefInfo(
+                text=_text(r.ref_text),
+                words=_parse_words(_field(r, "words_json", "words")),
+                tags=_parse_tags(_field(r, "tags")),
+                category=str(category) if category is not None else None,
+                nonspeech=_parse_models(_field(r, "nonspeech_spans_json", "nonspeech_spans"), NonSpeechSpan),
+                codeswitch=_parse_models(_field(r, "codeswitch_spans_json", "codeswitch_spans"), CodeSwitchSpan),
+                punctuated=_bool(_field(r, "punctuated")),
+            )
         self._tokens: dict[tuple[str, str, str], list[str]] = {}
 
-    def get(self, video_id: str, tier: str):
+    def get(self, video_id: str, tier: str) -> _RefInfo | None:
         return self.refs.get((video_id, tier))
 
     def tokens(self, video_id: str, tier: str, spec: MetricSpec) -> list[str]:
         key = (video_id, tier, spec.name)
         if key not in self._tokens:
-            self._tokens[key] = spec.tokenizer(_text(self.refs[(video_id, tier)].ref_text))
+            self._tokens[key] = spec.tokenizer(self.refs[(video_id, tier)].text)
         return self._tokens[key]
+
+
+def _clip_v2(ref: _RefInfo, hyp_text: str, hyp_words: list[Word] | None, language: str, duration_s: float) -> dict:
+    """v2 metrics that do not depend on the metric: timing, non-speech hallucination, readiness."""
+    primary = metrics_for(language)[0]
+    te = timing_error(ref.words, hyp_words, primary.tokenizer)
+    duration_ms = None if pd.isna(duration_s) else duration_s * 1000
+    nh = nonspeech_hallucination(nonspeech_intervals(ref.nonspeech, ref.words, duration_ms), hyp_words)
+    rd = readiness(ref.text, hyp_text, language) if ref.punctuated else None
+    return {
+        "timing_n_words": te.n_words if te else None,
+        "timing_median_ms": te.median_ms if te else None,
+        "timing_p90_ms": te.p90_ms if te else None,
+        "timing_within_200ms": te.within_200ms if te else None,
+        "timing_n_within_200ms": sum(o <= 200 for o in te.offsets_ms) if te else None,
+        "nonspeech_minutes": nh.nonspeech_minutes,
+        "halluc_nonspeech_words": nh.words,
+        "halluc_per_nonspeech_min": nh.per_minute,
+        "punct_f1": rd.punct_f1 if rd else None,
+        "casing_acc": rd.casing_acc if rd else None,
+        "punct_tp": rd.punct_tp if rd else None,
+        "punct_fp": rd.punct_fp if rd else None,
+        "punct_fn": rd.punct_fn if rd else None,
+        "casing_n": rd.casing_n if rd else None,
+        "casing_correct": rd.casing_correct if rd else None,
+        "category": ref.category,
+        "audio_condition": audio_condition(ref.tags, ref.nonspeech),
+    }
 
 
 def _score_rows(rows: pd.DataFrame, texts: pd.DataFrame, refs: _RefCache) -> pd.DataFrame:
@@ -146,16 +245,17 @@ def _score_rows(rows: pd.DataFrame, texts: pd.DataFrame, refs: _RefCache) -> pd.
             log.warning("no hypothesis text for %s / %s; scored as empty", row.provider, row.video_id)
         hyp_text = _text(hyp.hyp_text) if hyp is not None else ""
         hyp_words = _parse_words(hyp.words_json) if hyp is not None else None
-        ref_words = _parse_words(ref.words_json)
-        tags = _parse_tags(getattr(ref, "tags", None)) or _parse_tags(row.tags)
+        tags = ref.tags or _parse_tags(row.tags)
         duration = _num(row.duration_s)
         if pd.isna(duration):
             duration = _num(row.audio_seconds)
+        v2 = _clip_v2(ref, hyp_text, hyp_words, row.language, duration)
         for spec in metrics_for(row.language):
             ref_tokens = refs.tokens(row.video_id, row.tier, spec)
             hyp_tokens = spec.tokenizer(hyp_text)
             a = align(ref_tokens, hyp_tokens)
-            h = hallucination(len(ref_tokens), len(hyp_tokens), ref_words, hyp_words, spec.tokenizer)
+            h = hallucination(len(ref_tokens), len(hyp_tokens), ref.words, hyp_words, spec.tokenizer)
+            cs = codeswitch_error(ref.text, ref.codeswitch, hyp_tokens, spec)
             records.append(
                 {
                     "provider": row.provider,
@@ -182,6 +282,10 @@ def _score_rows(rows: pd.DataFrame, texts: pd.DataFrame, refs: _RefCache) -> pd.
                     "duration_s": duration,
                     "duration_bucket": duration_bucket(duration),
                     "tags": json.dumps(tags, ensure_ascii=False),
+                    **v2,
+                    "codeswitch_ref_len": cs.ref_len if cs else None,
+                    "codeswitch_errors": cs.errors if cs else None,
+                    "codeswitch_error_rate": cs.error_rate if cs else None,
                 }
             )
     return pd.DataFrame(records, columns=SCORE_COLUMNS)
@@ -193,7 +297,7 @@ def _score_rows(rows: pd.DataFrame, texts: pd.DataFrame, refs: _RefCache) -> pd.
 
 
 def _slices(scores: pd.DataFrame) -> list[tuple[str, str, pd.Series]]:
-    """(slice_kind, slice, boolean mask) for all, each tag present, each duration bucket present."""
+    """(slice_kind, slice, mask) for all, and each tag, duration bucket, category and audio condition present."""
     out: list[tuple[str, str, pd.Series]] = [("all", "all", pd.Series(True, index=scores.index))]
     tag_lists = scores["tags"].map(_parse_tags)
     for tag in TAGS:
@@ -204,6 +308,14 @@ def _slices(scores: pd.DataFrame) -> list[tuple[str, str, pd.Series]]:
         mask = scores["duration_bucket"] == bucket
         if mask.any():
             out.append(("duration", bucket, mask))
+    for category in CATEGORIES:
+        mask = scores["category"] == category
+        if mask.any():
+            out.append(("category", category, mask))
+    for condition in ("music", "no_music"):
+        mask = scores["audio_condition"] == condition
+        if mask.any():
+            out.append(("audio_condition", condition, mask))
     return out
 
 
@@ -240,6 +352,40 @@ def _aggregate(group: pd.DataFrame, seed: int) -> dict[str, Any]:
         "latency_p50": float(np.percentile(latency, 50)) if len(latency) else np.nan,
         "latency_p95": float(np.percentile(latency, 95)) if len(latency) else np.nan,
         "rtf": float(rtf),
+        **_aggregate_v2(group),
+    }
+
+
+def _ratio(num: float, den: float) -> float:
+    return float(num / den) if den else np.nan
+
+
+def _aggregate_v2(group: pd.DataFrame) -> dict[str, Any]:
+    """Timing: medians across clips of the per clip median and p90, word weighted share within 200 ms.
+    Everything else: corpus style (sum of counts over sum of counts)."""
+    timed = group[group["timing_n_words"].fillna(0) > 0]
+    words = timed["timing_n_words"].sum()
+    ns = group[group["nonspeech_minutes"].notna() & group["halluc_nonspeech_words"].notna()]
+    rd = group[group["punct_tp"].notna()]
+    tp, fp, fn = rd["punct_tp"].sum(), rd["punct_fp"].sum(), rd["punct_fn"].sum()
+    cs = group[group["codeswitch_ref_len"].fillna(0) > 0]
+    return {
+        "timing_n_clips": int(len(timed)),
+        "timing_n_words": int(words),
+        "timing_median_ms": float(timed["timing_median_ms"].median()) if len(timed) else np.nan,
+        "timing_p90_ms": float(timed["timing_p90_ms"].median()) if len(timed) else np.nan,
+        "timing_within_200ms": _ratio(timed["timing_n_within_200ms"].sum(), words),
+        "nonspeech_n_clips": int(len(ns)),
+        "nonspeech_minutes": float(ns["nonspeech_minutes"].sum()),
+        "halluc_nonspeech_words": int(ns["halluc_nonspeech_words"].sum()),
+        "halluc_per_nonspeech_min": _ratio(ns["halluc_nonspeech_words"].sum(), ns["nonspeech_minutes"].sum()),
+        "readiness_n_clips": int(len(rd)),
+        "punct_f1": _ratio(2 * tp, 2 * tp + fp + fn),
+        "casing_acc": _ratio(rd["casing_correct"].sum(), rd["casing_n"].sum()),
+        "codeswitch_n_clips": int(len(cs)),
+        "codeswitch_ref_len": int(cs["codeswitch_ref_len"].sum()),
+        "codeswitch_errors": int(cs["codeswitch_errors"].sum()),
+        "codeswitch_error_rate": _ratio(cs["codeswitch_errors"].sum(), cs["codeswitch_ref_len"].sum()),
     }
 
 

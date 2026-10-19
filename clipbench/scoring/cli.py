@@ -32,7 +32,7 @@ def headline_table(aggregates: pd.DataFrame, run_id: str) -> Table | None:
     from clipbench.scoring.normalize import metrics_for
 
     primary_names = set()
-    for lang in ("ja", "es", "ko"):
+    for lang in ("en", "ja", "ko", "es", "hi"):
         primary_names.add(metrics_for(lang)[0].name)
     df = df[df["metric"].isin(primary_names)].sort_values("error_rate")
     label = "verified reference" if tier == "verified" else "creator captions, unverified reference"

@@ -25,6 +25,7 @@ class Op(NamedTuple):
     ref: str | None
     hyp: str | None
     ref_index: int  # index of the ref token; for an insertion, the ref position it is inserted before
+    hyp_index: int = -1  # index of the hyp token; for a deletion, the hyp position it falls before
 
 
 @dataclass
@@ -60,7 +61,8 @@ def align(ref_tokens: Sequence[str], hyp_tokens: Sequence[str]) -> Alignment:
     """Minimum edit alignment of two token lists."""
     ref, hyp = list(ref_tokens), list(hyp_tokens)
     if not ref or not hyp:
-        ops = [Op("del", t, None, i) for i, t in enumerate(ref)] + [Op("ins", None, t, 0) for t in hyp]
+        ops = [Op("del", t, None, i, 0) for i, t in enumerate(ref)]
+        ops += [Op("ins", None, t, 0, j) for j, t in enumerate(hyp)]
         return Alignment(dels=len(ref), ins=len(hyp), ops=ops)
 
     ids: dict[str, str] = {}
@@ -73,19 +75,19 @@ def align(ref_tokens: Sequence[str], hyp_tokens: Sequence[str]) -> Alignment:
         rs, re_, hs, he = chunk.ref_start_idx, chunk.ref_end_idx, chunk.hyp_start_idx, chunk.hyp_end_idx
         if chunk.type == "equal":
             for k in range(re_ - rs):
-                a.ops.append(Op("equal", ref[rs + k], hyp[hs + k], rs + k))
+                a.ops.append(Op("equal", ref[rs + k], hyp[hs + k], rs + k, hs + k))
             a.hits += re_ - rs
         elif chunk.type == "substitute":
             for k in range(re_ - rs):
-                a.ops.append(Op("sub", ref[rs + k], hyp[hs + k], rs + k))
+                a.ops.append(Op("sub", ref[rs + k], hyp[hs + k], rs + k, hs + k))
             a.subs += re_ - rs
         elif chunk.type == "delete":
             for k in range(re_ - rs):
-                a.ops.append(Op("del", ref[rs + k], None, rs + k))
+                a.ops.append(Op("del", ref[rs + k], None, rs + k, hs))
             a.dels += re_ - rs
         elif chunk.type == "insert":
             for k in range(he - hs):
-                a.ops.append(Op("ins", None, hyp[hs + k], rs))
+                a.ops.append(Op("ins", None, hyp[hs + k], rs, hs + k))
             a.ins += he - hs
     return a
 

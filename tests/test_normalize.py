@@ -163,3 +163,72 @@ def test_tokenizers():
 def test_metrics_for_unknown_language():
     with pytest.raises(ValueError):
         n.metrics_for("xx")
+
+
+# ---------------------------------------------------------------- English
+
+
+@pytest.mark.parametrize(
+    "value,words",
+    [
+        (0, "zero"),
+        (13, "thirteen"),
+        (21, "twenty one"),
+        (105, "one hundred five"),
+        (1000, "one thousand"),
+        (21000, "twenty one thousand"),
+        (1234567, "one million two hundred thirty four thousand five hundred sixty seven"),
+    ],
+)
+def test_english_number_words(value, words):
+    assert n.english_number_words(value) == words
+
+
+@pytest.mark.parametrize("value,words", [(1, "first"), (2, "second"), (12, "twelfth"), (22, "twenty second"), (40, "fortieth")])
+def test_english_ordinal_words(value, words):
+    assert n.english_ordinal_words(value) == words
+
+
+def test_english_numbers_in_text():
+    assert n.collapse_whitespace(n.english_numbers_to_words("1,000 cats, 25% on the 1st, 3.14")) == (
+        "one thousand cats, twenty five percent on the first , three point one four"
+    )
+
+
+def test_strip_punctuation_keeps_inner_apostrophes():
+    assert n.collapse_whitespace(n.strip_punctuation_keep_apostrophes("don’t 'quote' rock'n'roll!")) == (
+        "don't quote rock'n'roll"
+    )
+
+
+def test_normalize_en_full():
+    assert n.normalize_en("I DON'T have 3 cats. [Music] (laughs)") == "i don't have three cats"
+
+
+# ---------------------------------------------------------------- Hindi
+
+
+def test_normalize_hi_danda_digits_and_mixed_script():
+    assert n.normalize_hi("मैं ठीक हूँ। Kya haal hai? २०२४॥") == n.nfkc("मैं ठीक हूँ kya haal hai 2024")
+
+
+@pytest.mark.parametrize(
+    "dev,latin",
+    [("है", "hai"), ("क्या", "kya"), ("मैं", "main"), ("दोस्त", "dost"), ("ज़िंदगी", "zindagi"), ("मेरा", "mera")],
+)
+def test_transliterate_devanagari(dev, latin):
+    assert n.transliterate_devanagari(n.nfkc(dev)) == latin
+
+
+def test_loosen_latin():
+    assert n.loosen_latin("theek hoon accha wala") == "thik hun acha vala"
+
+
+def test_wer_translit_matches_across_scripts():
+    _, translit = n.metrics_for("hi")
+    assert translit.tokenizer("मैं ठीक हूँ, क्या हाल है?") == translit.tokenizer("main theek hoon kya haal hai")
+
+
+def test_metrics_for_new_languages():
+    assert [(m.name, m.is_primary) for m in n.metrics_for("en")] == [("wer", True)]
+    assert [(m.name, m.is_primary) for m in n.metrics_for("hi")] == [("wer", True), ("wer_translit", False)]

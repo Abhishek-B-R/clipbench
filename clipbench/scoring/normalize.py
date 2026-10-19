@@ -302,6 +302,196 @@ def normalize_ko_nospace(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# English
+# ---------------------------------------------------------------------------
+
+_EN_ONES = [
+    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
+    "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen",
+]  # fmt: skip
+_EN_TENS = {2: "twenty", 3: "thirty", 4: "forty", 5: "fifty", 6: "sixty", 7: "seventy", 8: "eighty", 9: "ninety"}
+_EN_SCALES = [(10**9, "billion"), (10**6, "million"), (1000, "thousand")]
+_EN_ORDINAL_IRREGULAR = {
+    "one": "first", "two": "second", "three": "third", "five": "fifth", "eight": "eighth",
+    "nine": "ninth", "twelve": "twelfth",
+}  # fmt: skip
+
+
+def _en_below_1000(n: int) -> str:
+    hundreds, rest = divmod(n, 100)
+    out = [f"{_EN_ONES[hundreds]} hundred"] if hundreds else []
+    if rest or not hundreds:
+        if rest < 20:
+            out.append(_EN_ONES[rest])
+        else:
+            tens, unit = divmod(rest, 10)
+            out.append(_EN_TENS[tens] + (f" {_EN_ONES[unit]}" if unit else ""))
+    return " ".join(out)
+
+
+def english_number_words(n: int) -> str:
+    """Spell a non-negative integer in English, without 'and' or hyphens: 125 is 'one hundred twenty five'.
+
+    0..999,999,999,999; larger numbers are read digit by digit.
+    """
+    if n >= 10**12:
+        return " ".join(_EN_ONES[int(d)] for d in str(n))
+    if n < 1000:
+        return _en_below_1000(n)
+    out = []
+    for value, name in _EN_SCALES:
+        count, n = divmod(n, value)
+        if count:
+            out.append(f"{_en_below_1000(count)} {name}")
+    if n:
+        out.append(_en_below_1000(n))
+    return " ".join(out)
+
+
+def english_ordinal_words(n: int) -> str:
+    """1 is 'first', 22 is 'twenty second', 40 is 'fortieth'."""
+    words = english_number_words(n).split()
+    last = words[-1]
+    if last in _EN_ORDINAL_IRREGULAR:
+        last = _EN_ORDINAL_IRREGULAR[last]
+    elif last.endswith("y"):
+        last = last[:-1] + "ieth"
+    else:
+        last += "th"
+    return " ".join([*words[:-1], last])
+
+
+_EN_GROUPED_RE = re.compile(r"(?<![\d.,])\d{1,3}(?:,\d{3})+(?![\d]|,\d)")
+_EN_ORDINAL_RE = re.compile(r"\b(\d+)(st|nd|rd|th)\b")
+_EN_DECIMAL_RE = re.compile(r"(\d+)\.(\d+)")
+
+
+def english_numbers_to_words(text: str) -> str:
+    """Digits to English words. '1,000' is thousands, '3.5' is 'three point five', '1st' is 'first',
+    '%' is 'percent'. Years are read as plain numbers (1990 is 'one thousand nine hundred ninety')."""
+    text = re.sub(r"(\d)\s*%", r"\1 percent", text)
+    text = _EN_GROUPED_RE.sub(lambda m: english_number_words(int(m.group(0).replace(",", ""))), text)
+    text = _EN_ORDINAL_RE.sub(lambda m: f" {english_ordinal_words(int(m.group(1)))} ", text)
+
+    def decimal(m: re.Match[str]) -> str:
+        digits = " ".join(_EN_ONES[int(d)] for d in m.group(2))
+        return f" {english_number_words(int(m.group(1)))} point {digits} "
+
+    text = _EN_DECIMAL_RE.sub(decimal, text)
+    return _ES_INT_RE.sub(lambda m: f" {english_number_words(int(m.group(0)))} ", text)
+
+
+def strip_punctuation_keep_apostrophes(text: str) -> str:
+    """Like strip_punctuation, but an apostrophe between two letters stays (don't, it's, rock'n'roll)."""
+    text = text.replace("’", "'").replace("‘", "'")
+    out = []
+    for i, ch in enumerate(text):
+        if ch == "'" and 0 < i < len(text) - 1 and text[i - 1].isalpha() and text[i + 1].isalpha():
+            out.append(ch)
+        else:
+            out.append(" " if _is_punct_or_symbol(ch) else ch)
+    return "".join(out)
+
+
+def normalize_en(text: str) -> str:
+    """English normalisation used by `wer`. Contractions are kept as written (don't is not do not)."""
+    text = nfkc(text)
+    text = lowercase(text)
+    text = strip_bracket_tags(text)
+    text = english_numbers_to_words(text)
+    text = strip_punctuation_keep_apostrophes(text)
+    return collapse_whitespace(text)
+
+
+# ---------------------------------------------------------------------------
+# Hindi and Hinglish
+# ---------------------------------------------------------------------------
+
+_DEVANAGARI_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
+
+
+def devanagari_digits_to_ascii(text: str) -> str:
+    return text.translate(_DEVANAGARI_DIGITS)
+
+
+def normalize_hi(text: str) -> str:
+    """Hindi / Hinglish normalisation used by `wer`. Mixed script stays mixed; danda is punctuation."""
+    text = nfkc(text)
+    text = lowercase(text)
+    text = strip_bracket_tags(text)
+    text = devanagari_digits_to_ascii(text)
+    text = strip_punctuation(text)  # । and ॥ are category Po
+    return collapse_whitespace(text)
+
+
+_DEV_VOWELS = {
+    "अ": "a", "आ": "a", "इ": "i", "ई": "i", "उ": "u", "ऊ": "u", "ऋ": "ri", "ए": "e", "ऐ": "ai",
+    "ओ": "o", "औ": "au", "ऑ": "o", "ऍ": "e",
+}  # fmt: skip
+_DEV_MATRAS = {
+    "ा": "a", "ि": "i", "ी": "i", "ु": "u", "ू": "u", "ृ": "ri", "े": "e", "ै": "ai", "ो": "o",
+    "ौ": "au", "ॉ": "o", "ॅ": "e",
+}  # fmt: skip
+_DEV_CONSONANTS = {
+    "क": "k", "ख": "kh", "ग": "g", "घ": "gh", "ङ": "n", "च": "ch", "छ": "chh", "ज": "j", "झ": "jh",
+    "ञ": "n", "ट": "t", "ठ": "th", "ड": "d", "ढ": "dh", "ण": "n", "त": "t", "थ": "th", "द": "d",
+    "ध": "dh", "न": "n", "प": "p", "फ": "ph", "ब": "b", "भ": "bh", "म": "m", "य": "y", "र": "r",
+    "ल": "l", "ळ": "l", "व": "v", "श": "sh", "ष": "sh", "स": "s", "ह": "h",
+}  # fmt: skip
+_DEV_NUKTA = {"क": "q", "ख": "kh", "ग": "g", "ज": "z", "ड": "r", "ढ": "rh", "फ": "f"}
+_DEV_SIGNS = {"ं": "n", "ँ": "n", "ः": "h"}
+_NUKTA, _VIRAMA = "़", "्"
+
+
+def _translit_devanagari_word(word: str) -> str:
+    out: list[str] = []
+    i = 0
+    while i < len(word):
+        ch = word[i]
+        if ch in _DEV_CONSONANTS:
+            j = i + 1
+            if j < len(word) and word[j] == _NUKTA:
+                out.append(_DEV_NUKTA.get(ch, _DEV_CONSONANTS[ch]))
+                j += 1
+            else:
+                out.append(_DEV_CONSONANTS[ch])
+            nxt = word[j] if j < len(word) else ""
+            if nxt == _VIRAMA:
+                j += 1
+            elif nxt in _DEV_MATRAS:
+                out.append(_DEV_MATRAS[nxt])
+                j += 1
+            elif nxt and nxt not in _DEV_SIGNS:  # inherent vowel, dropped at the end of a word
+                out.append("a")
+            i = j
+            continue
+        if ch in _DEV_VOWELS:
+            out.append(_DEV_VOWELS[ch])
+        elif ch in _DEV_SIGNS:
+            out.append(_DEV_SIGNS[ch])
+        elif ch != _NUKTA:
+            out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def transliterate_devanagari(text: str) -> str:
+    """Rough Devanagari to Latin, in the casual Hinglish style (है to hai, क्या to kya, मैं to main)."""
+    return " ".join(_translit_devanagari_word(w) for w in text.split())
+
+
+def loosen_latin(text: str) -> str:
+    """Spelling variation common in romanised Hindi: ee to i, oo to u, w to v, then doubled letters once."""
+    text = text.replace("ee", "i").replace("oo", "u").replace("w", "v")
+    return re.sub(r"([a-z])\1+", r"\1", text)
+
+
+def normalize_hi_translit(text: str) -> str:
+    """`wer_translit`: both sides in loose Latin, so the script choice is not an error."""
+    return collapse_whitespace(loosen_latin(transliterate_devanagari(normalize_hi(text))))
+
+
+# ---------------------------------------------------------------------------
 # Metric specs
 # ---------------------------------------------------------------------------
 
@@ -330,7 +520,17 @@ _METRICS: dict[str, list[MetricSpec]] = {
         MetricSpec("cer_nospace", True, normalize_ko_nospace, char_tokens),
         MetricSpec("wer_syllable", False, normalize_ko, whitespace_tokens),
     ],
+    "en": [
+        MetricSpec("wer", True, normalize_en, whitespace_tokens),
+    ],
+    "hi": [
+        MetricSpec("wer", True, normalize_hi, whitespace_tokens),
+        MetricSpec("wer_translit", False, normalize_hi_translit, whitespace_tokens),
+    ],
 }
+
+# Languages whose metrics count characters rather than words.
+CHAR_LANGUAGES = {"ja"}
 
 
 def metrics_for(language: str) -> list[MetricSpec]:

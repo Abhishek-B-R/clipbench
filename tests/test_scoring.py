@@ -160,3 +160,96 @@ def test_duration_bucket():
 
 def test_pairwise_disagreement_symmetric():
     assert pairwise_disagreement(["a", "b"], ["a"]) == pairwise_disagreement(["a"], ["a", "b"]) == 0.5
+
+
+# ---------------------------------------------------------------- v2 metrics
+
+V2_RUN = "v2-run"
+
+
+def _words(text: str, start: int = 2000, step: int = 500) -> list[dict]:
+    return [{"text": w, "start_ms": start + i * step, "end_ms": start + i * step + 400} for i, w in enumerate(text.split())]
+
+
+def _write_v2_run(settings) -> None:
+    rows, texts, refs = [], [], []
+    ref_text = "Hello there, my friend. How are you?"
+    for i in range(4):
+        vid = f"en{i}"
+        music = i % 2 == 0
+        refs.append(
+            {
+                "video_id": vid,
+                "tier": "verified",
+                "ref_text": ref_text,
+                "words_json": json.dumps(_words(ref_text)),
+                "tags": json.dumps([]),
+                "category": "vlog_music" if music else "talking_head",
+                "nonspeech_spans_json": json.dumps([{"start_ms": 0, "end_ms": 2000, "kind": "music"}] if music else []),
+                "codeswitch_spans_json": json.dumps([{"start": 13, "end": 22, "lang": "en"}]),
+                "punctuated": True,
+                "timing_source": "aligner:test",
+            }
+        )
+        hyps = {
+            "a": (ref_text, _words(ref_text, start=2100)),  # perfect text, 100 ms late
+            "b": ("la la hello there my friend how are you", _words("la la", start=500, step=600)
+                  + _words("hello there my friend how are you", start=2000)),  # fmt: skip
+        }
+        for provider, (text, words) in hyps.items():
+            rows.append(
+                {
+                    "run_id": V2_RUN, "provider": provider, "model_id": f"{provider}-1", "provider_version": None,
+                    "video_id": vid, "language": "en", "tier": "verified", "repeat": 0, "status": "ok", "error": None,
+                    "latency_ms": 500.0, "audio_seconds": 6.0, "cost_usd": 0.0, "cached": False, "duration_s": 6.0,
+                    "channel": "ch", "tags": "[]", "hyp_chars": len(text),
+                }  # fmt: skip
+            )
+            texts.append({"provider": provider, "video_id": vid, "repeat": 0, "hyp_text": text, "words_json": json.dumps(words)})
+    (settings.runs_dir / V2_RUN).mkdir(parents=True)
+    (settings.runs_text_dir / V2_RUN).mkdir(parents=True)
+    pd.DataFrame(rows).to_parquet(settings.runs_dir / V2_RUN / "rows.parquet", index=False)
+    pd.DataFrame(texts).to_parquet(settings.runs_text_dir / V2_RUN / "texts.parquet", index=False)
+    pd.DataFrame(refs).to_parquet(settings.runs_text_dir / V2_RUN / "refs.parquet", index=False)
+
+
+def test_v2_scores_and_aggregates(tmp_settings):
+    _write_v2_run(tmp_settings)
+    out = score_run(V2_RUN, tmp_settings)
+    s = pd.read_parquet(out / "scores.parquet").set_index(["provider", "video_id"])
+    a0, b0, b1 = s.loc[("a", "en0")], s.loc[("b", "en0")], s.loc[("b", "en1")]
+
+    assert a0["timing_n_words"] == 7 and a0["timing_median_ms"] == 100 and a0["timing_within_200ms"] == 1.0
+    assert b0["timing_median_ms"] == 0
+
+    # en0 has a tagged 2 s music span; en1 falls back to the 2 s lead in before the first word
+    assert a0["nonspeech_minutes"] == pytest.approx(2 / 60)
+    assert a0["halluc_nonspeech_words"] == 0 and b0["halluc_nonspeech_words"] == 2
+    assert b1["halluc_nonspeech_words"] == 2
+    assert b0["halluc_per_nonspeech_min"] == pytest.approx(60.0)
+
+    assert a0["punct_f1"] == 1.0 and a0["casing_acc"] == 1.0
+    assert b0["punct_f1"] == 0.0 and b0["casing_acc"] < 1.0
+
+    assert a0["codeswitch_ref_len"] == 2 and a0["codeswitch_error_rate"] == 0
+    assert a0["category"] == "vlog_music" and a0["audio_condition"] == "music"
+    assert s.loc[("a", "en1"), "audio_condition"] == "no_music"
+
+    agg = pd.read_parquet(out / "aggregates.parquet")
+    all_a = agg[(agg["provider"] == "a") & (agg["slice_kind"] == "all")].iloc[0]
+    assert all_a["timing_n_clips"] == 4 and all_a["timing_median_ms"] == 100
+    assert all_a["punct_f1"] == 1.0 and all_a["readiness_n_clips"] == 4
+    all_b = agg[(agg["provider"] == "b") & (agg["slice_kind"] == "all")].iloc[0]
+    assert all_b["halluc_per_nonspeech_min"] == pytest.approx(60.0)
+    assert set(agg.loc[agg["slice_kind"] == "category", "slice"]) == {"vlog_music", "talking_head"}
+    assert set(agg.loc[agg["slice_kind"] == "audio_condition", "slice"]) == {"music", "no_music"}
+    paired = pd.read_parquet(out / "paired.parquet")
+    assert {"category", "audio_condition"} <= set(paired["slice_kind"])
+
+
+def test_v1_refs_without_v2_columns_still_score(scored):
+    s = scored["scores"]
+    assert s["timing_n_words"].isna().all()
+    assert s["punct_f1"].isna().all()
+    assert s["codeswitch_ref_len"].isna().all()
+    assert (s["audio_condition"].isin(["music", "no_music"])).all()

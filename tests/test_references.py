@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 import soundfile as sf
 
 from clipbench.data.audio import sha256_file
@@ -11,6 +12,12 @@ from clipbench.data.references import load_clips, load_reference
 
 JSON3 = Path(__file__).parent / "fixtures" / "json3"
 
+
+
+@pytest.fixture(autouse=True)
+def _datasets_dir(tmp_path, monkeypatch):
+    """Never touch the committed datasets/ from tests."""
+    monkeypatch.setenv("CLIPBENCH_DATASETS_DIR", str(tmp_path / "datasets"))
 
 def setup_data(settings, *, duration=12.0):
     d = settings.data_dir
@@ -93,7 +100,7 @@ def test_load_clips_creator(tmp_settings):
     hashes = setup_data(tmp_settings)
     clips = load_clips("creator", tmp_settings)
     assert [c.video_id for c in clips] == ["AAAAAAAAAAA", "-BBBBBBBBBB", "CCCCCCCCCCC"]
-    assert clips[0].duration_s == 12.0
+    assert abs(clips[0].duration_s - 2.0) < 1e-6  # the WAV length wins over the manifest (12 s)
     assert abs(clips[2].duration_s - 2.0) < 1e-6  # from the WAV, manifest had none
     assert clips[0].audio_sha256 == hashes["AAAAAAAAAAA"]["wav"]
     assert clips[0].tier == "creator"

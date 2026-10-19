@@ -18,10 +18,23 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from clipbench.config import Settings, get_settings
+from clipbench.data.datasets import source_url
 from clipbench.data.info import is_blocked, last_error_line, read_json, watch_url, write_json_atomic
 from clipbench.data.sample import load_sample
 
 SKIP_SUFFIXES = {".wav", ".part", ".ytdl", ".json", ".tmp"}
+
+
+SECTION_TOLERANCE_S = 0.15
+
+
+def wav_seconds(path: Path) -> float | None:
+    try:
+        import soundfile
+
+        return float(soundfile.info(str(path)).duration)
+    except Exception:  # unreadable WAV
+        return None
 
 
 def sha256_file(path: Path) -> str:
@@ -47,16 +60,18 @@ def download(
     *,
     youtube_id: str | None = None,
     section: tuple[float, float] | None = None,
+    url: str | None = None,
 ) -> tuple[bool, bool, str]:
     """Download to `<audio_dir>/<video_id>.<ext>`. Returns (ok, blocked, error).
 
     `video_id` is the clip key (a window's clip_id); `youtube_id` the video to fetch (defaults to
-    `video_id`). `section` (start_s, end_s) downloads only that part (`--download-sections`).
+    `video_id`). `url` overrides both (tiktok, instagram). `section` (start_s, end_s) downloads only
+    that part (`--download-sections`).
     """
     args = [
         "yt-dlp",
         "-f",
-        "bestaudio",
+        "bestaudio/best",
         "--no-playlist",
         "--no-progress",
         "--no-part",
@@ -68,10 +83,13 @@ def download(
         str(audio_dir / f"{video_id}.%(ext)s"),
     ]
     if section is not None:
-        args += ["--download-sections", f"*{section[0]:g}-{section[1]:g}"]
+        # Re-encode at the cuts: a stream copy starts at the packet boundary before the requested
+        # time, so the WAV would lead the sliced creator track. With re-encoding, ffmpeg's input
+        # seek is sample accurate.
+        args += ["--download-sections", f"*{section[0]:g}-{section[1]:g}", "--force-keyframes-at-cuts"]
     if cookies_from_browser:
         args += ["--cookies-from-browser", cookies_from_browser]
-    args += ["--", watch_url(youtube_id or video_id)]
+    args += ["--", url or watch_url(youtube_id or video_id)]
     try:
         proc = subprocess.run(args, capture_output=True, text=True, timeout=600)
     except subprocess.TimeoutExpired:
@@ -85,10 +103,12 @@ def download(
     return True, False, ""
 
 
-def to_wav(src: Path, dst: Path, duration_s: float | None = None) -> tuple[bool, str]:
-    """16 kHz mono PCM. `duration_s` trims to exactly that length (window clips)."""
+def to_wav(src: Path, dst: Path, duration_s: float | None = None, start_s: float | None = None) -> tuple[bool, str]:
+    """16 kHz mono PCM. `start_s` (output seek, sample accurate) and `duration_s` cut a window."""
     tmp = dst.with_name(dst.stem + ".tmp.wav")
     args = ["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", str(src)]
+    if start_s:
+        args += ["-ss", f"{start_s:g}"]
     if duration_s is not None:
         args += ["-t", f"{duration_s:g}"]
     args += ["-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(tmp)]
@@ -117,6 +137,7 @@ def fetch_audio(
     settings: Settings | None = None,
     *,
     limit: int | None = None,
+    language: str | None = None,
     cookies_from_browser: str | None = None,
     gap_s: float = 10.0,
     downloader: Callable[..., tuple[bool, bool, str]] = download,
@@ -131,14 +152,18 @@ def fetch_audio(
     hashes: dict = read_json(hashes_path, {})
     failed: dict = read_json(failed_path, {})
 
-    sample = load_sample(settings)
+    sample = load_sample(settings, language)
     if limit is not None:
-        sample = sample.head(limit)
+        sample = sample.groupby("language", sort=False).head(limit) if "language" in sample else sample.head(limit)
     ids = list(sample["video_id"])
     windows: dict[str, tuple[str, float, float]] = {}
-    if "clip_source" in sample:
-        for _, r in sample[sample["clip_source"] == "window"].iterrows():
-            windows[r["video_id"]] = (r["youtube_id"], float(r["window_start_s"]), float(r["window_end_s"]))
+    urls: dict[str, str] = {}
+    for _, r in sample.iterrows():
+        platform = r.get("platform") if isinstance(r.get("platform"), str) else "youtube"
+        sid = r.get("source_id") if isinstance(r.get("source_id"), str) else str(r["video_id"]).split("@")[0]
+        urls[r["video_id"]] = source_url(platform, sid)
+        if r.get("clip_source") == "window":
+            windows[r["video_id"]] = (sid, float(r["window_start_s"]), float(r["window_end_s"]))
     summary = AudioSummary()
     last_download: float | None = None
 
@@ -149,6 +174,12 @@ def fetch_audio(
         summary.failures.append((vid, err))
         log(f"{vid} failed: {err}")
 
+    def wait_gap() -> None:
+        if last_download is not None:
+            wait = gap_s - (time.monotonic() - last_download)
+            if wait > 0:
+                sleep(wait + random.uniform(0, 3))
+
     for i, vid in enumerate(ids):
         wav = audio_dir / f"{vid}.wav"
         original = find_original(audio_dir, vid)
@@ -157,34 +188,64 @@ def fetch_audio(
             summary.skipped += 1
             summary.ready += 1
             continue
+        win = windows.get(vid)
 
-        if original is None:
-            if last_download is not None:
-                wait = gap_s - (time.monotonic() - last_download)
-                if wait > 0:
-                    sleep(wait + random.uniform(0, 3))
-            if vid in windows:
-                yt, ws, we = windows[vid]
-                ok, blocked, err = downloader(vid, audio_dir, cookies_from_browser, youtube_id=yt, section=(ws, we))
-            else:
-                ok, blocked, err = downloader(vid, audio_dir, cookies_from_browser)
-            last_download = time.monotonic()
-            if blocked:
-                summary.stopped = err
-                log(f"stopping: {err}")
-                break
-            original = find_original(audio_dir, vid)
-            if not ok or original is None:
-                fail(vid, err or "no audio file after download")
-                continue
-            summary.downloaded += 1
-
-        if not wav.exists():
-            win = windows.get(vid)
-            ok, err = to_wav(original, wav, (win[2] - win[1]) if win else None)
-            if not ok:
-                fail(vid, f"ffmpeg: {err}")
-                continue
+        if win is None:
+            if original is None:
+                wait_gap()
+                ok, blocked, err = downloader(vid, audio_dir, cookies_from_browser, url=urls[vid])
+                last_download = time.monotonic()
+                if blocked:
+                    summary.stopped = err
+                    log(f"stopping: {err}")
+                    break
+                original = find_original(audio_dir, vid)
+                if not ok or original is None:
+                    fail(vid, err or "no audio file after download")
+                    continue
+                summary.downloaded += 1
+            if not wav.exists():
+                ok, err = to_wav(original, wav)
+                if not ok:
+                    fail(vid, f"ffmpeg: {err}")
+                    continue
+        else:
+            # A window: the section (plus 1 s at the end, re-encoded at the cut) first; if that fails
+            # or comes back the wrong length, the whole audio, cut exactly with an output seek.
+            _, ws, we = win
+            dur = we - ws
+            if original is not None and not wav.exists():
+                original.unlink()  # unknown whether it is a section or the whole audio
+                original = None
+            if original is None:
+                err = ""
+                for attempt in ("section", "full"):
+                    wait_gap()
+                    kw = {"section": (ws, we + 1.0)} if attempt == "section" else {}
+                    ok, blocked, err = downloader(vid, audio_dir, cookies_from_browser, url=urls[vid], **kw)
+                    last_download = time.monotonic()
+                    if blocked:
+                        break
+                    original = find_original(audio_dir, vid)
+                    if ok and original is not None:
+                        ok, err = to_wav(original, wav, dur, None if attempt == "section" else ws)
+                        got = wav_seconds(wav) if ok else None
+                        if ok and got is not None and abs(got - dur) <= SECTION_TOLERANCE_S:
+                            break
+                        err = err or f"{attempt} is {got} s, expected {dur:g} s"
+                    wav.unlink(missing_ok=True)
+                    if original is not None:
+                        original.unlink(missing_ok=True)
+                    original = None
+                    log(f"{vid}: {attempt} download failed ({err})")
+                if blocked:
+                    summary.stopped = err
+                    log(f"stopping: {err}")
+                    break
+                if original is None or not wav.exists():
+                    fail(vid, err or "no audio")
+                    continue
+                summary.downloaded += 1
 
         hashes[vid] = {"original": sha256_file(original), "wav": sha256_file(wav)}
         write_json_atomic(hashes_path, hashes)

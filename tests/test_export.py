@@ -14,7 +14,7 @@ RUN_KEYS = {
     "run_id", "created_at", "language", "git_commit", "sample_seed", "metrics", "providers", "aggregates",
     "paired", "stability", "findings", "errors", "clips", "per_clip", "limitations", "languages",
 }  # fmt: skip
-RUN_KEYS |= set(__import__("clipbench.report.export", fromlist=["V3_KEYS"]).V3_KEYS)
+RUN_KEYS |= set(__import__("clipbench.report.export", fromlist=["V3_KEYS"]).V3_KEYS) | {"run_meta"}
 POLICY_KEYS = {"retention_days", "trains_by_default", "opt_out", "opt_out_note", "policy_url"}
 
 

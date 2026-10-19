@@ -790,6 +790,8 @@ async def run(
         "stability_seed": seed,
         "stability_n": stability_n,
         "stability_repeats": stability_repeats,
+        "kind": "batch",
+        "options": run_options,
         "tier": tier,
         "language": clips[0].language if clips else (language or settings.language),
         "n_clips": int(rows_df["video_id"].nunique()) if len(rows_df) else len(clips),

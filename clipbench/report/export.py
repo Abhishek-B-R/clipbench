@@ -340,6 +340,7 @@ def build_run(run_id: str, settings: Settings) -> dict[str, Any]:
         "per_clip": per_clip_section(data),
         "limitations": list(limitations(data).items),
         "languages": [status_dict(data)],
+        "run_meta": run_meta_section(meta),
         **v3_sections(run_id, settings),
     }
 
@@ -368,6 +369,38 @@ V3_HOOKS = [
     "clipbench.canary",
     "clipbench.scoring.reliability",
 ]
+
+
+_SECRETISH = ("key", "token", "secret", "password", "auth")
+
+
+def run_meta_section(meta: dict[str, Any]) -> dict[str, Any]:
+    """The exact settings a run used, for the model pages: kind, run options, and per provider model id
+    and settings. Anything that looks like a credential is dropped."""
+
+    def safe(d: Any) -> Any:
+        if isinstance(d, dict):
+            return {k: safe(v) for k, v in d.items() if not any(s in str(k).lower() for s in _SECRETISH)}
+        if isinstance(d, list):
+            return [safe(v) for v in d]
+        return d
+
+    providers = {}
+    for p in meta.get("providers") or []:
+        if isinstance(p, dict) and p.get("id"):
+            providers[p["id"]] = safe(
+                {k: p.get(k) for k in ("model_id", "settings", "settings_hash", "usd_per_minute", "pricing_checked_on")}
+            )
+    return clean(
+        {
+            "kind": meta.get("kind", "batch"),
+            "options": safe(meta.get("options") or {}),
+            "providers": providers,
+            "machine": safe(meta.get("machine")),
+            "clipbench_version": meta.get("clipbench_version"),
+            "packages": meta.get("packages"),
+        }
+    )
 
 
 def v3_sections(run_id: str, settings: Settings) -> dict[str, Any]:

@@ -3,3 +3,7 @@ language = "ja"
 vako_root = "/Users/abhishekmacbook/WebDev/Projects/Vako/Vako"
 budget_usd = 10.0
 sample_seed = 7
+# Canary reruns (clipbench canary): their own monthly cap (env CLIPBENCH_CANARY_BUDGET_USD) and cadence in days
+# (env CLIPBENCH_CANARY_CADENCE_DAYS). The scheduled workflow checks daily and runs a language when it is due.
+canary_budget_usd_per_month = 2.0
+canary_cadence_days = 7

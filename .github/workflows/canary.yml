@@ -1,0 +1,102 @@
+# Canary reruns (A3, docs/methodology_v3_ops.md "Scheduler").
+#
+# GitHub Actions decides WHEN (cron + manual dispatch, logs, secrets, artifacts); the job runs on the
+# owner's Mac as a self-hosted runner, because a canary needs the verified references (private, never in
+# the repo) and the canary audio (never redistributed), and YouTube often refuses downloads from cloud IPs.
+#
+# Cadence: the cron fires daily; `clipbench canary due` runs a language only when its last canary is
+# older than canary_cadence_days in clipbench.toml (default 7, so weekly). Change the cadence there.
+#
+# Money: scheduled runs are dry runs (no network, price check only) until the repository variable
+# CANARY_LIVE is "true". Live runs spend from canary_budget_usd_per_month (default $2) and refuse past it.
+#
+# Safety with a self-hosted runner on a public repo: this workflow never runs on pull requests, the runner
+# carries the label clipbench-canary that no other workflow uses, and the repository setting "Require
+# approval for all outside collaborators" must stay on (Settings, Actions, General).
+name: canary
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      lang:
+        description: "Language (en, ja, ko, es, hi) or all"
+        default: "all"
+        type: string
+      force:
+        description: "Run even when the cadence says it is not due"
+        default: false
+        type: boolean
+      live:
+        description: "Make real provider calls (otherwise a dry run)"
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    if: github.repository == 'Abhishek-B-R/clipbench' && github.event_name != 'pull_request'
+    runs-on: [self-hosted, macOS, clipbench-canary]
+    timeout-minutes: 240
+    env:
+      # Where the owner's data/ (audio, verified references, spend ledger) and results/ live on the Mac.
+      CLIPBENCH_DATA_DIR: ${{ vars.CLIPBENCH_DATA_DIR }}
+      CLIPBENCH_RESULTS_DIR: ${{ vars.CLIPBENCH_RESULTS_DIR }}
+      LIVE: ${{ (github.event_name == 'workflow_dispatch' && inputs.live) || (github.event_name == 'schedule' && vars.CANARY_LIVE == 'true') }}
+      LANGS_IN: ${{ inputs.lang || 'all' }}
+      FORCE: ${{ inputs.force && '--force' || '' }}
+      DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
+      ASSEMBLYAI_API_KEY: ${{ secrets.ASSEMBLYAI_API_KEY }}
+      ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      CLIPBENCH_AWS_BUCKET: ${{ secrets.CLIPBENCH_AWS_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: uv sync --frozen
+      - name: Check the data directories
+        run: |
+          test -n "$CLIPBENCH_DATA_DIR" || { echo "set the repository variable CLIPBENCH_DATA_DIR"; exit 1; }
+          test -n "$CLIPBENCH_RESULTS_DIR" || { echo "set the repository variable CLIPBENCH_RESULTS_DIR"; exit 1; }
+      - name: Which languages are due
+        id: due
+        run: echo "langs=$(uv run clipbench canary due --lang "$LANGS_IN" $FORCE)" >> "$GITHUB_OUTPUT"
+      - name: Run the canaries
+        if: steps.due.outputs.langs != ''
+        env:
+          LANGS: ${{ steps.due.outputs.langs }}
+        run: |
+          status=0
+          for lang in $LANGS; do
+            if [ "$LIVE" = "true" ]; then
+              uv run clipbench canary run --lang "$lang" || status=1
+            else
+              echo "dry run for $lang (set CANARY_LIVE=true or dispatch with live to make real calls)"
+              uv run clipbench canary run --lang "$lang" --dry-run || status=1
+            fi
+          done
+          exit $status
+      - name: Upload history (numbers only)
+        if: always() && steps.due.outputs.langs != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-history-${{ github.run_id }}
+          path: ${{ vars.CLIPBENCH_RESULTS_DIR }}/history/*.parquet
+          if-no-files-found: ignore
+          retention-days: 90

@@ -120,3 +120,10 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - Export output (web/public/data, web/public/og) is gitignored: it is generated from a local run with `clipbench export` right before a deploy, so test runs never land in the repo.
 - Publish check: Latin runs inside Japanese and Korean references are compared as word 9-grams, after a false positive where an English phrase in a Japanese caption matched ordinary prose letter by letter.
 - Cloudflare Workers AI adds four cheap providers (cf-whisper-large-v3-turbo about $0.03/h, cf-whisper, cf-whisper-tiny-en for English, cf-deepgram-nova-3 about $0.31/h) behind one WorkersAIProvider base; Cloudflare states it does not train on or keep Workers AI inputs. Whisper models are chunked at 240 s since no size limit is documented; cost comes from neurons (10,000 free per day).
+
+## v3 (brief: docs/FEATURES-PROMPT.md, contract: docs/V3.md)
+
+- A "beats" claim must survive Benjamini-Hochberg (q = 0.05) across every paired test of its tier in the run, because a run makes dozens of comparisons and plain alpha 0.05 would publish false positives. The raw verdict is kept as verdict_raw.
+- A comparison finding quotes only numbers measured on the clips both models scored (paired difference, its CI, n), never each model's slice-wide rate, which can cover different clips.
+- Each v3 feature exposes export_section(run_id, settings); export.py merges them, keeps every v3 key present (null when absent), and a failing hook is logged and skipped so one broken feature cannot block an export.
+- Run options (diarize, detect_language, keyterms) are provider options and therefore part of the cache key; rows record retries, timeouts, HTTP status and detected language for the reliability board.

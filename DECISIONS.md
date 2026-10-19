@@ -100,3 +100,13 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - API keys are `cb_` + 32 random bytes; only the SHA-256 is stored, at most 10 per user.
 - `clipbench export` replaces demo data entirely when a real run exists, never mixing the two.
 - Rank-change alerts are stored but not sent yet; new-run emails go out once per run via the admin route or the hourly cron when AUTO_NOTIFY is on.
+
+## v2 reposition (brief: docs/REPOSITION-PROMPT.md, contract: docs/V2.md)
+
+- Positioned as the benchmark for captions on short-form video (timing, hallucination over music, caption readiness, code-switching, cost), because plain ASR leaderboards already exist and are better funded.
+- clip_id (`<video_id>` or `<video_id>@<start_ms>-<end_ms>`) stays in the field the code calls `video_id`, with the platform id in `source_id`: the least invasive way to support windows and non-YouTube platforms.
+- A language is published only at >= 100 verified clips and >= 6 providers; below that the site shows method and progress, never a ranking.
+- Demo data is removed from the public site entirely (kept only for tests and dev): synthetic numbers on a benchmark site are a liability even when labelled.
+- Accounts, sign-in, requests and alerts are hidden behind VITE_ACCOUNTS (off); the Worker code stays for later.
+- Word timings for verified references come from forced alignment of the corrected text (`clipbench align`), since corrected text no longer matches the creator track's timings.
+- Generated `site/` is gitignored; it is rebuilt from a run by `clipbench report`.

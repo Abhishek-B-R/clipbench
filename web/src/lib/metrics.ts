@@ -1,6 +1,6 @@
 import type { Aggregate, FindingV2, Run, SliceKind, Tier } from "./types";
 import { TAG_LABEL, TAG_ORDER } from "./analysis";
-import { CATEGORIES } from "./config";
+import { CATEGORIES, CONDITION_LABEL, CONDITION_ORDER } from "./config";
 import { ms, pct } from "./format";
 
 /**
@@ -51,14 +51,17 @@ export function bestFor(rows: Aggregate[], m: CaptionMetric) {
 
 // ---------------------------------------------------------------- slices
 
-export const SLICE_KIND_LABEL: Record<SliceKind, string> = { all: "All clips", audio_condition: "Audio", category: "Category", tag: "Clip type", duration: "Length" };
+export const SLICE_KIND_LABEL: Record<SliceKind, string> = { all: "All clips", condition: "Condition", audio_condition: "Audio", category: "Category", tag: "Clip type", duration: "Length" };
 export const AUDIO_LABEL: Record<string, string> = { music: "With music", no_music: "Without music" };
+
+export { CONDITION_LABEL, CONDITION_ORDER };
 
 export function sliceLabel(kind: string, slice: string) {
   if (kind === "all") return "All clips";
   if (kind === "tag") return TAG_LABEL[slice] ?? slice;
   if (kind === "category") return CATEGORIES[slice] ?? (slice === "other" ? "Other" : slice);
   if (kind === "audio_condition") return AUDIO_LABEL[slice] ?? slice;
+  if (kind === "condition") return CONDITION_LABEL[slice] ?? slice.replace(/_/g, " ");
   return slice;
 }
 
@@ -68,14 +71,14 @@ const DURATION_ORDER = ["<15s", "15-30s", "30-60s", "60-90s"];
 export function slicesOf(run: Run, tier: Tier, kind: SliceKind): string[] {
   if (kind === "all") return ["all"];
   const have = [...new Set(run.aggregates.filter((a) => a.tier === tier && a.slice_kind === kind).map((a) => a.slice))];
-  const order = kind === "tag" ? TAG_ORDER : kind === "duration" ? DURATION_ORDER : kind === "audio_condition" ? ["music", "no_music"] : Object.keys(CATEGORIES).concat("other");
+  const order = kind === "tag" ? TAG_ORDER : kind === "duration" ? DURATION_ORDER : kind === "audio_condition" ? ["music", "no_music"] : kind === "condition" ? CONDITION_ORDER : Object.keys(CATEGORIES).concat("other");
   return have.sort((a, b) => (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) - (order.indexOf(b) === -1 ? 99 : order.indexOf(b)));
 }
 
 /** Slice kinds that have data in this run. */
 export function sliceKindsIn(run: Run, tier: Tier): SliceKind[] {
   const kinds = new Set(run.aggregates.filter((a) => a.tier === tier).map((a) => a.slice_kind));
-  return (["all", "audio_condition", "category", "tag", "duration"] as SliceKind[]).filter((k) => kinds.has(k));
+  return (["all", "condition", "category", "audio_condition", "tag", "duration"] as SliceKind[]).filter((k) => kinds.has(k));
 }
 
 // ---------------------------------------------------------------- findings

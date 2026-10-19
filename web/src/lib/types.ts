@@ -1,7 +1,7 @@
 // Types for the run export. Source of truth: docs/WEB.md ("Run data") and docs/INTERFACES.md ("Scores").
 
 export type Tier = "verified" | "creator";
-export type SliceKind = "all" | "tag" | "duration" | "category" | "audio_condition";
+export type SliceKind = "all" | "tag" | "duration" | "category" | "audio_condition" | "condition";
 export type Verdict = "a_better" | "b_better" | "no_difference";
 
 export interface RunSummary {
@@ -93,6 +93,10 @@ export interface Aggregate {
   /** Error rate on tagged code-switch spans, 0..1. */
   codeswitch_error_rate?: number | null;
   codeswitch_n_clips?: number | null;
+  // v3 (docs/V3.md, A7): score against the closest valid path through the reference's alternatives.
+  error_rate_lattice?: number | null;
+  ci_low_lattice?: number | null;
+  ci_high_lattice?: number | null;
 }
 
 export interface Paired {
@@ -172,6 +176,8 @@ export interface Clip {
   /** docs/V2.md categories: talking_head, vlog_music, gaming, comedy_skit, cooking_tutorial, news_explainer, other. */
   category?: string;
   audio_condition?: "music" | "no_music";
+  /** docs/V3.md audio conditions (A4): music, sfx, multiple_speakers, fast_speech, whisper_shout, outdoor_noise, code_switching. */
+  conditions?: string[];
 }
 
 export interface PerClip {
@@ -202,4 +208,25 @@ export interface Run {
   limitations: string[];
   /** docs/V2.md. Optional until the exporter writes it. */
   languages?: LanguageStatus[];
+  // v3 export keys (docs/V3.md, "Export additions"). Each is null when the run has no such data and missing in
+  // older exports. Their shapes are still settling, so they stay `unknown` here and are read only through the
+  // defensive parsers in src/lib/v3.ts.
+  streaming?: unknown;
+  semantic?: unknown;
+  drift?: unknown;
+  history?: unknown;
+  sweeps?: unknown;
+  formatting?: unknown;
+  lattice?: unknown;
+  longform?: unknown;
+  compute?: unknown;
+  diarization?: unknown;
+  lid?: unknown;
+  entities?: unknown;
+  style?: unknown;
+  reliability?: unknown;
+  captions?: unknown;
+  features?: unknown;
+  /** The run's settings (run_meta.json): options and per-provider parameters. */
+  run_meta?: unknown;
 }

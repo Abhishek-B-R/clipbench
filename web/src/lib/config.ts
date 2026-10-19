@@ -36,6 +36,18 @@ export const CATEGORIES: Record<string, string> = {
   news_explainer: "News and explainers",
 };
 
+/** Audio conditions, docs/V3.md (A4), in display order. */
+export const CONDITION_ORDER = ["music", "sfx", "multiple_speakers", "fast_speech", "whisper_shout", "outdoor_noise", "code_switching"];
+export const CONDITION_LABEL: Record<string, string> = {
+  music: "Music under speech",
+  sfx: "Sound effects",
+  multiple_speakers: "Several speakers",
+  fast_speech: "Fast speech",
+  whisper_shout: "Whisper or shout",
+  outdoor_noise: "Outdoor noise",
+  code_switching: "Code-switching",
+};
+
 /** The positioning line (docs/REPOSITION-PROMPT.md, section 2). */
 export const POSITIONING = {
   question: "Which speech-to-text should your video app use?",

@@ -83,7 +83,20 @@ function clipId(r: () => number) {
 
 const CHANNELS = ["Demo channel 1", "Demo channel 2", "Demo channel 3", "Demo channel 4", "Demo channel 5", "Demo channel 6", "Demo channel 7", "Demo channel 8"];
 
-type Clip = { video_id: string; tier: string; duration_s: number; channel: string; tags: Tag[]; kind: "short" | "window"; start_s: number | null; category: string; audio_condition: "music" | "no_music"; punctuated: boolean };
+type Clip = { video_id: string; tier: string; duration_s: number; channel: string; tags: Tag[]; kind: "short" | "window"; start_s: number | null; category: string; audio_condition: "music" | "no_music"; punctuated: boolean; conditions: string[] };
+
+/** docs/V3.md audio conditions (A4). Three of them come from tags; the rest are drawn from their own stream. */
+const CONDITIONS = ["music", "sfx", "multiple_speakers", "fast_speech", "whisper_shout", "outdoor_noise", "code_switching"] as const;
+const EXTRA_SHARE: Record<string, number> = { sfx: 0.18, whisper_shout: 0.11, outdoor_noise: 0.14 };
+/** How much the conditions without a tag multiply a model's error rate. */
+const COND_MULT: Record<PId, Record<string, number>> = {
+  "model-a": { sfx: 1.2, whisper_shout: 1.5, outdoor_noise: 1.4 },
+  "model-b": { sfx: 1.3, whisper_shout: 1.4, outdoor_noise: 1.5 },
+  "model-c": { sfx: 1.1, whisper_shout: 1.3, outdoor_noise: 1.2 },
+  "model-d": { sfx: 1.25, whisper_shout: 1.6, outdoor_noise: 1.35 },
+  "model-e": { sfx: 1.5, whisper_shout: 1.7, outdoor_noise: 1.8 },
+  "model-f": { sfx: 1.6, whisper_shout: 2.0, outdoor_noise: 1.9 },
+};
 
 const CATS = ["talking_head", "vlog_music", "gaming", "comedy_skit", "cooking_tutorial", "news_explainer", "other"];
 
@@ -91,6 +104,7 @@ function makeClips(r: () => number, tier: string, n: number): Clip[] {
   const clips: Clip[] = [];
   // Separate stream for short/window so adding it did not shift the numbers above.
   const rk = rng(n * 7919 + tier.length);
+  const rc = rng(n * 104729 + tier.length * 13);
   for (let i = 0; i < n; i++) {
     const tags = (Object.keys(TAG_SHARE) as Tag[]).filter((t) => r() < TAG_SHARE[t]);
     const d = r();
@@ -99,7 +113,12 @@ function makeClips(r: () => number, tier: string, n: number): Clip[] {
     const start_s = kind === "window" ? Math.round(30 + rk() * 600) : null;
     const category = tags.includes("background_music") && rk() < 0.6 ? "vlog_music" : CATS[Math.floor(rk() * CATS.length)]!;
     const audio_condition = tags.includes("background_music") || category === "vlog_music" ? "music" : "no_music";
-    clips.push({ video_id: clipId(r), tier, duration_s, channel: CHANNELS[Math.floor(r() * CHANNELS.length)]!, tags, kind, start_s, category, audio_condition, punctuated: rk() < 0.45 });
+    const conditions = [
+      ...(audio_condition === "music" ? ["music"] : []),
+      ...(["multiple_speakers", "fast_speech", "code_switching"] as const).filter((t) => tags.includes(t)),
+      ...Object.keys(EXTRA_SHARE).filter((c) => rc() < EXTRA_SHARE[c]!),
+    ].sort((a, b) => CONDITIONS.indexOf(a as never) - CONDITIONS.indexOf(b as never));
+    clips.push({ video_id: clipId(r), tier, duration_s, channel: CHANNELS[Math.floor(r() * CHANNELS.length)]!, tags, kind, start_s, category, audio_condition, punctuated: rk() < 0.45, conditions });
   }
   return clips;
 }
@@ -130,7 +149,7 @@ function bootstrap(xs: number[], seed: number, B = 400) {
 
 const round = (x: number, d = 4) => Math.round(x * 10 ** d) / 10 ** d;
 
-function makeRun(runId: string, createdAt: string, seed: number, drift: Record<PId, number>, include: readonly PId[], versions: Partial<Record<PId, string>>) {
+function makeRun(runId: string, createdAt: string, seed: number, drift: Record<PId, number>, include: readonly PId[], versions: Partial<Record<PId, string>>, v3 = false) {
   const r = rng(seed);
   const PROVIDERS = ALL_PROVIDERS.filter((p) => include.includes(p.id)).map((p) => ({ ...p, model_id: versions[p.id] ?? p.model_id }));
   const clipsV = makeClips(r, "verified", 150);
@@ -161,6 +180,7 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
     for (const p of PROVIDERS) {
       let m = p.base * drift[p.id] * difficulty;
       for (const t of clip.tags) m *= MULT[p.id][t] ?? 1;
+      for (const c of clip.conditions) m *= COND_MULT[p.id][c] ?? 1;
       if (clip.tier === "creator") m *= 1.22; // creator captions are not verbatim, so "errors" go up for everyone
       const cer = Math.min(0.95, Math.max(0, m * Math.exp(normal(r) * 0.35)));
       const reading = Math.max(0, cer * (0.78 + r() * 0.08));
@@ -178,6 +198,7 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
     ...BUCKETS.map((b) => ({ kind: "duration", name: b, test: (c: Clip) => bucket(c.duration_s) === b })),
     ...CATS.map((k) => ({ kind: "category", name: k, test: (c: Clip) => c.category === k })),
     ...["music", "no_music"].map((k) => ({ kind: "audio_condition", name: k, test: (c: Clip) => c.audio_condition === k })),
+    ...CONDITIONS.map((k) => ({ kind: "condition", name: k, test: (c: Clip) => c.conditions.includes(k) })),
   ];
   const v2agg = (g: Row[]) => {
     const t = g.filter((x) => x.v2.timing_med != null);
@@ -200,6 +221,7 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
     };
   };
 
+  const LATTICE: Record<PId, number> = { "model-a": 0.9, "model-b": 0.86, "model-c": 0.92, "model-d": 0.84, "model-e": 0.89, "model-f": 0.81 };
   const aggregates: Record<string, unknown>[] = [];
   const paired: Record<string, unknown>[] = [];
   let s = 1;
@@ -213,6 +235,7 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
           if (!g.length) continue;
           const er = g.map((x) => x.error_rate);
           const [lo, hi] = bootstrap(er, s++);
+          const lat3 = LATTICE[p.id];
           const audioH = g.reduce((a, x) => a + x.clip.duration_s, 0) / 3600;
           const lat = g.map((x) => x.latency_ms);
           aggregates.push({
@@ -223,6 +246,8 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
             latency_p50: Math.round(pct(lat, 0.5)), latency_p95: Math.round(pct(lat, 0.95)),
             rtf: round(mean(g.map((x) => x.latency_ms / 1000 / x.clip.duration_s)), 3),
             ...v2agg(g),
+            // A7: scored against the closest valid path through the reference's alternatives (synthetic factor).
+            error_rate_lattice: round(mean(er) * lat3), ci_low_lattice: round(lo * lat3), ci_high_lattice: round(hi * lat3),
           });
         }
         const ids = [...PROVIDERS.map((p) => p.id)].sort();
@@ -301,9 +326,10 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
       { tier: "verified", text: "DRAFT: verify. Synthetic demo finding: the local model is free but makes about twice the errors of the best paid model.", source: "aggregates, tier=verified, slice=all" },
     ],
     errors: { providers: errorsProviders, examples },
-    clips: allClips.map((c) => ({ video_id: c.video_id, tier: c.tier, duration_s: c.duration_s, channel: c.channel, tags: c.tags, kind: c.kind, start_s: c.start_s, category: c.category, audio_condition: c.audio_condition })),
+    clips: allClips.map((c) => ({ video_id: c.video_id, tier: c.tier, duration_s: c.duration_s, channel: c.channel, tags: c.tags, kind: c.kind, start_s: c.start_s, category: c.category, audio_condition: c.audio_condition, conditions: c.conditions })),
     languages: [{ lang: "ja", verified_clips: clipsV.length, providers_ok: PROVIDERS.length, published: clipsV.length >= 100 && PROVIDERS.length >= 6, channels: new Set(clipsV.map((c) => c.channel)).size, categories: [...new Set(clipsV.map((c) => c.category))].filter((c) => c !== "other") }],
     per_clip,
+    ...(v3 ? v3Sections({ createdAt, providers: PROVIDERS, rows, clips: clipsV, aggregates, seed }) : NO_V3),
     limitations: [
       "This is synthetic demo data. Model names and clip ids are placeholders, not results.",
       "One language (Japanese) and short-form clips only; results do not transfer to long audio.",
@@ -312,6 +338,260 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
     ],
   };
 }
+
+// ---------------------------------------------------------------- v3 sections (docs/V3.md, "Export additions")
+
+const V3_KEYS = ["streaming", "semantic", "drift", "history", "sweeps", "formatting", "lattice", "longform", "compute", "diarization", "lid", "entities", "style", "reliability", "captions", "features", "run_meta"] as const;
+/** Older runs: every v3 key present and null ("no such data"), the way the exporter writes them. */
+const NO_V3 = Object.fromEntries(V3_KEYS.map((k) => [k, null])) as Record<(typeof V3_KEYS)[number], null>;
+
+type V3Row = { provider: PId; video_id: string; tier: string; metric: string; error_rate: number; latency_ms: number; clip: Clip; v2: { timing_med: number | null } };
+type V3In = { createdAt: string; providers: { id: PId; model_id: string; usd_per_hour: number; uploads_audio: boolean; lat: number }[]; rows: V3Row[]; clips: Clip[]; aggregates: Record<string, unknown>[]; seed: number };
+
+const clamp = (x: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, x));
+
+/** Mean with a seeded bootstrap interval, rounded, in the shape every v3 aggregate row uses. */
+function stat(xs: number[], seed: number) {
+  if (!xs.length) return { value: null, ci_low: null, ci_high: null };
+  const [lo, hi] = bootstrap(xs, seed, 300);
+  return { value: round(mean(xs)), ci_low: round(lo), ci_high: round(hi) };
+}
+
+function v3Sections({ createdAt, providers, rows, clips, aggregates, seed }: V3In) {
+  const r = rng(seed * 977 + 3);
+  const day = createdAt.slice(0, 10);
+  const ids = providers.map((p) => p.id);
+  const verified = rows.filter((x) => x.tier === "verified" && x.metric === "cer");
+  const of = (p: PId) => verified.filter((x) => x.provider === p);
+  const overallErr = (p: PId) => (aggregates.find((a) => a.provider === p && a.tier === "verified" && a.metric === "cer" && a.slice_kind === "all") as { error_rate: number } | undefined)?.error_rate ?? 0.1;
+  let sd = 1;
+  const sliceDefs: { kind: string; name: string; test: (c: Clip) => boolean }[] = [
+    { kind: "all", name: "all", test: () => true },
+    ...["music", "no_music"].map((k) => ({ kind: "audio_condition", name: k, test: (c: Clip) => c.audio_condition === k })),
+    ...CONDITIONS.map((k) => ({ kind: "condition", name: k, test: (c: Clip) => c.conditions.includes(k) })),
+  ];
+
+  // A1 streaming: four of the six models offer a realtime API. Per clip: final error, TTFP, TTFS, stability.
+  const STREAM: Partial<Record<PId, { er: number; ttfp: number; ttfs: number; stab: number }>> = {
+    "model-a": { er: 1.18, ttfp: 290, ttfs: 420, stab: 0.91 },
+    "model-b": { er: 1.12, ttfp: 610, ttfs: 980, stab: 0.86 },
+    "model-d": { er: 1.27, ttfp: 380, ttfs: 640, stab: 0.78 },
+    "model-e": { er: 1.21, ttfp: 240, ttfs: 360, stab: 0.83 },
+  };
+  type SC = { provider: PId; clip: Clip; er: number; ttfp: number; ttfs: number; stab: number };
+  const sclips: SC[] = [];
+  for (const p of ids) {
+    const sp = STREAM[p];
+    if (!sp) continue;
+    for (const x of of(p)) sclips.push({ provider: p, clip: x.clip, er: clamp(x.error_rate * sp.er * Math.exp(normal(r) * 0.12), 0, 0.95), ttfp: sp.ttfp * Math.exp(normal(r) * 0.25), ttfs: sp.ttfs * Math.exp(normal(r) * 0.3), stab: clamp(sp.stab + normal(r) * 0.06) });
+  }
+  const streamRows: Record<string, unknown>[] = [];
+  const streamPaired: Record<string, unknown>[] = [];
+  const sIds = ids.filter((p) => STREAM[p]).sort();
+  for (const sl of sliceDefs) {
+    for (const p of sIds) {
+      const g = sclips.filter((x) => x.provider === p && sl.test(x.clip));
+      if (!g.length) continue;
+      const e = stat(g.map((x) => x.er), sd++);
+      const st = stat(g.map((x) => x.stab), sd++);
+      streamRows.push({
+        provider: p, model_id: providers.find((q) => q.id === p)!.model_id, tier: "verified", language: "ja", slice_kind: sl.kind, slice: sl.name, n_clips: g.length, metric: "cer",
+        error_rate: e.value, ci_low: e.ci_low, ci_high: e.ci_high,
+        ttfp_p50_ms: Math.round(pct(g.map((x) => x.ttfp), 0.5)), ttfp_p95_ms: Math.round(pct(g.map((x) => x.ttfp), 0.95)),
+        ttfs_p50_ms: Math.round(pct(g.map((x) => x.ttfs), 0.5)), ttfs_p95_ms: Math.round(pct(g.map((x) => x.ttfs), 0.95)),
+        stability: st.value, stability_ci_low: st.ci_low, stability_ci_high: st.ci_high,
+      });
+    }
+    if (sl.kind !== "all" && sl.kind !== "audio_condition") continue;
+    for (let i = 0; i < sIds.length; i++)
+      for (let j = i + 1; j < sIds.length; j++) {
+        const a = sclips.filter((x) => x.provider === sIds[i] && sl.test(x.clip));
+        const bb = sclips.filter((x) => x.provider === sIds[j] && sl.test(x.clip));
+        const diffs = a.map((x, k) => x.er - bb[k]!.er);
+        const d = stat(diffs, sd++);
+        streamPaired.push({ tier: "verified", slice_kind: sl.kind, slice: sl.name, provider_a: sIds[i], provider_b: sIds[j], n_clips: diffs.length, diff: d.value, ci_low: d.ci_low, ci_high: d.ci_high, p_value: round(clamp(Math.abs(d.value!) < 0.004 ? 0.4 + r() * 0.5 : r() * 0.02), 3), verdict: d.ci_low! > 0 ? "b_better" : d.ci_high! < 0 ? "a_better" : "no_difference" });
+      }
+  }
+
+  // A2 semantic: judge score per clip (share of meaning kept), calibrated against human labels.
+  const semRows: Record<string, unknown>[] = [];
+  for (const sl of sliceDefs) {
+    for (const p of ids) {
+      const g = of(p).filter((x) => sl.test(x.clip));
+      if (!g.length) continue;
+      const st = stat(g.map((x) => clamp(1 - x.error_rate * 1.7 + normal(r) * 0.04)), sd++);
+      semRows.push({ provider: p, tier: "verified", slice_kind: sl.kind, slice: sl.name, n_clips: g.length, score: st.value, ci_low: st.ci_low, ci_high: st.ci_high });
+    }
+  }
+
+  // A3 history: a weekly canary rerun on a fixed clip set. Model E gets worse in early September, Model C better when v2 ships.
+  const weeks: string[] = [];
+  for (let t = Date.parse("2026-06-29T06:00:00Z"); t <= Date.parse(createdAt); t += 7 * 86400000) weeks.push(new Date(t).toISOString());
+  const STEP: Partial<Record<PId, { at: string; factor: number; model?: string }>> = { "model-e": { at: "2026-09-07", factor: 1.32 }, "model-c": { at: "2026-10-12", factor: 0.84, model: "model-c-v2" } };
+  const history: Record<string, unknown[]> = {};
+  const drift: Record<string, unknown>[] = [];
+  for (const p of ids) {
+    const step = STEP[p];
+    const end = overallErr(p);
+    const startFrom = p === "model-f" ? "2026-09-14" : "2026-01-01";
+    const pts = weeks.filter((w) => w >= startFrom).map((w) => {
+      const after = step ? w.slice(0, 10) >= step.at : false;
+      const level = step ? (after ? end : end / step.factor) : end;
+      const e = clamp(level * Math.exp(normal(r) * 0.035));
+      const half = e * 0.22;
+      return { date: w, run_id: `canary-${w.slice(0, 10)}`, metric: "cer", kind: "canary", n_clips: 30, model_id: step?.model && after ? step.model : providers.find((q) => q.id === p)!.model_id.replace("-v2", "-v1"), error_rate: round(e), ci_low: round(e - half), ci_high: round(e + half) };
+    });
+    history[p] = pts;
+    if (step) {
+      const i = pts.findIndex((x) => x.date.slice(0, 10) >= step.at);
+      const before = pts[i - 1]!;
+      const now = pts[i]!;
+      drift.push({ provider: p, model_id: now.model_id, date: now.date.slice(0, 10), metric: "cer", tier: "verified", language: "ja", before: before.error_rate, after: now.error_rate, ci: [before.ci_low, before.ci_high] });
+    }
+  }
+
+  // A5 sweeps: clean speech mixed with music, noise and reverb beds. Each model has its own knee.
+  const KNEE: Record<PId, { s0: number; a: number }> = { "model-a": { s0: 4, a: 2.4 }, "model-b": { s0: 5, a: 2.1 }, "model-c": { s0: -2, a: 1.8 }, "model-d": { s0: 3, a: 2.6 }, "model-e": { s0: 9, a: 3.2 }, "model-f": { s0: 11, a: 3.6 } };
+  const sweepPts: Record<string, unknown>[] = [];
+  for (const p of ids) {
+    const clean = overallErr(p) * 0.72;
+    const k = KNEE[p];
+    const pt = (bed: string, snr: number | null, level: string | null, e: number, h: number | null) => {
+      const half = e * (0.14 + r() * 0.06);
+      sweepPts.push({ provider: p, tier: "verified", language: "ja", bed, snr_db: snr, level, n_clips: 40, error_rate: round(e), ci_low: round(e - half), ci_high: round(e + half), halluc_per_nonspeech_min: h == null ? null : round(h, 2) });
+    };
+    pt("clean", null, null, clean, null);
+    for (const bed of ["music", "noise"])
+      for (const snr of [20, 10, 5, 0, -5]) {
+        const lift = 1 + (k.a * (bed === "noise" ? 0.85 : 1)) / (1 + Math.exp((snr - k.s0) / 2.6));
+        pt(bed, snr, null, clamp(clean * lift * Math.exp(normal(r) * 0.04)), bed === "music" ? (KNEE[p].s0 / 4 + 0.3) * lift * 0.4 : null);
+      }
+    for (const [lvl, f] of [["0.3", 1.08], ["0.6", 1.25], ["1.2", 1.6]] as const) pt("reverb", null, lvl, clamp(clean * f * (p === "model-c" ? 0.9 : 1) * Math.exp(normal(r) * 0.04)), null);
+  }
+
+  // A6 formatting, B15 diarization, B16 LID, B17 entities, B18 style, B19 reliability, B21 captions: one row per model, all clips.
+  const F: Record<PId, number[]> = {
+    // punct ER, casing, itn, der, count acc, lid acc, ent plain, ent keyterms (0 = not offered)
+    "model-a": [0.18, 0.93, 0.84, 0.14, 0.78, 0.97, 0.71, 0.86],
+    "model-b": [0.24, 0.9, 0.71, 0, 0, 0.93, 0.64, 0],
+    "model-c": [0.15, 0.95, 0.88, 0.19, 0.71, 0.98, 0.76, 0.84],
+    "model-d": [0.27, 0.86, 0.62, 0.23, 0.62, 0.88, 0.69, 0],
+    "model-e": [0.31, 0.84, 0.58, 0, 0, 0.91, 0.58, 0.73],
+    "model-f": [0.38, 0.8, 0.49, 0, 0, 0.85, 0.52, 0],
+  };
+  const ci = (v: number, w: number) => ({ ci_low: round(clamp(v - w)), ci_high: round(clamp(v + w)) });
+  const formatting = ids.map((p) => {
+    const [per, cas, itn] = F[p];
+    const byKind = Object.fromEntries((["number", "date", "time", "currency", "percent", "unit"] as const).map((k, i) => [k, { acc: round(clamp(itn! + (i - 2.5) * 0.04 + normal(r) * 0.03)), n: [214, 61, 48, 39, 22, 57][i] }]));
+    const pc = ci(per!, 0.03);
+    const ic = ci(itn!, 0.04);
+    return { provider: p, tier: "verified", language: "ja", slice_kind: "all", slice: "all", n_clips: 68, punct_error_rate: per, punct_ci_low: pc.ci_low, punct_ci_high: pc.ci_high, casing_acc: cas, itn_acc: itn, itn_ci_low: ic.ci_low, itn_ci_high: ic.ci_high, itn_n_spans: 441, itn_by_kind: byKind };
+  });
+  const diar = ids.filter((p) => F[p][3]! > 0).map((p) => {
+    const [, , , der, cnt] = F[p];
+    return { provider: p, tier: "verified", language: "ja", slice_kind: "all", slice: "all", n_clips: 38, der, der_ci_low: round(der! - 0.03), der_ci_high: round(der! + 0.04), speaker_count_acc: cnt, count_ci_low: round(cnt! - 0.12), count_ci_high: round(clamp(cnt! + 0.1)), missed: round(der! * 0.4), false_alarm: round(der! * 0.2), confusion: round(der! * 0.4) };
+  });
+  const lid = ids.map((p) => {
+    const acc = F[p][5]!;
+    const e = overallErr(p);
+    const auto = e * (1 + (1 - acc) * 3.2);
+    return { provider: p, tier: "verified", language: "ja", slice_kind: "all", slice: "all", n_clips: 150, accuracy: acc, ...ci(acc, 0.025), error_rate_hint: e, error_rate_auto: round(auto), auto_ci_low: round(auto * 0.86), auto_ci_high: round(auto * 1.16), top_confusion: acc < 0.95 ? "zh" : null };
+  });
+  const entities = ids.flatMap((p) => {
+    const [, , , , , , plain, kt] = F[p];
+    const rowsE: Record<string, unknown>[] = [{ provider: p, tier: "verified", language: "ja", slice_kind: "all", slice: "all", n_clips: 96, mode: "plain", entity_acc: plain, ...ci(plain!, 0.04), n_spans: 412, keyterms_supported: kt! > 0 }];
+    if (kt! > 0) rowsE.push({ provider: p, tier: "verified", language: "ja", slice_kind: "all", slice: "all", n_clips: 96, mode: "keyterms", entity_acc: kt, ...ci(kt!, 0.035), n_spans: 412, keyterms_supported: true });
+    return rowsE;
+  });
+  const STYLE: Record<PId, number[]> = { "model-a": [0.85, 0.4, 1, 0, 0.2], "model-b": [0.1, 0.05, 0.2, 0.8, 0], "model-c": [0.62, 0.3, 0.9, 0.1, 0.5], "model-d": [0.95, 0.8, 1, 0, 0], "model-e": [0.05, 0.02, 0, 1, 0.1], "model-f": [0.7, 0.5, 1, 0, 0] };
+  const style = ids.map((p) => {
+    const [f, st, pk, pm, bl] = STYLE[p];
+    return { provider: p, tier: "verified", language: "ja", slice_kind: "all", slice: "all", n_clips: 150, fillers_kept: f, stutters_kept: st, profanity_kept: pk, profanity_masked: pm, bleeps_marked: bl };
+  });
+  const reliability = ids.flatMap((p) => {
+    const pr = providers.find((q) => q.id === p)!;
+    const fail = pr.uploads_audio ? 0.002 + r() * 0.012 : 0;
+    const lat = of(p).map((x) => x.latency_ms);
+    const base = { provider: p, p50_ms: Math.round(pct(lat, 0.5)), p99_ms: Math.round(pct(lat, 0.99)) };
+    return [
+      { ...base, scope: "run", n_requests: of(p).length * 2, n_runs: 1, failure_rate: round(fail), timeout_rate: round(fail * 0.4), retries_per_request: round(pr.uploads_audio ? 0.02 + r() * 0.06 : 0, 3) },
+      { ...base, scope: "all", n_requests: of(p).length * 2 * 3 + 30 * 17 * 2, n_runs: 3 + 17, failure_rate: round(fail * 1.3), timeout_rate: round(fail * 0.5), retries_per_request: round(pr.uploads_audio ? 0.03 + r() * 0.05 : 0, 3), p99_ms: Math.round(base.p99_ms * 1.12), since: "2026-06-29" },
+    ];
+  });
+  const CAP: Record<PId, number[]> = { "model-a": [80, 0.86, 14.1, 0.06, 0.03, 0.9], "model-b": [260, 0.48, 15.8, 0.15, 0.09, 0.71], "model-c": [130, 0.79, 13.6, 0.05, 0.02, 0.92], "model-d": [190, 0.68, 14.9, 0.09, 0.05, 0.83], "model-e": [105, 0.81, 16.4, 0.19, 0.11, 0.69], "model-f": [250, 0.58, 15.1, 0.11, 0.06, 0.78] };
+  const captions = ids.map((p) => {
+    const [st, w, cps, over, line, ok] = CAP[p];
+    return { provider: p, tier: "verified", language: "ja", slice_kind: "all", slice: "all", n_clips: 150, n_cues: 1840, cue_start_median_ms: st, cue_end_median_ms: Math.round(st! * 1.4), cue_within_200ms: w, cps_median: cps, cps_over: over, line_over: line, readable: ok };
+  });
+
+  // A8 long-form: whole videos, 3 to 20 minutes. Timing drift by minute.
+  const LONG: Record<PId, { done: number; chunk: number; drift: number }> = { "model-a": { done: 1, chunk: 0.1, drift: 0.6 }, "model-b": { done: 0.71, chunk: 1.4, drift: 3.1 }, "model-c": { done: 1, chunk: 0.2, drift: 1.2 }, "model-d": { done: 0.92, chunk: 0.6, drift: 4.6 }, "model-e": { done: 0.96, chunk: 0.4, drift: 11.5 }, "model-f": { done: 1, chunk: 2.2, drift: 7.8 } };
+  const longRows = ids.map((p) => {
+    const e = overallErr(p) * 1.12;
+    return { provider: p, tier: "verified", language: "ja", slice_kind: "all", slice: "all", n_videos: 24, minutes: 262, error_rate: round(e), ci_low: round(e * 0.85), ci_high: round(e * 1.17), completed: LONG[p].done, chunk_errors_per_video: LONG[p].chunk, drift_ms_per_min: LONG[p].drift };
+  });
+  const byMinute: Record<string, unknown>[] = [];
+  for (const p of ids) {
+    const base0 = TIMING_BASE[p] ?? 200;
+    for (let m = 0; m < 20; m++) {
+      const lift = m < 5 ? 0 : (m - 5) * LONG[p].drift * 3;
+      const med = base0 + lift + normal(r) * 6;
+      byMinute.push({ provider: p, minute: m, offset_median_ms: Math.round(med), offset_p90_ms: Math.round(med * 2.1), n_words: Math.round((24 - m) * 95 * (0.8 + r() * 0.4)) });
+    }
+  }
+
+  // A9 compute for the local model; B20 feature matrix; run settings.
+  const docs = (p: string, k: string) => `https://example.com/${p}/docs#${k}`;
+  const FEAT: Record<PId, Record<string, unknown>> = {
+    "model-a": { languages: ["en", "ja", "ko", "es", "hi", "de", "fr", "pt"], batch: true, streaming: true, word_timestamps: true, diarization: true, language_id: true, custom_vocabulary: true, max_file_minutes: 600, retention: "Not stored", training_opt_out: "Not needed" },
+    "model-b": { languages: ["en", "ja", "es"], batch: true, streaming: true, word_timestamps: false, diarization: false, language_id: true, custom_vocabulary: false, max_file_minutes: 120, retention: "30 days", training_opt_out: "Opt-out offered" },
+    "model-c": { languages: ["en", "ja", "ko", "es", "hi", "zh"], batch: true, streaming: false, word_timestamps: true, diarization: true, language_id: true, custom_vocabulary: true, max_file_minutes: 240, retention: "Not stored", training_opt_out: "Opt-out offered" },
+    "model-d": { languages: ["en", "ja", "ko", "hi"], batch: true, streaming: true, word_timestamps: true, diarization: true, language_id: true, custom_vocabulary: false, max_file_minutes: 90, retention: "55 days", training_opt_out: "Not offered" },
+    "model-e": { languages: ["en", "ja", "ko", "es", "hi", "it"], batch: true, streaming: true, word_timestamps: true, diarization: "beta", language_id: true, custom_vocabulary: true, max_file_minutes: 180, retention: "30 days", training_opt_out: "Opt-out offered" },
+    "model-f": { languages: ["en", "ja", "ko", "es", "hi", "zh", "de"], batch: true, streaming: false, word_timestamps: true, diarization: false, language_id: true, custom_vocabulary: "partial", max_file_minutes: null, retention: "Runs locally", training_opt_out: "Not applicable" },
+  };
+  const features = Object.fromEntries(
+    ids.map((p) => {
+      const flat: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(FEAT[p])) {
+        flat[k] = v;
+        flat[`${k}_url`] = docs(p, k);
+        flat[`${k}_checked_on`] = k === "retention" ? "2026-10-02" : day;
+      }
+      return [p, flat];
+    }),
+  );
+  const local = providers.filter((p) => !p.uploads_audio);
+  const compute = { machine: { name: "Demo laptop", chip: "demo chip", memory_gb: 16 }, rows: local.map((p) => ({ provider: p.id, model_id: p.model_id, machine: "Demo laptop", device: "gpu", rtfx: 14.2, model_size_mb: 1550, params_m: 809, peak_memory_mb: 3900 })) };
+  const run_meta = {
+    kind: "batch",
+    machine: { name: "Demo laptop", chip: "demo chip", memory_gb: 16 },
+    options: { diarize: true, detect_language: false, keyterms: "datasets/ja/keyterms.txt" },
+    providers: Object.fromEntries(providers.map((p) => [p.id, { model: p.model_id, language: "ja", punctuate: true, ...(p.id === "model-a" ? { smart_format: true } : {}), ...(p.id === "model-f" ? { beam_size: 5, compute_type: "float16" } : {}) }])),
+  };
+
+  return {
+    streaming: { pace: "real-time", run_id: `stream-${day}`, created_at: createdAt, aggregates: streamRows, paired: streamPaired },
+    semantic: { published: true, judge: { model: "demo-judge-v1", prompt: "semantic-v1", provider: "demo" }, calibration: { n_pairs: 50, agreement: 0.86, ci_low: 0.76, ci_high: 0.94, threshold: 0.8, kappa: 0.71, agreement_rule: "judge score within 0.2 of the human score", labelled_on: "2026-10-10" }, aggregates: semRows },
+    drift: { events: drift },
+    history,
+    sweeps: { sweep_id: `sweep-${day}`, points: sweepPts },
+    formatting: { aggregates: formatting },
+    lattice: null,
+    longform: { aggregates: longRows, by_minute: byMinute },
+    compute,
+    diarization: { aggregates: diar, unsupported: ids.filter((p) => !(F[p][3]! > 0)) },
+    lid: { aggregates: lid, unsupported: [] },
+    entities: { aggregates: entities, n_terms: 180 },
+    style: { aggregates: style },
+    reliability: reliability,
+    captions: { rule: { max_chars_per_line: 42, max_lines: 2, max_cps: 17, min_duration_ms: 833, max_duration_ms: 7000 }, formats: ["srt", "vtt"], aggregates: captions },
+    features: { checked_on: day, providers: features },
+    run_meta,
+  };
+}
+
+const TIMING_BASE: Partial<Record<PId, number>> = { "model-a": 70, "model-b": 260, "model-c": 120, "model-d": 180, "model-e": 95, "model-f": 240 };
 
 const RUNS = [
   // Run 1 has five models; Model F joins in run 2; Model C ships v2 in run 3 (so the changelog has something to say).
@@ -324,7 +604,7 @@ mkdirSync(join(OUT, "runs"), { recursive: true });
 mkdirSync(join(OUT, "findings"), { recursive: true });
 const index = { demo: true, latest: RUNS[RUNS.length - 1]!.id, runs: [] as unknown[], languages: [] as unknown[] };
 for (const run of RUNS) {
-  const data = makeRun(run.id, run.at, run.seed, run.drift, run.include, run.versions);
+  const data = makeRun(run.id, run.at, run.seed, run.drift, run.include, run.versions, run.id === RUNS[RUNS.length - 1]!.id);
   if (run.id === index.latest) {
     index.languages = data.languages;
     writeFileSync(join(OUT, "findings", "ja.json"), JSON.stringify(makeFindings(data), null, 2));

@@ -1,5 +1,5 @@
 import type { Aggregate, Clip, LanguageStatus, Paired, Provider, Run, RunIndex, SliceKind, Tier } from "./types";
-import { LANGUAGES, RULES } from "./config";
+import { CONDITION_ORDER, LANGUAGES, RULES } from "./config";
 
 /** Plain names for clip tags (clipbench/models.py TAGS). */
 export const TAG_LABEL: Record<string, string> = {
@@ -256,6 +256,8 @@ export function tagProfile(run: Run, provider: string, tier: Tier, metric: strin
         ? ["<15s", "15-30s", "30-60s", "60-90s"]
         : kind === "audio_condition"
           ? ["music", "no_music"]
+          : kind === "condition"
+          ? CONDITION_ORDER
           : [...new Set(run.aggregates.filter((a) => a.tier === tier && a.slice_kind === kind).map((a) => a.slice))].sort((a, b) => (a === "other" ? 1 : b === "other" ? -1 : a.localeCompare(b)));
   return slices
     .map((slice) => {

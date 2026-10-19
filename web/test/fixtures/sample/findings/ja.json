@@ -8,7 +8,7 @@
       "id": "f-lowest-error-overall",
       "slug": "lowest-error-overall",
       "status": "draft",
-      "text": "Model C makes the fewest errors overall: 9.2% against 10.5% for Model D, the runner-up (p < 0.001).",
+      "text": "Model C makes the fewest errors overall: 10.0% against 12.2% for Model D, the runner-up (p < 0.001).",
       "source": {
         "table": "paired",
         "filters": {
@@ -21,8 +21,8 @@
         }
       },
       "numbers": {
-        "error_rate": 0.092,
-        "runner_up_error_rate": 0.1048,
+        "error_rate": 0.0996,
+        "runner_up_error_rate": 0.1216,
         "p_value": 0
       }
     },
@@ -30,7 +30,7 @@
       "id": "f-lowest-error-with-music",
       "slug": "lowest-error-with-music",
       "status": "draft",
-      "text": "Model C makes the fewest errors on clips with music: 10.3% against 12.4% for Model D, the runner-up (p < 0.001).",
+      "text": "Model C makes the fewest errors on clips with music: 11.1% against 14.5% for Model D, the runner-up (p < 0.001).",
       "source": {
         "table": "paired",
         "filters": {
@@ -43,8 +43,8 @@
         }
       },
       "numbers": {
-        "error_rate": 0.1028,
-        "runner_up_error_rate": 0.1237,
+        "error_rate": 0.1107,
+        "runner_up_error_rate": 0.1451,
         "p_value": 0
       }
     },

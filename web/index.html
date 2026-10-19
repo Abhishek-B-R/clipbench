@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>clipbench: speech-to-text on real short-form video</title>
+    <meta name="description" content="An open benchmark of speech-to-text models on real short-form video: which model wins on which kind of clip, what breaks each one, and what it costs per hour of audio." />
+    <meta name="theme-color" content="#faf9f6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141413" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content="clipbench" />
+    <meta property="og:description" content="Which speech-to-text model wins on which kind of clip, with intervals and code anyone can rerun." />
+    <script>
+      // Apply the saved theme before first paint (see src/lib/theme.ts).
+      (function () {
+        try {
+          var p = localStorage.getItem("clipbench-theme");
+          var dark = p === "dark" || (p !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.dataset.theme = dark ? "dark" : "light";
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>clipbench needs JavaScript for this view. The static report is in the repository under site/.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

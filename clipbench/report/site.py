@@ -26,7 +26,10 @@ from clipbench.report.report import (
     METHODOLOGY_DOC,
     Block,
     RunData,
+    _pct_short,
     caption_table,
+    excluded_text,
+    funnel_block,
     limitations,
     meta_block,
     methodology_url,
@@ -412,7 +415,8 @@ class Ctx:
         rows = a[(a["tier"] == tier) & (a["metric"] == metric) & (a["slice_kind"] == "all")]
         if not self.ranked:
             return rows.sort_values("provider")
-        return rows.sort_values("error_rate", na_position="last")
+        # Published: eligible providers only (RunData after apply_gate), in the one ranking order.
+        return rules.rank_order(rows)
 
     def dot(self, provider: str) -> str:
         return f'<span class="dot" style="background:{self.color.get(provider, "#888")}"></span>'
@@ -455,9 +459,16 @@ def progress_hero(ctx: Ctx, eyebrow: str) -> str:
     st = ctx.data.status or rules.LanguageStatus(lang=ctx.data.language)
     tiles = [
         ("Verified clips", f"{st.verified_clips} / {rules.MIN_VERIFIED_CLIPS}", "needed before any ranking"),
-        ("Providers with results", f"{st.providers_ok} / {rules.MIN_PROVIDERS_OK}", "on verified clips"),
+        (
+            "Eligible providers",
+            f"{st.providers_ok} / {rules.MIN_PROVIDERS_OK}",
+            f"results on at least {st.min_coverage:.0%} of verified clips",
+        ),
         ("Channels", str(st.channels), "in this run"),
-        ("Categories", str(len(st.categories)), ", ".join(st.categories) or "none tagged yet"),
+        ("Categories", str(len(st.categories)),
+         (", ".join(st.categories) or "none tagged yet")
+         + (" (guessed from the channel, not reviewed)" if ctx.data.category_guesses[0] and not st.verified_clips
+            else "")),  # fmt: skip
     ]
     kpis = "".join(
         f'<div class="kpi"><p class="label">{_e(lbl)}</p><p class="value num">{_e(val)}</p>'
@@ -717,6 +728,13 @@ def _heat_table(ctx: Ctx, tier: str, metric: str, kind: str) -> str:
     return f'<div class="card scroll"><table class="hm"><thead>{head}</thead><tbody>{"".join(body)}</tbody></table></div>'
 
 
+def _guess_note(ctx: Ctx, tier: str) -> str:
+    guessed, total = ctx.data.category_guesses
+    if tier == "verified" or not guessed:
+        return ""
+    return f"Categories of {guessed} of {total} clips are guesses from the channel, not a reviewer's label. "
+
+
 def heatmaps(ctx: Ctx) -> str:
     panels = []
     for tier in ctx.tiers:
@@ -734,8 +752,8 @@ def heatmaps(ctx: Ctx) -> str:
                 f'<div data-panel data-tier="{tier}" data-metric="{_e(metric)}">'
                 f'<div class="panel-head">{_tier_badge(tier)}<span>metric <b class="mono">{_e(metric)}</b></span></div>'
                 f"{inner}"
-                f'<p class="caption">source: aggregates.parquet, tier={_e(tier)}, metric={_e(metric)}, '
-                f"slice_kind=category, audio_condition, tag and duration.</p></div>"
+                f'<p class="caption">{_e(_guess_note(ctx, tier))}source: aggregates.parquet, tier={_e(tier)}, '
+                f"metric={_e(metric)}, slice_kind=category, audio_condition, tag and duration.</p></div>"
             )
     if not panels:
         return ""
@@ -807,12 +825,34 @@ def caption_section(ctx: Ctx) -> str:
             f'</table></div><p class="caption">{_e(b.caption)}</p></div>'
         )
     if not panels:
-        return ""
+        if not ctx.tiers:
+            return ""
+        return (
+            '<section id="captions" class="wrap"><h2>Caption metrics</h2>'
+            '<p class="lead">Not measured in this run: word timing, words invented over music and silence, '
+            "punctuation and casing, and code-switch accuracy need references with word timings, marked "
+            "non-speech spans, punctuation or code-switch spans. Creator captions have none; verified "
+            "references will.</p></section>"
+        )
     return (
         '<section id="captions" class="wrap"><h2>Caption metrics</h2>'
         '<p class="lead">What a captioning product ships: word timing, words invented over music and silence, '
         "punctuation and casing, and accuracy on code-switched spans. n/a means not measured, never zero.</p>"
         f"{_controls(ctx, False)}{''.join(panels)}</section>"
+    )
+
+
+def funnel_section(ctx: Ctx) -> str:
+    """Dataset funnel and the providers excluded for low coverage (report.funnel_block, excluded_text)."""
+    b = funnel_block(ctx.data)
+    body = "".join(f'<tr><td>{_e(r[0])}</td><td class="r num">{_e(r[1])}</td></tr>' for r in b.rows)
+    excl = excluded_text(ctx.data)
+    note = f'<p class="note">{_e(excl)}</p>' if excl else ""
+    return (
+        '<section id="funnel" class="wrap"><h2>Dataset funnel</h2>'
+        f"{note}"
+        f'<div class="card scroll"><table class="lb"><thead><tr><th>Stage</th><th class="r">Clips</th></tr></thead>'
+        f'<tbody>{body}</tbody></table></div><p class="caption">{_e(b.caption)}</p></section>'
     )
 
 
@@ -826,7 +866,9 @@ def findings_section(ctx: Ctx) -> str:
     panels = []
     v2 = v2_findings(d)
     for tier in ctx.tiers:
-        lines = findings.draft_findings(d.aggregates, d.paired, d.stability, tier, d.metric)
+        lines = findings.draft_findings(
+            d.aggregates, d.paired, d.stability, tier, d.metric, eligible=d.eligible
+        )
         if not lines:
             continue
         items = []
@@ -892,7 +934,7 @@ def errors_section(ctx: Ctx) -> str:
         "metric. Japanese and Korean characters are grouped into spans.</p>"
         f'<div class="err-grid">{"".join(cards)}</div>{examples}'
         f'<p class="caption">{n_fail} {"clip" if n_fail == 1 else "clips"} had every provider above '
-        f"{_e(pct(thr))} error. Those usually mean a bad reference and are queued for re-review, not counted as "
+        f"{_e(_pct_short(thr))} error. Those usually mean a bad reference and are queued for re-review, not counted as "
         "model failures. source: errors.json</p></section>"
     )
 
@@ -928,6 +970,7 @@ def render_html(data: RunData, blocks: list[Block]) -> str:
         [
             hero(ctx),
             leaderboard(ctx),
+            funnel_section(ctx),
             heatmaps(ctx),
             caption_section(ctx),
             charts_html,
@@ -936,7 +979,7 @@ def render_html(data: RunData, blocks: list[Block]) -> str:
             limits_section(ctx),
         ]
     )
-    toc = [("leaderboard", "Leaderboard"), ("by-clip", "By clip type"), ("captions", "Captions"), ("charts", "Charts"),
+    toc = [("leaderboard", "Leaderboard"), ("funnel", "Funnel"), ("by-clip", "By clip type"), ("captions", "Captions"), ("charts", "Charts"),
            ("findings", "Findings"), ("errors", "Errors"), ("limits", "Limitations"), ("run", "Run")]  # fmt: skip
     nav = "".join(f'<a href="#{sid}">{_e(t)}</a>' for sid, t in toc if f'id="{sid}"' in body)
     # Keep the inline JSON safe inside <script>: escape "</" so no spec string can close the tag.

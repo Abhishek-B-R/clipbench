@@ -28,10 +28,32 @@ and casing were checked. Every save records the reviewer, time and audio hash.
 
 ## When a language is published
 
-A language gets a ranking only when it has at least 100 verified clips and at least 6 providers
-scored on them (local Whisper, YouTube auto captions and four paid APIs). Below that the site shows
-the method, the dataset and progress, never a ranking. Comparisons between two models are stated only
-when the paired bootstrap test supports them.
+Code: `clipbench/report/rules.py` (the only place the gate is decided; report, site, export and OG images
+all read it). A language gets a ranking only when its latest run meets all three conditions:
+
+1. **At least 100 verified clips** scored in the run.
+2. **At least 6 eligible providers.** The verified evaluation set is every verified clip in the run
+   (verified repeat-0 rows of `rows.parquet` plus the verified clips in `scores.parquet`). A provider's
+   coverage is the share of that set on which it has an `ok` repeat-0 row. It is eligible when coverage is
+   at least `min_provider_coverage` (`clipbench.toml`, 0.9; env `CLIPBENCH_MIN_PROVIDER_COVERAGE`). Exactly
+   at the threshold counts. A provider below it (for example 3 of 100 clips, all skipped, many errors, or
+   results on only clips 1 to 60) is excluded, with its coverage and its counts of scored, skipped and
+   errored clips stated as the reason. Without `rows.parquet` the coverage comes from the provider's
+   verified aggregate `n_clips` and the skipped and errored counts are unknown.
+3. **The verified clips pass the diversity rules**: at least 30 channels, no channel above 5% of the
+   verified clips, and at least 6 categories not counting `other`. Channels come from the run's rows;
+   categories come only from the reviewer's verified files, so a manifest guess or a `clips.csv` category
+   never counts (`clipbench.data.check.check_verified`; also `clipbench data check --verified`).
+
+Below that the site shows the method, the dataset funnel (sampled, audio available, reviewed, skipped,
+unusable, verified, then scored per provider) and progress, never a ranking, and no findings.
+
+An excluded provider never appears in a ranking, a finding, a paired comparison used by a finding, or a
+"beats" sentence, published or not. Its rows stay in the exported aggregates with `eligible: false` so the
+reason can be shown. The ranking order is defined once (`rules.rank_order`): eligible providers only,
+primary error rate ascending, ties broken by provider id. Comparisons between two models are stated only
+when the paired bootstrap test supports them after the multiple-testing correction below. Export field
+names: docs/V3.md, "Publication gate fields".
 
 ## Where the clips come from
 
@@ -200,9 +222,25 @@ clips flagged long.
 
 ### Confidence intervals
 
-Percentile bootstrap over clips: draw `n` clips with replacement, compute the corpus rate, repeat 1000
-times, take the 2.5th and 97.5th percentiles. Resampling uses a numpy `Generator` seeded from
-`sample_seed` in `clipbench.toml`, so the same inputs give the same intervals.
+Code: `clipbench/scoring/stats.py`. The estimand is the **corpus error rate**: the sum of errors over the
+sum of reference tokens across the clips, so a long clip weighs more than a short one. The mean of per
+clip error rates is reported next to it as a secondary number (`mean_clip_error_rate` in the aggregates);
+it weighs every clip equally and has no interval.
+
+Expanded percentile bootstrap over clips: draw `n` clips with replacement, compute the corpus rate, repeat
+1000 times, and take the order statistics at the expanded tail level
+`a = Phi(-sqrt(n / (n - 1)) * t(0.975, n - 1))` instead of 2.5% (Hesterberg 2015; the t quantile comes from
+a Cornish-Fisher expansion, so no scipy). With B resamples sorted, the bounds are the (K + 1)th and the
+(B - K)th values, K = floor(a (B + 1)) - 1. At n = 100 the level is about 2.3% per tail, at n = 15 about
+1.3%: the plain percentile interval is too narrow at small n (see "Statistical assumptions and
+limitations"). Resampling uses a numpy `Generator` seeded from `sample_seed` in `clipbench.toml`, so the
+same inputs give the same intervals.
+
+**Channel-clustered interval (sensitivity analysis).** Clips from one channel share a speaker, a mic and
+an editing style, so they are not fully independent. `ci_low_cluster` and `ci_high_cluster` resample whole
+channels instead of clips (each resample draws G channels with replacement and pools all their clips;
+the expansion uses G). A clip without a channel is its own cluster; a run with no channel information
+gets no clustered interval (null). It is reported next to the clip interval, never instead of it.
 
 ### Paired comparisons
 
@@ -212,10 +250,25 @@ For every pair of providers, per tier, metric and slice, over the clips both pro
 - Paired bootstrap: each of 1000 resamples draws one set of clip indices and applies it to both
   providers, then computes the difference of the two corpus rates. The 95% CI is the 2.5th and 97.5th
   percentiles of those differences.
-- `p_value`: twice the share of resampled differences whose sign is opposite to the observed `diff`
-  (zero counts as opposite), capped at 1. When `diff` is exactly 0, p is 1.
+- The 95% CI is the expanded percentile interval of those differences (same rule as the confidence
+  intervals above).
+- `p_value`: two sided. With k the resampled differences on the other side of zero from the observed
+  `diff` (zero counts as the other side), the tail share is (k + 1) / (B + 1), and p is the alpha at which
+  the expanded interval just reaches zero. So p <= 0.05 exactly when the CI excludes zero, and p is never
+  below what 1000 resamples can resolve (about 0.003 at n = 100). When `diff` is exactly 0, p is 1.
 - `verdict`: `a_better` if the CI is entirely below 0, `b_better` if entirely above 0, otherwise
   `no_difference`.
+- Channel-clustered sensitivity: `ci_low_cluster`, `ci_high_cluster` and `p_value_cluster` repeat the test
+  resampling channels (both providers get the same channels). They never change the verdict. A "beats"
+  finding whose clustered interval crosses zero is flagged `cluster_sensitive: true` and its sentence says
+  the result is sensitive to channel clustering.
+
+**Multiple testing.** A run makes many paired tests (pairs of providers times slices times metrics), so a
+"beats" must also survive Benjamini-Hochberg at q = 0.05 over every paired test of its tier between
+eligible providers (`clipbench.report.findings.adjust_paired`; `p_adjusted`, raw verdict kept as
+`verdict_raw`). Tests involving an excluded provider are dropped before the correction; exclusion depends
+on coverage, not on results, so this keeps the correction valid. The export's `paired` table is this
+adjusted, eligible-only table.
 
 Providers are ordered alphabetically, so `provider_a < provider_b`.
 
@@ -246,8 +299,14 @@ ranking. It is still reported.
   the clip, recorded even when the result came from the cache, so cached reruns do not make a provider
   look free. (Actual spend, which excludes cached results, is tracked separately in `data/spend.json`.)
 - `audio_hours = sum(audio_seconds) / 3600`; `cost_per_hour = cost_usd_total / audio_hours`.
-- `latency_p50`, `latency_p95`: percentiles of `latency_ms`.
-- `rtf`: mean over clips of `(latency_ms / 1000) / audio_seconds`.
+- `latency_p50`, `latency_p95`: percentiles of `latency_ms` over the requests made in this run: rows served
+  from the result cache carry an earlier run's latency (measured under that run's load, possibly with every
+  provider uploading at once) and are left out, and so are rows with a latency of 0 (youtube-auto reads an
+  existing track, there is no request to time). A provider with no such row has no latency (null, `n/a`).
+- `rtf`: mean over the same rows of `(latency_ms / 1000) / audio_seconds`.
+- How latency was measured is recorded in `run_meta.latency_mode` and exported as `run_meta.latency_mode`
+  (`sequential_providers`, `max_concurrency`, `contended`, `text`). Runs recorded before that field existed
+  ran every provider at the same time and are labelled contended in the report and the export.
 
 ### Stability
 
@@ -255,6 +314,42 @@ Repeats 1 to 3 of a clip (status `ok`) are compared pairwise with the primary me
 Pairwise disagreement is `edit_distance(x, y) / max(len(x), len(y), 1)`, which is symmetric because
 neither repeat is the reference. `text_disagreement` is the mean over all pairs. `latency_mean` and
 `latency_std` (sample standard deviation) are over the same repeats.
+
+### Statistical assumptions and limitations
+
+What the numbers assume, and how far they were checked (`tests/test_stats_simulation.py`, seeded numpy,
+clips with reference lengths 15 to 120 tokens and clip difficulty Beta(2, 14), about 12.5% errors).
+
+- **Clips are exchangeable units.** The clip bootstrap treats the evaluation clips as an independent draw
+  from the population of clips a captioning app would see. They are not a random sample: they are clips
+  creators chose to caption, sampled with a per channel cap. The intervals describe uncertainty from
+  which clips were drawn, not from how they were chosen.
+- **The estimand is corpus level** (sum of errors over sum of reference tokens), so long clips count
+  more. `mean_clip_error_rate` is the clip-weighted alternative; a ranking can differ between the two
+  when one provider fails badly on short clips.
+- **Percentile intervals, expanded for small n.** In 2000 null datasets with 1000 resamples, a plain 95%
+  percentile interval excluded zero in 8.5% of datasets at n = 15 (nominal 5%). The expanded interval
+  gives a false "beats" rate of 5.35% at n = 15, 4.85% at 30, 5.6% at 60, 4.85% at 100 and 4.25% at 200
+  (tolerance 5% plus two Monte Carlo standard errors, 5.97%). The fast suite checks 300 datasets with
+  200 resamples per n (observed 4.67%, 4.00%, 4.33% at n = 15, 30, 100; tolerance 7.5%). In every
+  simulated dataset the CI verdict and p <= 0.05 agreed.
+- **Power.** With a real difference of 2 points (12.5% vs 14.5%) on 100 clips the test finds it in 91.5%
+  of datasets, at 3 points in all of them, and never in the wrong direction.
+- **Multiple testing.** With six providers (four identical, two different; 15 tests per run) the mean
+  false discovery proportion after Benjamini-Hochberg was 2.3% (q = 5%). With six identical providers the
+  share of runs with any "beats" was 4.0%. The previous p value (twice k / B, so exactly 0 when no
+  resample crossed zero) gave 7.3% there, because BH accepts p = 0 at any number of tests; that is why p
+  now uses (k + 1) / (B + 1). The cost is power: with 1000 resamples the smallest p is about 0.003, so in a
+  run with m tests BH can only reject when enough tests reach that floor.
+- **Clustering.** When each of 30 channels favours one provider by a random amount (sd 4 points, null on
+  average), the clip bootstrap called 11.7% of datasets a win; the channel bootstrap 3.7%. This is why the
+  clustered interval is reported and a "beats" that depends on it is flagged. The clustered interval has
+  its own limits: with few channels it is unstable, and channels are not exchangeable either.
+- **Small n.** Slices under 15 clips are marked too small and produce no finding. Between 15 and about 30
+  clips the expansion is doing real work and the intervals are wide; the Cornish-Fisher t quantile is
+  within 0.1% of exact from 10 degrees of freedom and about 3% low at 2.
+- **Not modelled:** reference errors that remain after review, correlation between metrics, and the
+  choice of slices (slices are fixed in code, not picked after looking at results).
 
 ## Caption metrics
 
@@ -432,7 +527,9 @@ tokens (`codeswitch_n_clips`). The whole clip's CER/WER is unchanged and still i
 
 Per clip: `category` (from the dataset spec: `talking_head`, `vlog_music`, `gaming`, `comedy_skit`,
 `cooking_tutorial`, `news_explainer`, `other`) and `audio_condition`: `music` if the clip is tagged
-`background_music` or has any non-speech span of kind `music`, else `no_music`.
+`background_music` or has any non-speech span of kind `music`, else `no_music` for a verified (listened to)
+reference and `unknown` for a creator-tier one: nobody has listened to a creator caption clip, so the absence of
+a music tag says nothing. `unknown` clips get no `audio_condition` slice and are exported as null.
 
 Aggregates and paired comparisons gain the slices `slice_kind = "category"` (one per category present) and
 `slice_kind = "audio_condition"` (`music`, `no_music`), on top of `all`, `tag` and `duration`. The too-small

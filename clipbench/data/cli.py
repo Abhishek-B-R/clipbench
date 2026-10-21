@@ -220,10 +220,13 @@ def check_cmd(
     lang: str = typer.Option(None, "--lang", help="Language (default: settings)."),
     pool: bool = typer.Option(False, "--pool", help="Check the eligible manifest pool instead of the sample."),
     strict: bool = typer.Option(False, "--strict", help="Do not count guessed categories."),
+    verified: bool = typer.Option(
+        False, "--verified", help="Check only the sample's verified clips, with categories from the verified files."
+    ),
 ) -> None:
     """Diversity rules: >= 30 channels, no channel above 5%, >= 6 categories. Exit 1 when they fail."""
     from clipbench.config import get_settings
-    from clipbench.data.check import check_set
+    from clipbench.data.check import check_set, check_verified, verified_sample
     from clipbench.data.manifest import load_manifest
     from clipbench.data.sample import eligible, load_sample
 
@@ -238,7 +241,13 @@ def check_cmd(
     except FileNotFoundError as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(1) from exc
-    res = check_set(df, strict=strict)
+    if verified:
+        from clipbench.data.info import read_json
+
+        df = verified_sample(df, settings.verified_dir, read_json(settings.audio_dir / "hashes.json", {}))
+        res, what = check_verified(df, settings.verified_dir), f"verified clips of the {what}"
+    else:
+        res = check_set(df, strict=strict)
     typer.echo(res.report(lang, what))
     if not res.ok:
         raise typer.Exit(1)

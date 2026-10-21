@@ -9,7 +9,13 @@ docs/WEB.md describes. Inputs are the published numbers only:
 - clipbench/providers/pricing.toml for prices the run meta does not carry
 
 Findings come from clipbench.report.findings and limitations from clipbench.report.report, so the
-web app and the static report say the same thing. No caption text is read: data/ is never opened.
+web app and the static report say the same thing. No caption text is exported. From data/ only metadata
+is read: the category saved in each verified file (the publication gate's diversity check) and file
+presence for the dataset funnel.
+
+Publication gate (clipbench.report.rules, docs/V3.md "Publication gate fields"): every aggregates row
+carries `eligible` and `coverage`; `paired` holds only tests between eligible providers, Benjamini-Hochberg
+adjusted (verdict, verdict_raw, p_adjusted); `ranking` is the one ranking order, empty when unpublished.
 The output directory is web/public/data under the repo root, or $CLIPBENCH_WEB_DIR/public/data.
 """
 
@@ -28,7 +34,7 @@ import typer
 from clipbench.config import Settings, get_settings
 from clipbench.report import findings as findings_mod
 from clipbench.report import rules
-from clipbench.report.report import RunData, _pricing_toml, limitations, load_run
+from clipbench.report.report import RunData, _pricing_toml, latency_mode, limitations, load_run
 
 TIERS = ("verified", "creator")
 
@@ -129,7 +135,7 @@ def _num(x: Any) -> float | None:
 
 
 def metrics_section(data: RunData) -> list[dict[str, Any]]:
-    present = list(dict.fromkeys(str(m) for m in data.aggregates["metric"].dropna()))
+    present = list(dict.fromkeys(str(m) for m in data.all_aggregates["metric"].dropna()))
     try:
         from clipbench.scoring.normalize import metrics_for
 
@@ -147,7 +153,7 @@ def providers_section(data: RunData) -> list[dict[str, Any]]:
     if isinstance(raw, dict):
         raw = [{"id": k, **(v if isinstance(v, dict) else {"model_id": v})} for k, v in raw.items()]
     meta_by_id = {str(p.get("id") or p.get("provider")): p for p in raw if isinstance(p, dict)}
-    overall = data.aggregates[data.aggregates["slice_kind"] == "all"]
+    overall = data.all_aggregates[data.all_aggregates["slice_kind"] == "all"]
     agg_models = {
         str(r.provider): str(r.model_id)
         for r in overall[["provider", "model_id"]].drop_duplicates().itertuples()
@@ -217,7 +223,7 @@ def findings_section(data: RunData, tiers: list[str]) -> list[dict[str, str]]:
     out = []
     for tier in tiers:
         for line in findings_mod.draft_findings(
-            data.aggregates, data.paired, data.stability, tier, data.metric
+            data.aggregates, data.paired, data.stability, tier, data.metric, eligible=data.eligible
         ):
             text, source = split_source(line)
             out.append({"tier": tier, "text": text, "source": source})
@@ -233,7 +239,7 @@ def errors_section(errors: dict | None) -> dict[str, Any]:
             "top_substitutions": [list(t) for t in info.get("top_substitutions", [])],
             "worst_clips": [
                 {
-                    k: w.get(k)
+                    k: (_audio(w.get(k)) if k == "audio_condition" else w.get(k))
                     for k in ("video_id", "error_rate", "others_median", "category", "audio_condition")
                     if k in w
                 }
@@ -281,12 +287,17 @@ def clips_section(data: RunData, settings: Settings) -> list[dict[str, Any]]:
                     "tags": _tags(r.get("tags")),
                     **clip_kind(str(r["video_id"])),
                     "category": r.get("category"),
-                    "audio_condition": r.get("audio_condition"),
+                    "audio_condition": _audio(r.get("audio_condition")),
                     "conditions": _tags(r.get("conditions")),
                 }
             )
         )
     return out
+
+
+def _audio(value: Any) -> str | None:
+    """'music' or 'no_music'; None when nobody listened (an unreviewed reference is 'unknown' in scores)."""
+    return str(value) if value in ("music", "no_music") else None
 
 
 def clip_kind(clip_id: str) -> dict[str, Any]:
@@ -301,18 +312,26 @@ def per_clip_section(data: RunData) -> list[dict[str, Any]]:
     if scores is None or scores.empty:
         return []
     keep = ["provider", "video_id", "tier", "metric", "error_rate", "hallucination_rate", "latency_ms"]
-    df = scores[[c for c in keep if c in scores]].sort_values(["provider", "tier", "metric", "video_id"])
+    df = scores[[c for c in keep if c in scores]].copy()
+    if "latency_ms" in df:
+        # Same rule as the aggregates: a cache hit's latency belongs to an earlier run, and 0 means no request.
+        lat = pd.to_numeric(df["latency_ms"], errors="coerce")
+        stale = lat.isna() | (lat <= 0)
+        if "cached" in scores:
+            stale |= scores["cached"].fillna(False).astype(bool)
+        df["latency_ms"] = lat.where(~stale)
+    df = df.sort_values(["provider", "tier", "metric", "video_id"])
     return records(df)
 
 
 def tiers_of(data: RunData) -> list[str]:
-    present = set(data.aggregates["tier"].dropna().astype(str))
+    present = set(data.all_aggregates["tier"].dropna().astype(str))
     return [t for t in TIERS if t in present] + sorted(present - set(TIERS))
 
 
 def n_clips_by_tier(data: RunData, tiers: list[str]) -> dict[str, int]:
-    overall = data.aggregates[
-        (data.aggregates["slice_kind"] == "all") & (data.aggregates["metric"] == data.metric)
+    overall = data.all_aggregates[
+        (data.all_aggregates["slice_kind"] == "all") & (data.all_aggregates["metric"] == data.metric)
     ]
     out = {}
     for tier in tiers:
@@ -337,8 +356,9 @@ def build_run(run_id: str, settings: Settings) -> dict[str, Any]:
         "sample_seed": meta.get("sample_seed", meta.get("seed")),
         "metrics": metrics_section(data),
         "providers": providers_section(data),
-        "aggregates": records(data.aggregates),
+        "aggregates": records(rules.annotate_aggregates(data.all_aggregates, data.status)),
         "paired": records(data.paired),
+        "ranking": rules.ranking_section(data.all_aggregates, data.status),
         "stability": records(data.stability),
         "findings": findings_section(data, tiers),
         "errors": errors_section(data.errors),
@@ -410,6 +430,8 @@ def run_meta_section(meta: dict[str, Any]) -> dict[str, Any]:
             "machine": safe(meta.get("machine")),
             "clipbench_version": meta.get("clipbench_version"),
             "packages": meta.get("packages"),
+            # how latency was measured; contended for runs recorded before providers ran one at a time
+            "latency_mode": latency_mode(meta),
         }
     )
 
@@ -494,9 +516,14 @@ def findings_file(data: RunData) -> dict[str, Any]:
     items = []
     if data.published:
         items = findings_mod.structured_findings(
-            data.aggregates, data.paired, data.metric, tier="verified", min_clips=rules.MIN_SLICE_CLIPS
+            data.aggregates,
+            data.paired,
+            data.metric,
+            tier="verified",
+            min_clips=rules.MIN_SLICE_CLIPS,
+            eligible=data.eligible,
         )
-    keys = ("id", "slug", "text", "status", "source", "numbers")
+    keys = ("id", "slug", "text", "status", "source", "numbers", "cluster_sensitive")
     return clean(
         {
             "lang": data.language,

@@ -252,7 +252,17 @@ def test_v1_refs_without_v2_columns_still_score(scored):
     assert s["timing_n_words"].isna().all()
     assert s["punct_f1"].isna().all()
     assert s["codeswitch_ref_len"].isna().all()
-    assert (s["audio_condition"].isin(["music", "no_music"])).all()
+    assert (s["audio_condition"].isin(["music", "no_music", "unknown"])).all()
+    # nobody listened to a creator caption clip: no music tag there means unknown, not "no music"
+    assert set(s.loc[s["audio_condition"] == "unknown", "tier"]) <= {"creator"}
+
+
+def test_unreviewed_reference_has_unknown_audio_condition():
+    from clipbench.scoring.score import audio_condition
+
+    assert audio_condition([], [], reviewed=True) == "no_music"
+    assert audio_condition([], [], reviewed=False) == "unknown"
+    assert audio_condition(["background_music"], [], reviewed=False) == "music"
 
 
 def test_mixed_language_run_is_refused(tmp_settings):
@@ -307,3 +317,34 @@ def test_condition_slices_include_implied_music_and_reviewer_conditions():
     spans = [NonSpeechSpan(start_ms=0, end_ms=500, kind="music")]
     assert clip_conditions(["sfx"], ["fast_speech"], spans) == ["music", "sfx", "fast_speech"]
     assert clip_conditions(None, [], []) == []
+
+
+def test_latency_ignores_cache_hits_and_untimed_rows(tmp_settings):
+    """A cache hit carries an earlier run's (possibly contended) latency and youtube-auto reads an existing
+    track (latency 0): neither may enter p50 latency or RTF, and a provider with no timed request has none."""
+    _write_run(tmp_settings)
+    rows_path = tmp_settings.runs_dir / RUN / "rows.parquet"
+    rows = pd.read_parquet(rows_path)
+    good0 = (rows["provider"] == "good") & (rows["repeat"] == 0)
+    rows.loc[good0 & (rows["video_id"] == "vid00"), "latency_ms"] = 900000.0  # cached, from a slow old run
+    rows.loc[rows["provider"] == "bad", "latency_ms"] = 0.0  # like youtube-auto: no request was made
+    rows.to_parquet(rows_path, index=False)
+    out = score_run(RUN, tmp_settings)
+    a = pd.read_parquet(out / "aggregates.parquet")
+    all_cer = a[(a["metric"] == "cer") & (a["slice_kind"] == "all")].set_index("provider")
+    assert all_cer.loc["good", "latency_p50"] == 1000
+    assert all_cer.loc["good", "latency_p95"] == 1000
+    assert pd.isna(all_cer.loc["bad", "latency_p50"]) and pd.isna(all_cer.loc["bad", "rtf"])
+    s = pd.read_parquet(out / "scores.parquet")
+    assert bool(s.loc[(s["provider"] == "good") & (s["video_id"] == "vid00"), "cached"].all())
+
+
+def test_cli_score_unknown_run_is_a_message_not_a_traceback(tmp_settings):
+    from typer.testing import CliRunner
+
+    from clipbench.cli import app
+
+    r = CliRunner().invoke(app, ["score", "no-such-run"])
+    assert r.exit_code == 1
+    assert "rows.parquet" in r.output and "Is the run id right?" in r.output
+    assert "Traceback" not in r.output and r.exception is None or isinstance(r.exception, SystemExit)

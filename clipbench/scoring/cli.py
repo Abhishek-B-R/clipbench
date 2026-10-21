@@ -75,13 +75,21 @@ def register(app: typer.Typer) -> None:
         from clipbench.runs import resolve_run_id
         from clipbench.scoring.score import score_run
 
-        run_id = resolve_run_id(run_id)
-        if _is_stream_run(run_id):
-            from clipbench.streaming.score import score_stream
+        try:
+            run_id = resolve_run_id(run_id)
+            if _is_stream_run(run_id):
+                from clipbench.streaming.score import score_stream
 
-            Console().print(f"wrote {score_stream(run_id)}")
-            return
-        out = score_run(run_id)
+                Console().print(f"wrote {score_stream(run_id)}")
+                return
+            out = score_run(run_id)
+        except FileNotFoundError as exc:
+            # A typo in the run id is the common case: say what is missing, not a traceback.
+            typer.echo(f"{exc}. Is the run id right? Runs are the folders under results/runs/.", err=True)
+            raise typer.Exit(1) from exc
+        except ValueError as exc:  # e.g. a run holding several languages
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(2) from exc
         console = Console()
         table = headline_table(pd.read_parquet(out / "aggregates.parquet"), run_id)
         if table is None:

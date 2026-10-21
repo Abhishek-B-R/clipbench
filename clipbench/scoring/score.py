@@ -33,7 +33,13 @@ from clipbench.scoring.lattice import Lattice, build_lattice, lattice_score
 from clipbench.scoring.metrics import align, hallucination
 from clipbench.scoring.normalize import MetricSpec, metrics_for
 from clipbench.scoring.readiness import readiness
-from clipbench.scoring.stats import bootstrap_ci, paired_bootstrap
+from clipbench.scoring.stats import (
+    bootstrap_ci,
+    cluster_bootstrap_ci,
+    mean_clip_rate,
+    paired_bootstrap,
+    paired_cluster_bootstrap,
+)
 from clipbench.scoring.timing import nonspeech_hallucination, nonspeech_intervals, timing_error
 
 log = logging.getLogger(__name__)
@@ -57,6 +63,8 @@ SCORE_COLUMNS = [
     "lattice_ins",
     # v3 A4: audio conditions from the review UI (json list); music is also implied by audio_condition
     "conditions",
+    # served from the result cache: its latency was measured in an earlier run, under that run's load
+    "cached",
 ]  # fmt: skip
 AGGREGATE_COLUMNS = [
     "provider", "model_id", "tier", "metric", "slice_kind", "slice", "n_clips", "error_rate", "ci_low",
@@ -69,10 +77,15 @@ AGGREGATE_COLUMNS = [
     "codeswitch_errors", "codeswitch_error_rate",
     # v3 A7
     "error_rate_lattice", "lattice_ci_low", "lattice_ci_high",
+    # research safeguards (METHODOLOGY.md, "Statistical assumptions and limitations"): channel-clustered
+    # bootstrap CI as a sensitivity analysis, and the mean of per clip error rates as a secondary number
+    "ci_low_cluster", "ci_high_cluster", "n_channels", "mean_clip_error_rate",
 ]  # fmt: skip
 PAIRED_COLUMNS = [
     "tier", "metric", "slice_kind", "slice", "provider_a", "provider_b", "n_clips", "diff", "ci_low",
     "ci_high", "p_value", "verdict",
+    # channel-clustered sensitivity analysis (never replaces the clip bootstrap)
+    "ci_low_cluster", "ci_high_cluster", "p_value_cluster", "n_channels",
 ]  # fmt: skip
 STABILITY_COLUMNS = ["provider", "video_id", "n_repeats", "text_disagreement", "latency_mean", "latency_std"]
 
@@ -173,11 +186,13 @@ def _bool(value: Any) -> bool:
     return bool(value)
 
 
-def audio_condition(tags: list[str], spans: list[NonSpeechSpan]) -> str:
-    """'music' if tagged background_music or any non-speech span of kind music, else 'no_music'."""
+def audio_condition(tags: list[str], spans: list[NonSpeechSpan], reviewed: bool = True) -> str:
+    """'music' if tagged background_music or any non-speech span of kind music; otherwise 'no_music' for a
+    reviewed (verified) reference and 'unknown' for one nobody listened to (creator captions carry no music
+    tag, so their silence about music says nothing)."""
     if "background_music" in tags or any(s.kind == "music" for s in spans):
         return "music"
-    return "no_music"
+    return "no_music" if reviewed else "unknown"
 
 
 @dataclass
@@ -191,6 +206,7 @@ class _RefInfo:
     punctuated: bool
     alternatives: list[AlternativeSpan] | None = None
     conditions: list[str] | None = None
+    reviewed: bool = True  # a person checked this reference (verified tier)
 
 
 def clip_conditions(conditions: list[str] | None, tags: list[str], spans: list[NonSpeechSpan]) -> list[str]:
@@ -221,6 +237,7 @@ class _RefCache:
                 punctuated=_bool(_field(r, "punctuated")),
                 alternatives=_parse_models(_field(r, "alternatives_json", "alternatives"), AlternativeSpan),
                 conditions=_parse_tags(_field(r, "conditions_json", "conditions")),
+                reviewed=str(r.tier) == "verified",
             )
         self._tokens: dict[tuple[str, str, str], list[str]] = {}
         self._lattices: dict[tuple[str, str, str], Lattice] = {}
@@ -278,7 +295,7 @@ def _clip_v2(
         "casing_n": rd.casing_n if rd else None,
         "casing_correct": rd.casing_correct if rd else None,
         "category": ref.category,
-        "audio_condition": audio_condition(ref.tags, ref.nonspeech),
+        "audio_condition": audio_condition(ref.tags, ref.nonspeech, ref.reviewed),
         "conditions": json.dumps(clip_conditions(ref.conditions, ref.tags, ref.nonspeech)),
     }
 
@@ -348,6 +365,7 @@ def _score_rows(rows: pd.DataFrame, texts: pd.DataFrame, refs: _RefCache) -> pd.
                     "lattice_subs": la.subs,
                     "lattice_dels": la.dels,
                     "lattice_ins": la.ins,
+                    "cached": _bool(getattr(row, "cached", False)),
                 }
             )
     return pd.DataFrame(records, columns=SCORE_COLUMNS)
@@ -397,14 +415,38 @@ def _model_id(group: pd.DataFrame) -> str:
     return ",".join(ids)
 
 
-def _aggregate(group: pd.DataFrame, seed: int) -> dict[str, Any]:
+def _clusters(group: pd.DataFrame, channels: dict[str, str] | None) -> list[str] | None:
+    """Channel per clip for the clustered bootstrap. A clip without a channel is its own cluster; a run
+    without any channel information has no clustered interval (None)."""
+    if not channels:
+        return None
+    ids = group["video_id"].astype(str)
+    if not any(v in channels for v in ids):
+        return None
+    return [channels.get(v) or f"clip:{v}" for v in ids]
+
+
+def _aggregate(group: pd.DataFrame, seed: int, channels: dict[str, str] | None = None) -> dict[str, Any]:
     ci = bootstrap_ci(group["errors"].to_numpy(), group["ref_len"].to_numpy(), seed=seed)
+    clusters = _clusters(group, channels)
+    if clusters is None:
+        cl_low = cl_high = np.nan
+        n_channels = None
+    else:
+        cl = cluster_bootstrap_ci(group["errors"].to_numpy(), group["ref_len"].to_numpy(), clusters, seed=seed)
+        cl_low, cl_high, n_channels = cl.ci_low, cl.ci_high, cl.n
     ref_total = group["ref_len"].sum()
     audio_seconds = group["audio_seconds"].fillna(0).sum()
     audio_hours = audio_seconds / 3600
     cost_total = group["cost_usd"].fillna(0).sum()  # list cost, cached or not
-    latency = group["latency_ms"].dropna()
-    rtf_rows = group[(group["audio_seconds"] > 0) & group["latency_ms"].notna()]
+    # Latency is measured on requests made in this run: a cache hit carries an earlier run's latency (taken
+    # under that run's load, possibly with every provider uploading at once), and a latency of 0 means no
+    # request was made (youtube-auto reads an existing track).
+    timed = group["latency_ms"].notna() & (group["latency_ms"].astype(float) > 0)
+    if "cached" in group:
+        timed &= ~group["cached"].fillna(False).astype(bool)
+    latency = group.loc[timed, "latency_ms"].astype(float)
+    rtf_rows = group[timed & (group["audio_seconds"] > 0)]
     rtf = (rtf_rows["latency_ms"] / 1000 / rtf_rows["audio_seconds"]).mean() if len(rtf_rows) else np.nan
     return {
         "n_clips": int(len(group)),
@@ -422,6 +464,10 @@ def _aggregate(group: pd.DataFrame, seed: int) -> dict[str, Any]:
         "rtf": float(rtf),
         **_aggregate_v2(group),
         **_aggregate_lattice(group, seed),
+        "ci_low_cluster": cl_low,
+        "ci_high_cluster": cl_high,
+        "n_channels": n_channels,
+        "mean_clip_error_rate": mean_clip_rate(group["errors"].to_numpy(), group["ref_len"].to_numpy()),
     }
 
 
@@ -467,7 +513,7 @@ def _aggregate_v2(group: pd.DataFrame) -> dict[str, Any]:
     }
 
 
-def _aggregates(scores: pd.DataFrame, seed: int) -> pd.DataFrame:
+def _aggregates(scores: pd.DataFrame, seed: int, channels: dict[str, str] | None = None) -> pd.DataFrame:
     records = []
     for (tier, metric), part in scores.groupby(["tier", "metric"], sort=True):
         for kind, name, mask in _slices(part):
@@ -481,7 +527,7 @@ def _aggregates(scores: pd.DataFrame, seed: int) -> pd.DataFrame:
                         "metric": metric,
                         "slice_kind": kind,
                         "slice": name,
-                        **_aggregate(group, seed),
+                        **_aggregate(group, seed, channels),
                     }
                 )
     return pd.DataFrame(records, columns=AGGREGATE_COLUMNS)
@@ -492,7 +538,7 @@ def _aggregates(scores: pd.DataFrame, seed: int) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def _paired(scores: pd.DataFrame, seed: int) -> pd.DataFrame:
+def _paired(scores: pd.DataFrame, seed: int, channels: dict[str, str] | None = None) -> pd.DataFrame:
     records = []
     for (tier, metric), part in scores.groupby(["tier", "metric"], sort=True):
         providers = sorted(part["provider"].unique())
@@ -510,6 +556,17 @@ def _paired(scores: pd.DataFrame, seed: int) -> pd.DataFrame:
                     sa.loc[common, "ref_len"].to_numpy(),
                     seed=seed,
                 )
+                shared = sa.loc[common].reset_index()
+                clusters = _clusters(shared, channels)
+                cl = None
+                if clusters is not None:
+                    cl = paired_cluster_bootstrap(
+                        shared["errors"].to_numpy(),
+                        sb.loc[common, "errors"].to_numpy(),
+                        shared["ref_len"].to_numpy(),
+                        clusters,
+                        seed=seed,
+                    )
                 records.append(
                     {
                         "tier": tier,
@@ -524,6 +581,10 @@ def _paired(scores: pd.DataFrame, seed: int) -> pd.DataFrame:
                         "ci_high": res.ci_high,
                         "p_value": res.p_value,
                         "verdict": res.verdict,
+                        "ci_low_cluster": cl.ci_low if cl else np.nan,
+                        "ci_high_cluster": cl.ci_high if cl else np.nan,
+                        "p_value_cluster": cl.p_value if cl else np.nan,
+                        "n_channels": cl.n if cl else None,
                     }
                 )
     return pd.DataFrame(records, columns=PAIRED_COLUMNS)
@@ -566,6 +627,14 @@ def _stability(rows: pd.DataFrame, texts: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
+def clip_channels(rows: pd.DataFrame) -> dict[str, str]:
+    """video_id -> channel from rows.parquet (empty when the run has no channel column)."""
+    if "channel" not in rows.columns:
+        return {}
+    ch = rows[["video_id", "channel"]].dropna().drop_duplicates("video_id")
+    return {str(r.video_id): str(r.channel) for r in ch.itertuples(index=False) if str(r.channel)}
+
+
 def score_run(run_id: str, settings: Settings | None = None) -> Path:
     """Score a run and write the four parquet files. Returns results/<run_id>/."""
     s = settings or get_settings()
@@ -579,8 +648,9 @@ def score_run(run_id: str, settings: Settings | None = None) -> Path:
         raise ValueError(f"run {run_id} mixes languages ({', '.join(langs)}); a run must hold one language")
 
     scores = _score_rows(rows, texts, refs)
-    aggregates = _aggregates(scores, seed)
-    paired = _paired(scores, seed)
+    channels = clip_channels(rows)
+    aggregates = _aggregates(scores, seed, channels)
+    paired = _paired(scores, seed, channels)
     stability = _stability(rows, texts)
 
     out = s.results_dir / run_id

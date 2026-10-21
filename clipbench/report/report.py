@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import math
 import os
-import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -58,10 +57,39 @@ class RunData:
     status: rules.LanguageStatus | None = None
     # provider -> one line on clips it did not score (repeat 0), from rows.parquet; empty when all scored
     coverage: dict[str, str] = field(default_factory=dict)
+    # Every provider's rows, before the eligibility filter (the export annotates and publishes them all).
+    all_aggregates: pd.DataFrame | None = None
+    all_paired: pd.DataFrame | None = None
+    # Dataset funnel from the sample to the verified set (clipbench.data.check.funnel); None without data/.
+    funnel: dict[str, int] | None = None
+    # provider -> (ok clips, clips in the run) on repeat 0, all tiers; for the funnel while nothing is verified
+    run_counts: dict[str, tuple[int, int]] = field(default_factory=dict)
+    # (guessed, total) categories of the non-verified clips (guessed_categories)
+    category_guesses: tuple[int, int] = (0, 0)
 
     @property
     def published(self) -> bool:
         return bool(self.status and self.status.published)
+
+    @property
+    def eligible(self) -> set[str]:
+        return self.status.eligible if self.status else set()
+
+
+def apply_gate(data: RunData) -> RunData:
+    """What the report and site show (rules.py is the source of truth):
+    - paired: tests between eligible providers only, Benjamini-Hochberg adjusted over that family, always;
+    - aggregates and stability: eligible providers only when the language is published; every provider
+      (in provider order, ranking nothing) while it is a progress check."""
+    data.all_aggregates = data.aggregates if data.all_aggregates is None else data.all_aggregates
+    data.all_paired = data.paired if data.all_paired is None else data.all_paired
+    eligible = data.eligible
+    data.paired = findings.adjust_paired(rules.eligible_paired(data.all_paired, eligible))
+    if data.published:
+        data.aggregates = rules.eligible_aggregates(data.all_aggregates, eligible)
+        if data.stability is not None and not data.stability.empty and "provider" in data.stability:
+            data.stability = data.stability[data.stability["provider"].astype(str).isin(eligible)]
+    return data
 
 
 def _read(path: Path) -> pd.DataFrame | None:
@@ -84,16 +112,12 @@ def _primary_metric(language: str, scores: pd.DataFrame | None, aggregates: pd.D
     return str(aggregates["metric"].iloc[0])
 
 
-_PATH_RE = re.compile(r"(?:[A-Za-z]:)?(?:[/\\][^\s/\\:'\"]+){2,}[/\\]?")
-
-
-def _no_paths(reason: str) -> str:
-    """Skip and error reasons can name local files; the published line keeps only the reason."""
-    return _PATH_RE.sub("<path>", reason)
+_no_paths = rules.no_paths
 
 
 def coverage_notes(rows: pd.DataFrame | None) -> dict[str, str]:
-    """'<provider> scored 3 of 10 clips (7 skipped: no auto track)' for providers that missed clips."""
+    """'<provider> scored 28 of 150 clips, not run on 122 (account quota)' for providers that missed
+    clips. Quota and budget stops are "not run", never model failures (rules.gap_text)."""
     if rows is None or not {"provider", "status", "video_id"} <= set(rows.columns):
         return {}
     main = rows[rows["repeat"] == 0] if "repeat" in rows else rows
@@ -103,17 +127,72 @@ def coverage_notes(rows: pd.DataFrame | None) -> dict[str, str]:
         ok = int(grp.loc[grp["status"] == "ok", "video_id"].nunique())
         if ok == total:
             continue
-        parts = []
-        for status in ("skipped", "error"):
-            bad = grp[grp["status"] == status]
-            if bad.empty:
-                continue
-            reasons = bad["error"].dropna().astype(str) if "error" in bad else pd.Series(dtype=str)
-            top = reasons.map(_no_paths).value_counts().index[0][:60] if len(reasons) else ""
-            label = "budget" if top == "budget" else top
-            parts.append(f"{len(bad)} {status}" + (f": {label}" if label else ""))
-        out[str(pid)] = f"{pid} scored {ok} of {total} clips ({'; '.join(parts) or 'not scored'})"
+        gaps = rules.gap_text(grp) or "not scored"
+        out[str(pid)] = f"{pid} scored {ok} of {total} clips, {gaps}"
     return out
+
+
+def latency_mode(meta: dict) -> dict[str, Any]:
+    """How latency was measured in this run, from run_meta.latency_mode. Runs recorded before that field
+    existed ran every provider at the same time, so their latency is contended."""
+    lm = meta.get("latency_mode")
+    if isinstance(lm, dict) and lm.get("sequential_providers") is not None:
+        seq = bool(lm.get("sequential_providers"))
+        conc = lm.get("max_concurrency")
+        if seq:
+            text = "Latency was measured one provider at a time" + (
+                f" (up to {int(conc)} requests in flight for that provider)" if conc else ""
+            )
+        else:
+            text = "Latency was measured with every provider running at the same time, so it is contended"
+        short = (f"one provider at a time, up to {int(conc)} requests in flight" if conc else "one provider at a time") \
+            if seq else "contended (providers ran at the same time)"
+        return {"sequential_providers": seq, "max_concurrency": conc, "contended": not seq, "text": text + ".",
+                "short": short}  # fmt: skip
+    return {
+        "sequential_providers": None,
+        "max_concurrency": None,
+        "contended": True,
+        "text": "This run predates sequential latency measurement: providers ran at the same time, so latency "
+        "is contended and only a rough guide.",
+        "short": "contended (recorded before providers ran one at a time)",
+    }
+
+
+def _clip_sources(scores: pd.DataFrame | None) -> str:
+    """'YouTube Shorts', or 'YouTube Shorts and short windows cut from longer YouTube videos'."""
+    if scores is None or "video_id" not in scores or scores.empty:
+        return "YouTube Shorts"
+    windows = scores["video_id"].astype(str).str.contains("@").any()
+    shorts = (~scores["video_id"].astype(str).str.contains("@")).any()
+    if windows and shorts:
+        return "YouTube Shorts and short windows cut from longer YouTube videos"
+    if windows:
+        return "short windows cut from longer YouTube videos"
+    return "YouTube Shorts"
+
+
+def guessed_categories(settings: Settings, language: str, scores: pd.DataFrame | None) -> tuple[int, int]:
+    """(clips whose category is a manifest guess, clips with a category) among the run's non-verified
+    clips, from the sample's category_guess column. (0, 0) when unknown."""
+    if scores is None or scores.empty or "category" not in scores:
+        return (0, 0)
+    sub = scores[scores["tier"] != "verified"].drop_duplicates("video_id")
+    with_cat = sub[sub["category"].notna()]
+    if with_cat.empty:
+        return (0, 0)
+    try:
+        from clipbench.data.sample import load_sample
+
+        sample = load_sample(settings, language)
+    except Exception:  # noqa: BLE001 - no sample: say nothing rather than guess
+        return (0, len(with_cat))
+    if "category_guess" not in sample:
+        return (0, len(with_cat))
+    key = "clip_id" if "clip_id" in sample else "video_id"
+    guess = dict(zip(sample[key].astype(str), sample["category_guess"].fillna(False).astype(bool), strict=False))
+    n = sum(bool(guess.get(str(v), False)) for v in with_cat["video_id"])
+    return (n, len(with_cat))
 
 
 def load_run(run_id: str, settings: Settings | None = None) -> RunData:
@@ -129,12 +208,13 @@ def load_run(run_id: str, settings: Settings | None = None) -> RunData:
     errors_path = res / "errors.json"
     errors = json.loads(errors_path.read_text()) if errors_path.exists() else None
     scores = _read(res / "scores.parquet")
+    rows = rules._rows(settings, run_id)
     language = str(
         meta.get("language")
         or (scores["language"].iloc[0] if scores is not None and len(scores) else "")
         or settings.language
     ).split("-")[0]
-    return RunData(
+    data = RunData(
         run_id=run_id,
         language=language,
         status=rules.run_status(run_id, language, aggregates, scores, settings),
@@ -145,7 +225,38 @@ def load_run(run_id: str, settings: Settings | None = None) -> RunData:
         scores=scores,
         errors=errors,
         meta=meta,
-        coverage=coverage_notes(rules._rows(settings, run_id)),
+        coverage=coverage_notes(rows),
+        funnel=dataset_funnel(settings, language),
+        run_counts=run_counts(rows),
+        category_guesses=guessed_categories(settings, language, scores),
+    )
+    return apply_gate(data)
+
+
+def run_counts(rows: pd.DataFrame | None) -> dict[str, tuple[int, int]]:
+    if rows is None or not {"provider", "status", "video_id"} <= set(rows.columns):
+        return {}
+    main = rows[rows["repeat"] == 0] if "repeat" in rows else rows
+    return {
+        str(pid): (int(g.loc[g["status"] == "ok", "video_id"].nunique()), int(g["video_id"].nunique()))
+        for pid, g in main.groupby("provider", sort=True)
+    }
+
+
+def dataset_funnel(settings: Settings, language: str) -> dict[str, int] | None:
+    """Sampled, audio available, reviewed, skipped, unusable and verified clips of the language's sample.
+    Reads only file presence and verified-file metadata; None when there is no sample."""
+    from clipbench.data.check import funnel
+    from clipbench.data.info import read_json
+    from clipbench.data.sample import load_sample
+
+    try:
+        sample = load_sample(settings, language)
+    except (FileNotFoundError, OSError, ValueError):
+        return None
+    hashes = read_json(settings.audio_dir / "hashes.json", {})
+    return funnel(
+        sample, settings.audio_dir, settings.verified_dir, hashes if isinstance(hashes, dict) else {}
     )
 
 
@@ -166,6 +277,14 @@ def money(x: Any) -> str:
 
 def seconds(ms: Any) -> str:
     return "n/a" if _nan(ms) else f"{float(ms) / 1000:.2f} s"
+
+
+def _pct_short(x: Any) -> str:
+    """50% rather than 50.0% for round thresholds."""
+    if _nan(x):
+        return "n/a"
+    v = float(x) * 100
+    return f"{v:.0f}%" if abs(v - round(v)) < 1e-9 else f"{v:.1f}%"
 
 
 def num(x: Any, digits: int = 3) -> str:
@@ -212,10 +331,13 @@ def methodology_url() -> str | None:
 # ---------------------------------------------------------------- sections
 
 
-def headline_table(agg: pd.DataFrame, tier: str, metric: str, ranked: bool = True) -> Block:
+def headline_table(
+    agg: pd.DataFrame, tier: str, metric: str, ranked: bool = True, latency_note: str = ""
+) -> Block:
     rows = agg[(agg["tier"] == tier) & (agg["metric"] == metric) & (agg["slice_kind"] == "all")]
-    # Unpublished languages get no ranking: rows in provider order, not by error rate.
-    rows = rows.sort_values("error_rate", na_position="last") if ranked else rows.sort_values("provider")
+    # Unpublished languages get no ranking: rows in provider order, not by error rate. A published
+    # language's rows hold eligible providers only, in the one ranking order of rules.rank_order.
+    rows = rules.rank_order(rows) if ranked else rows.sort_values("provider")
     body = [
         [
             str(r["provider"]),
@@ -247,6 +369,9 @@ def headline_table(agg: pd.DataFrame, tier: str, metric: str, ranked: bool = Tru
             if ranked
             else " Not a ranking: this language is not published yet, rows are in provider order."
         )
+        + " Latency and RTF cover requests made in this run (cache hits and systems that make no request, such "
+        "as youtube-auto, are n/a)."
+        + (f" {latency_note}" if latency_note else "")
         + " "
         f"(source: aggregates.parquet, tier={tier}, metric={metric}, slice=all)",
         css="headline" if tier == "verified" else "unverified",
@@ -311,14 +436,34 @@ def tier_section(data: RunData, tier: str, out_dirs: list[Path]) -> list[Block]:
                 css="note",
             )
         )
-    blocks.append(headline_table(data.aggregates, tier, data.metric, ranked=data.published))
+    blocks.append(
+        headline_table(
+            data.aggregates, tier, data.metric, ranked=data.published, latency_note=latency_mode(data.meta)["text"]
+        )
+    )
     cap = caption_table(data.aggregates, tier, data.metric)
+    blocks.append(Block("h3", "Caption metrics"))
     if cap:
-        blocks.append(Block("h3", "Caption metrics"))
         blocks.append(cap)
+    else:
+        blocks.append(
+            Block(
+                "p",
+                "Not measured on this tier: timing, hallucination over non-speech, caption readiness and "
+                "code-switch scores need references with word timings, marked non-speech spans, punctuation "
+                f"or code-switch spans, and these references have none. Definitions: {CAPTION_METRICS_DOC}.",
+                css="note",
+            )
+        )
+    guessed, with_cat = data.category_guesses if tier != "verified" else (0, 0)
     for kind, title in (("category", "By content category"), ("audio_condition", "Music vs no music")):
         tbl = slice_table(data.aggregates, tier, data.metric, kind)
         if tbl:
+            if kind == "category" and guessed:
+                tbl.caption = (
+                    f"Categories of {guessed} of {with_cat} clips are guesses from the channel in the clip "
+                    "manifest, not a reviewer's label. " + tbl.caption
+                )
             blocks.append(Block("h3", title))
             blocks.append(tbl)
     blocks.extend(chart_blocks(data, tier, out_dirs))
@@ -342,6 +487,9 @@ def caption_table(agg: pd.DataFrame, tier: str, metric: str) -> Block | None:
     rows = rows.sort_values("provider")
     if rows.empty:
         return None
+    counts = ("timing_n_clips", "nonspeech_n_clips", "readiness_n_clips", "codeswitch_n_clips")
+    if not any(_count(r.get(k)) for _, r in rows.iterrows() for k in counts):
+        return None  # nothing measured for any provider: a table of n/a says nothing
     body = []
     for _, r in rows.iterrows():
         tn, nn, rn, cn = (_count(r.get(k)) for k in ("timing_n_clips", "nonspeech_n_clips", "readiness_n_clips",
@@ -450,7 +598,7 @@ def error_blocks(errors: dict | None) -> list[Block]:
     blocks.append(
         Block(
             "p",
-            f"{n_fail} {'clip' if n_fail == 1 else 'clips'} had every provider above {pct(thr)} error. Those usually mean a bad reference "
+            f"{n_fail} {'clip' if n_fail == 1 else 'clips'} had every provider above {_pct_short(thr)} error. Those usually mean a bad reference "
             "and are queued for re-review rather than counted as model failures. (source: errors.json)",
         )
     )
@@ -464,7 +612,7 @@ def limitations(data: RunData) -> Block:
     ]
     for tier, grp in overall.groupby("tier"):
         n[tier] = int(grp["n_clips"].max())
-    sizes = ", ".join(f"{t}: {c} clips" for t, c in sorted(n.items())) or "unknown"
+    sizes = ", ".join(f"{c} {t}-tier clips" for t, c in sorted(n.items())) or "unknown"
     lang = LANGUAGE_NAMES.get(data.language, data.language)
     pmeta = provider_meta(data.meta)
     if not pmeta:
@@ -478,9 +626,17 @@ def limitations(data: RunData) -> Block:
             }
             for r in models.itertuples()
         ]
-    model_list = "; ".join(
-        f"{p['id']} = {p['model_id']} (price checked {p['checked_on'] or 'n/a'})" for p in pmeta
-    )
+    pmeta = sorted(pmeta, key=lambda p: str(p.get("id")))
+    dates = {p.get("checked_on") for p in pmeta}
+    if len(dates) == 1 and None not in dates:
+        model_list = "; ".join(f"{p['id']} = {p['model_id']}" for p in pmeta) + f" (prices checked {dates.pop()})"
+    else:
+        model_list = "; ".join(
+            f"{p['id']} = {p['model_id']} (price checked {p['checked_on'] or 'not recorded'})" for p in pmeta
+        )
+    present = set(overall["provider"].astype(str)) | set(data.run_counts)
+    under_test = [name for pid, name in (("youtube-auto", "YouTube auto captions"), ("wayin", "Wayin"))
+                  if pid in present]  # fmt: skip
     return Block(
         "list",
         items=[
@@ -491,7 +647,24 @@ def limitations(data: RunData) -> Block:
             "reported separately and labelled unverified.",
             f"Providers change models without notice. Model ids in this run: {model_list or 'n/a'}.",
             "Prices are list prices as of each checked date above, not what any customer actually pays.",
-            "YouTube auto captions and Wayin are systems under test, never references.",
+            *(
+                [f"{' and '.join(under_test)} {'is' if under_test == ['Wayin'] else 'are'} "
+                 f"{'systems' if len(under_test) > 1 else 'a system'} under test, never a reference."]  # fmt: skip
+                if under_test
+                else []
+            ),
+            *(
+                [
+                    "Many creators start their captions from YouTube's own auto captions, so against the creator "
+                    "tier YouTube auto captions are favoured; only the verified tier, corrected by ear, is a fair "
+                    "reference."
+                ]
+                if "youtube-auto" in present and "creator" in n
+                else []
+            ),
+            latency_mode(data.meta)["text"]
+            + " Latency is wall-clock from one machine and network, so it shows relative speed, not what you will "
+            "see.",
             *(
                 [
                     "Not every provider has a result on every clip, so each provider's numbers cover only its "
@@ -511,7 +684,12 @@ def v2_findings(data: RunData) -> list[dict]:
     if not data.published:
         return []
     return findings.structured_findings(
-        data.aggregates, data.paired, data.metric, tier="verified", min_clips=rules.MIN_SLICE_CLIPS
+        data.aggregates,
+        data.paired,
+        data.metric,
+        tier="verified",
+        min_clips=rules.MIN_SLICE_CLIPS,
+        eligible=data.eligible,
     )
 
 
@@ -522,10 +700,67 @@ def source_text(source: dict) -> str:
 
 def unpublished_text(data: RunData) -> str:
     st = data.status or rules.LanguageStatus(lang=data.language)
+    div = st.verified_diversity or {}
+    problems = "; ".join(div.get("problems") or []) or "passes"
     return (
-        f"Not published yet: {st.verified_clips} of {rules.MIN_VERIFIED_CLIPS} verified clips and "
-        f"{st.providers_ok} of {rules.MIN_PROVIDERS_OK} providers with results on verified clips. Until both are met there is no "
-        "ranking and no findings; the numbers here are a progress check of the pipeline."
+        f"Not published yet: {st.verified_clips} of {rules.MIN_VERIFIED_CLIPS} verified clips, "
+        f"{st.providers_ok} of {rules.MIN_PROVIDERS_OK} eligible providers (each with results on at least "
+        f"{st.min_coverage:.0%} of the verified clips), and verified-set diversity: {problems}. Until all three "
+        "are met there is no ranking and no findings; the numbers here are a progress check of the pipeline."
+    )
+
+
+def excluded_text(data: RunData) -> str | None:
+    st = data.status
+    if st is None or not st.providers_excluded:
+        return None
+    # Without verified clips nobody has coverage; the funnel and the unpublished note already say so.
+    parts = [
+        f"{e['provider']}: {e['reason']}" for e in st.providers_excluded if e.get("coverage") is not None
+    ]
+    if not parts:
+        return None
+    return (
+        "Excluded from every ranking, comparison and finding because they cover too few verified clips: "
+        + "; ".join(parts)
+        + "."
+    )
+
+
+def funnel_block(data: RunData) -> Block:
+    """Sampled, audio available, reviewed, skipped, unusable, verified, then scored per provider."""
+    rows: list[list[str]] = []
+    f = data.funnel
+    labels = [("sampled", "sampled"), ("audio_available", "audio available"), ("reviewed", "reviewed"),
+              ("skipped", "skipped by the reviewer"), ("unusable", "marked unusable"), ("verified", "verified")]  # fmt: skip
+    for key, label in labels:
+        rows.append([label, "n/a" if f is None else str(f.get(key, 0))])
+    st = data.status
+    cover = st.provider_coverage if st else {}
+    no_verified = all(pc.n_eval == 0 for pc in cover.values())
+    if no_verified and data.run_counts:
+        # Nothing verified yet: coverage on the verified set is 0 of 0 for everyone, which says nothing.
+        # Show what each provider returned on the clips this run gave it instead.
+        for pid, (ok, total) in sorted(data.run_counts.items()):
+            rows.append([f"results: {pid}", f"{ok} of {total} clips in this run (not eligible: nothing verified)"])
+        tail = (
+            "No clip is verified yet, so no provider can be eligible; the per provider lines count ok results on "
+            "every clip of this run (unverified references included)."
+        )
+    else:
+        for pid, pc in sorted(cover.items()):
+            cov = "n/a" if pc.coverage is None else f"{pc.coverage:.0%}"
+            state = "eligible" if pc.eligible else "excluded"
+            rows.append([f"scored: {pid}", f"{pc.n_scored} of {pc.n_eval} verified ({cov}, {state})"])
+        tail = "Per provider lines count ok results on the verified evaluation clips of this run."
+    need = f"A provider needs {st.min_coverage if st else 0.9:.0%} of the verified clips to be eligible."
+    na = " n/a: no local sample to count from." if f is None else ""
+    return Block(
+        "table",
+        headers=["stage", "clips"],
+        rows=rows,
+        caption=f"Dataset funnel for this language. {tail} {need}{na} "
+        "(source: data/sample.parquet, verified files, rows.parquet)",
     )
 
 
@@ -533,10 +768,12 @@ def status_block(data: RunData) -> Block:
     st = data.status or rules.LanguageStatus(lang=data.language)
     lang = LANGUAGE_NAMES.get(data.language, data.language)
     if data.published:
+        div = st.verified_diversity or {}
         return Block(
             "p",
-            f"{lang} is published: {st.verified_clips} verified clips, {st.providers_ok} providers, "
-            f"{st.channels} channels, {len(st.categories)} categories.",
+            f"{lang} is published: {st.verified_clips} verified clips, {st.providers_ok} eligible providers, "
+            f"{div.get('channels', 0)} channels and {len(div.get('categories') or [])} categories among the "
+            "verified clips.",
             css="note",
         )
     return Block("p", unpublished_text(data), css="note")
@@ -557,6 +794,7 @@ def meta_block(data: RunData) -> Block:
             f"date: {date}",
             f"sample seed: {seed}; stability seed: {m.get('stability_seed', 'n/a')}",
             f"language: {data.language}; primary metric: {data.metric}",
+            f"latency: {latency_mode(m)['short']}",
         ],
     )
 
@@ -569,12 +807,18 @@ def build_blocks(data: RunData, out_dirs: list[Path]) -> list[Block]:
     blocks.append(
         Block(
             "p",
-            f"Speech-to-text models on real {lang} short-form video (YouTube Shorts). Headline tier: {head}. "
+            f"Speech-to-text models on real {lang} short-form video ({_clip_sources(data.scores)}). "
+            f"Headline tier: {head}. "
             f"Primary metric: {data.metric}, lower is better.",
             css="lede",
         )
     )
     blocks.append(status_block(data))
+    excl = excluded_text(data)
+    if excl:
+        blocks.append(Block("p", excl, css="note"))
+    blocks.append(Block("h3", "Dataset funnel"))
+    blocks.append(funnel_block(data))
     for tier in tiers:
         blocks.extend(tier_section(data, tier, out_dirs))
 
@@ -591,7 +835,9 @@ def build_blocks(data: RunData, out_dirs: list[Path]) -> list[Block]:
             )
         )
         for tier in tiers:
-            lines = findings.draft_findings(data.aggregates, data.paired, data.stability, tier, data.metric)
+            lines = findings.draft_findings(
+                data.aggregates, data.paired, data.stability, tier, data.metric, eligible=data.eligible
+            )
             if lines:
                 blocks.append(Block("h3", TIER_TITLES.get(tier, tier)))
                 blocks.append(Block("list", items=lines, css="findings"))

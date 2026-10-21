@@ -3,6 +3,11 @@
 Every sentence starts with "DRAFT: verify." and ends with the exact table it came from, so a human
 checks each one before publishing. Only a paired test verdict (paired.parquet a_better / b_better)
 may produce the word "beats"; anything else is phrased as "no detectable difference".
+
+Callers pass `eligible` (clipbench.report.rules): providers below the coverage minimum are dropped from
+the aggregates and the paired tests before anything is ranked, corrected or written, so an excluded
+provider never appears in a finding. A "beats" whose channel-clustered interval crosses zero is flagged
+cluster_sensitive and its sentence says so.
 """
 
 from __future__ import annotations
@@ -10,6 +15,8 @@ from __future__ import annotations
 import math
 
 import pandas as pd
+
+from clipbench.report import rules
 
 PREFIX = "DRAFT: verify."
 
@@ -62,6 +69,45 @@ def adjust_paired(paired: pd.DataFrame | None, q: float = FDR_Q) -> pd.DataFrame
     return out
 
 
+def restrict(
+    aggregates: pd.DataFrame,
+    paired: pd.DataFrame | None,
+    stability: pd.DataFrame | None,
+    eligible: set[str] | None,
+) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None]:
+    """Eligible providers only, then Benjamini-Hochberg over the remaining paired tests. eligible=None keeps
+    everything (direct calls in tests and tools)."""
+    if eligible is None:
+        return aggregates, adjust_paired(paired), stability
+    agg = rules.eligible_aggregates(aggregates, eligible)
+    pr = adjust_paired(rules.eligible_paired(paired, eligible))
+    if stability is not None and not stability.empty and "provider" in stability:
+        stability = stability[stability["provider"].astype(str).isin(eligible)]
+    return agg, pr, stability
+
+
+def cluster_sensitive(row) -> tuple[bool, float | None, float | None]:
+    """(sensitive, low, high): the channel-clustered interval of a paired row crosses zero. Unknown (no
+    channel information) counts as not sensitive, with no bounds."""
+    if row is None:
+        return False, None, None
+    get = row.get if hasattr(row, "get") else (lambda k, d=None: getattr(row, k, d))
+    lo, hi = _f(get("ci_low_cluster")), _f(get("ci_high_cluster"))
+    if lo is None or hi is None:
+        return False, None, None
+    return bool(lo <= 0 <= hi), lo, hi
+
+
+def _cluster_note(row_verdict: str, lo: float, hi: float) -> str:
+    """Sentence for a cluster sensitive "beats". lo and hi bound rate_a - rate_b of the stored row; they are
+    turned into the winner's advantage in points (positive = fewer errors for the winner)."""
+    adv_lo, adv_hi = (-hi, -lo) if row_verdict == "a_better" else (lo, hi)
+    return (
+        f" Sensitive to channel clustering: resampling whole channels puts the advantage between "
+        f"{adv_lo * 100:.1f} and {adv_hi * 100:.1f} points, an interval that includes zero."
+    )
+
+
 def paired_verdict(
     paired: pd.DataFrame | None, tier: str, metric: str, slice_kind: str, slice_: str, a: str, b: str
 ) -> tuple[str | None, pd.Series | None]:
@@ -97,10 +143,12 @@ def compare_sentence(paired, tier, metric, slice_kind, slice_, a, b, where: str)
         if _ok(diff):
             stats = f" (paired difference {abs(float(diff)) * 100:.1f} points"
             stats += f", p={float(p):.3g})" if _ok(p) else ")"
+    sens, lo, hi = cluster_sensitive(row) if verdict in ("a_better", "b_better") else (False, None, None)
+    note = "." + _cluster_note(str(row.get("verdict")), lo, hi).rstrip(".") if sens else ""
     if verdict == "a_better":
-        return f"{PREFIX} {a} beats {b} on {metric} {where}{stats} {src}."
+        return f"{PREFIX} {a} beats {b} on {metric} {where}{stats}{note} {src}."
     if verdict == "b_better":
-        return f"{PREFIX} {b} beats {a} on {metric} {where}{stats} {src}."
+        return f"{PREFIX} {b} beats {a} on {metric} {where}{stats}{note} {src}."
     return f"{PREFIX} No detectable difference between {a} and {b} on {metric} {where}{stats} {src}."
 
 
@@ -110,10 +158,12 @@ def draft_findings(
     stability: pd.DataFrame | None,
     tier: str,
     metric: str,
+    eligible: set[str] | None = None,
 ) -> list[str]:
     out: list[str] = []
+    aggregates, paired, stability = restrict(aggregates, paired, stability, eligible)
     agg = aggregates[(aggregates["tier"] == tier) & (aggregates["metric"] == metric)]
-    overall = agg[agg["slice_kind"] == "all"].dropna(subset=["error_rate"]).sort_values("error_rate")
+    overall = rules.rank_order(agg[agg["slice_kind"] == "all"])
     if overall.empty:
         return out
     src_all = _src("aggregates.parquet", tier=tier, metric=metric, slice="all")
@@ -136,7 +186,7 @@ def draft_findings(
     tags = agg[agg["slice_kind"] == "tag"]
     small_slices = []
     for slice_, grp in tags.groupby("slice", sort=True):
-        usable = grp[~grp["too_small"].astype(bool)].dropna(subset=["error_rate"]).sort_values("error_rate")
+        usable = rules.rank_order(grp[~grp["too_small"].astype(bool)])
         if usable.empty:
             small_slices.append(str(slice_))
             continue
@@ -302,6 +352,7 @@ def _finding(
     filt: dict,
     numbers: dict,
     provider: str | None = None,
+    sensitive: bool = False,
 ) -> dict:
     """One finding in the web contract shape (docs/V2.md, findings/<lang>.json). `kind` and `tier` are kept for
     the report and OG images; the exporter writes only the contract keys."""
@@ -319,6 +370,7 @@ def _finding(
         "text": text,
         "source": {"table": table.removesuffix(".parquet"), "filters": filters},
         "numbers": {k: v for k, v in numbers.items() if v is not None},
+        "cluster_sensitive": bool(sensitive),
     }
 
 
@@ -328,17 +380,18 @@ def structured_findings(
     metric: str,
     tier: str = "verified",
     min_clips: int = 15,
+    eligible: set[str] | None = None,
 ) -> list[dict]:
-    """Findings for one language's published run. The caller decides publication; this only applies the
-    paired-test and too-small rules."""
+    """Findings for one language's published run. The caller decides publication; this applies the
+    eligible-provider, paired-test and too-small rules."""
     out: list[dict] = []
+    aggregates, paired, _ = restrict(aggregates, paired, None, eligible)
     agg = aggregates[(aggregates["tier"] == tier) & (aggregates["metric"] == metric)]
     if agg.empty:
         return out
 
     # 1. Model comparisons that survive the paired test, overall and per category / audio condition.
     if paired is not None and not paired.empty:
-        paired = adjust_paired(paired)
         p = paired[(paired["tier"] == tier) & (paired["metric"] == metric)]
         p = p[p["verdict"].isin(["a_better", "b_better"]) & (p["n_clips"] >= min_clips)]
         p = p[p["slice_kind"].isin(["all", "category", "audio_condition", "tag"])]
@@ -359,6 +412,9 @@ def structured_findings(
                 f"{win} beats {lose} on {metric} on {where}: {diff * 100:.1f} points fewer errors "
                 f"(95% CI {lo * 100:.1f} to {hi * 100:.1f}) on the {int(r.n_clips)} clips both scored ({p_txt})."
             )
+            sens, c_lo, c_hi = cluster_sensitive(r)
+            if sens:
+                text += _cluster_note(str(r.verdict), c_lo, c_hi)
             slug = _slug(
                 metric,
                 win,
@@ -391,7 +447,11 @@ def structured_findings(
                         "ci_high": _f(r.ci_high),
                         "p_value": _f(r.p_value),
                         "n_clips": int(r.n_clips),
+                        "ci_low_cluster": _f(getattr(r, "ci_low_cluster", None)),
+                        "ci_high_cluster": _f(getattr(r, "ci_high_cluster", None)),
+                        "p_value_cluster": _f(getattr(r, "p_value_cluster", None)),
                     },
+                    sensitive=sens,
                 )  # fmt: skip
             )
 

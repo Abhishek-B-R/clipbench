@@ -7,3 +7,6 @@ sample_seed = 7
 # (env CLIPBENCH_CANARY_CADENCE_DAYS). The scheduled workflow checks daily and runs a language when it is due.
 canary_budget_usd_per_month = 2.0
 canary_cadence_days = 7
+# Publication gate: a provider counts toward a language's ranking only with ok results on at least this share of
+# its verified evaluation clips (env CLIPBENCH_MIN_PROVIDER_COVERAGE). See METHODOLOGY.md, "When a language is published".
+min_provider_coverage = 0.9

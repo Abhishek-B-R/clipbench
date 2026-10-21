@@ -8,13 +8,13 @@ import pytest
 from typer.testing import CliRunner
 
 from clipbench.report import export, publish
-from tests.test_report import PROVIDERS, _write_run, published_rules  # noqa: F401 - fixture
+from tests.test_report import PASSING_DIVERSITY, PROVIDERS, _write_run, published_rules  # noqa: F401 - fixture
 
 RUN_KEYS = {
     "run_id", "created_at", "language", "git_commit", "sample_seed", "metrics", "providers", "aggregates",
     "paired", "stability", "findings", "errors", "clips", "per_clip", "limitations", "languages",
 }  # fmt: skip
-RUN_KEYS |= set(__import__("clipbench.report.export", fromlist=["V3_KEYS"]).V3_KEYS) | {"run_meta"}
+RUN_KEYS |= set(__import__("clipbench.report.export", fromlist=["V3_KEYS"]).V3_KEYS) | {"run_meta", "ranking"}
 POLICY_KEYS = {"retention_days", "trains_by_default", "opt_out", "opt_out_note", "policy_url"}
 
 
@@ -54,6 +54,8 @@ def test_export_writes_contract(web_settings, monkeypatch):
     from clipbench.report import rules
 
     monkeypatch.setattr(rules, "MIN_VERIFIED_CLIPS", 4)  # scores below hold 4 verified clip ids
+    # Each provider has ok rows on v0..v2 but the window clip only has an alpha score: 3 of 4 = 75%.
+    monkeypatch.setenv("CLIPBENCH_MIN_PROVIDER_COVERAGE", "0.7")
     _write_run(web_settings)
     _write_scores(web_settings)
     run_path, index_path = export.export_run("latest", web_settings)
@@ -111,12 +113,19 @@ def test_export_writes_contract(web_settings, monkeypatch):
     assert set(run["per_clip"][0]) == {
         "provider", "video_id", "tier", "metric", "error_rate", "hallucination_rate", "latency_ms",
     }  # fmt: skip
-    assert any("YouTube auto captions and Wayin" in line for line in run["limitations"])
+    assert not any("Wayin" in line for line in run["limitations"])  # not in this run
+    assert any("predates sequential latency" in line for line in run["limitations"])
 
     assert run["languages"] == [
         {"lang": "ja", "verified_clips": 4, "providers_ok": 3, "published": True, "channels": 3,
-         "categories": ["talking_head"], "largest_channel_share": round(1 / 3, 4)}
+         "categories": ["talking_head"], "largest_channel_share": round(1 / 3, 4),
+         "providers_eligible": ["alpha", "beta", "gamma"], "providers_excluded": [], "min_coverage": 0.7,
+         "verified_diversity": PASSING_DIVERSITY,
+         "gate": {"verified_clips_ok": True, "providers_ok": True, "diversity_ok": True}}
     ]  # fmt: skip
+    assert all(a["eligible"] is True and a["coverage"] == 0.75 for a in run["aggregates"])
+    assert [r["provider"] for r in run["ranking"]["verified"]["cer"]] == ["alpha", "beta", "gamma"]
+    assert [r["rank"] for r in run["ranking"]["verified"]["cer"]] == [1, 2, 3]
 
     index = json.loads(index_path.read_text())
     assert index["latest"] == "r1" and "demo" not in index
@@ -213,7 +222,7 @@ def test_findings_files_and_og_images(web_settings):
     assert doc["published"] is True and doc["run_id"] == "r1" and doc["created_at"] == "2026-10-19T10:00:00Z"
     assert doc["findings"]
     for f in doc["findings"]:
-        assert set(f) == {"id", "slug", "text", "status", "source", "numbers"}
+        assert set(f) == {"id", "slug", "text", "status", "source", "numbers", "cluster_sensitive"}
         assert f["status"] == "draft" and not f["text"].startswith("DRAFT")
         assert re.fullmatch(r"[a-z0-9-]+", f["slug"])
         assert set(f["source"]) == {"table", "filters"} and f["source"]["table"] in {"aggregates", "paired"}
@@ -286,3 +295,35 @@ def test_v3_hooks_merge_and_tolerate_failures(web_settings, monkeypatch):
     out = export.v3_sections("r1", web_settings)
     assert out["compute"] == {"rows": [1]}
     assert out["sweeps"] is None and set(out) == set(export.V3_KEYS)
+
+
+def test_export_carries_latency_mode_and_hides_unknown_audio(web_settings):
+    """run_meta.latency_mode reaches the web export (sequential runs say so, older runs are marked
+    contended), and an unreviewed clip's 'unknown' audio condition is null, never 'no_music'."""
+    _write_run(web_settings, "r1")
+    _write_scores(web_settings)
+    scores_path = web_settings.results_dir / "r1" / "scores.parquet"
+    sc = pd.read_parquet(scores_path)
+    sc.loc[sc["video_id"] == "v1", "audio_condition"] = "unknown"
+    sc["cached"] = sc["video_id"] == "v2"
+    sc.to_parquet(scores_path)
+    export.export_run("r1", web_settings)
+    run = json.loads((export.data_dir(web_settings) / "runs" / "r1.json").read_text())
+    assert run["run_meta"]["latency_mode"]["contended"] is True
+    assert run["run_meta"]["latency_mode"]["sequential_providers"] is None
+    clips = {c["video_id"]: c for c in run["clips"]}
+    assert clips["v1"].get("audio_condition") is None
+    assert clips["v0"]["audio_condition"] == "music"
+    per = [c for c in run["per_clip"] if c["video_id"] == "v2"]
+    assert per and all(c["latency_ms"] is None for c in per)  # cache hit: an earlier run's latency
+    assert any(c["latency_ms"] for c in run["per_clip"] if c["video_id"] == "v0")
+
+    meta_path = web_settings.runs_dir / "r1" / "run_meta.json"
+    meta = json.loads(meta_path.read_text())
+    meta["latency_mode"] = {"sequential_providers": True, "max_concurrency": 4, "note": "one provider at a time"}
+    meta_path.write_text(json.dumps(meta))
+    export.export_run("r1", web_settings)
+    run = json.loads((export.data_dir(web_settings) / "runs" / "r1.json").read_text())
+    lm = run["run_meta"]["latency_mode"]
+    assert lm["sequential_providers"] is True and lm["contended"] is False and "one provider at a time" in lm["text"]
+    assert any("one provider at a time" in line for line in run["limitations"])

@@ -66,11 +66,17 @@ def _v2(pid, n):
     }  # fmt: skip
 
 
+PASSING_DIVERSITY = {"channels": 30, "largest_channel_share": 0.05, "categories": ["a", "b", "c", "d", "e", "f"],
+                     "passes": True, "problems": []}  # fmt: skip
+
+
 @pytest.fixture
 def published_rules(monkeypatch):
-    """The synthetic run has 60 verified clips and 3 providers: lower the bar so it counts as published."""
+    """The synthetic run has 60 verified clips and 3 providers and no verified files: lower the bar and stub
+    the verified-set diversity check (tested on its own in tests/test_gate.py) so it counts as published."""
     monkeypatch.setattr(rules, "MIN_VERIFIED_CLIPS", 50)
     monkeypatch.setattr(rules, "MIN_PROVIDERS_OK", 3)
+    monkeypatch.setattr(rules, "verified_diversity", lambda ids, channels, settings: dict(PASSING_DIVERSITY))
 
 
 def _paired():
@@ -141,7 +147,8 @@ def test_report_renders(tmp_settings, published_rules):
         assert pid in md and model in md
     assert "too small to conclude" in md
     assert "abc1234" in md and "2026-10-19" in md
-    assert "YouTube auto captions and Wayin are systems under test" in md
+    # neither youtube-auto nor wayin is in this run: the report must not name systems it did not test
+    assert "Wayin" not in md and "systems under test" not in md
 
     # Findings: every line drafted, sourced, and "beats" only where the paired test says so.
     lines = [line[2:] for line in md.splitlines() if line.startswith("- DRAFT")]
@@ -190,7 +197,8 @@ def test_unpublished_report_has_no_ranking_or_findings(tmp_settings):
     _write_run(tmp_settings)  # 60 verified clips, 3 providers: below the real bar
     md_path, html_path = build_report("r1", tmp_settings)
     md, page = md_path.read_text(), html_path.read_text()
-    assert "Not published yet: 60 of 100 verified clips and 3 of 6 providers" in md
+    assert "Not published yet: 60 of 100 verified clips, 3 of 6 eligible providers" in md
+    assert "verified-set diversity: no verified clips" in md  # no rows.parquet, no verified files
     assert not [line for line in md.splitlines() if line.startswith("- DRAFT")]
     assert "beats" not in md.replace("one provider beats another", "")
     # Headline rows in provider order, not by error rate (gamma is worst but still listed last by name).
@@ -273,7 +281,8 @@ def test_rules_language_status(tmp_settings):
     langs = rules.all_languages({"ja": st})
     assert [entry["lang"] for entry in langs] == ["en", "ja", "ko", "es", "hi"]
     assert langs[0] == rules.LanguageStatus(lang="en").as_dict()
-    assert rules.is_published(100, 6) and not rules.is_published(99, 6) and not rules.is_published(100, 5)
+    assert rules.is_published(100, 6, True) and not rules.is_published(99, 6, True)
+    assert not rules.is_published(100, 5, True) and not rules.is_published(100, 6, False)
 
 
 def test_limitations_name_providers_skipped_on_clips(tmp_settings):
@@ -291,7 +300,8 @@ def test_limitations_name_providers_skipped_on_clips(tmp_settings):
     pd.DataFrame(rows).to_parquet(tmp_settings.runs_dir / "r1" / "rows.parquet")
     md_path, _ = build_report("r1", tmp_settings)
     md = md_path.read_text()
-    assert "youtube-auto scored 0 of 3 clips (3 skipped: no auto track)" in md
+    assert "youtube-auto scored 0 of 3 clips, skipped on 3 (no auto track)" in md
+    assert "YouTube auto captions are a system under test, never a reference." in md
     assert "alpha scored" not in md
 
 
@@ -343,3 +353,98 @@ def test_comparison_finding_quotes_only_common_clip_numbers():
     f = [x for x in structured_findings(agg, paired, "cer") if "beats" in x["text"]][0]
     assert "8.0 points fewer errors" in f["text"] and "120 clips both scored" in f["text"]
     assert "10.0%" not in f["text"] and "30.0%" not in f["text"]  # slice-wide rates cover different clips
+
+
+def test_quota_and_budget_stops_read_as_not_run():
+    """An account out of quota is not a model failure: the limitation line must say 'not run (account
+    quota)', distinguish other skips and errors, and never print an error message body."""
+    from clipbench.report.report import coverage_notes
+
+    rows = pd.DataFrame(
+        [{"provider": "cf", "video_id": f"v{i}", "repeat": 0, "status": "ok", "error": None} for i in range(2)]
+        + [{"provider": "cf", "video_id": f"q{i}", "repeat": 0, "status": "skipped", "error": "quota"} for i in range(3)]
+        + [{"provider": "cf", "video_id": "b0", "repeat": 0, "status": "skipped", "error": "budget"}]
+        + [{"provider": "cf", "video_id": "e0", "repeat": 0, "status": "error",
+            "error": "HTTPStatusError: 500 body says /Users/me/secret/path.wav"}]
+        + [{"provider": "cf", "video_id": "q0", "repeat": 1, "status": "skipped", "error": "quota"}]
+    )  # fmt: skip
+    note = coverage_notes(rows)["cf"]
+    assert note == ("cf scored 2 of 7 clips, not run on 3 (account quota), not run on 1 (budget cap reached), "
+                    "failed on 1 (HTTPStatusError)")  # fmt: skip
+    assert "/Users" not in note and "body says" not in note
+
+
+def test_excluded_reason_names_quota_without_verified_clips():
+    from clipbench.report import rules
+
+    rows = pd.DataFrame(
+        [{"provider": "g", "video_id": "v0", "repeat": 0, "status": "ok", "error": None, "tier": "creator"}]
+        + [{"provider": "g", "video_id": f"v{i}", "repeat": 0, "status": "skipped", "error": "quota",
+            "tier": "creator"} for i in range(1, 5)]
+    )  # fmt: skip
+    cov = rules.provider_coverage(rows, set(), pd.DataFrame(), 0.9)
+    assert cov["g"].reason == "no verified clips in this run; on the clips it was given: not run on 4 (account quota)"
+
+
+def test_creator_only_report_reads_correctly(tmp_settings):
+    """A creator-tier-only run (nothing verified): the funnel shows each provider's results on the run's
+    clips instead of '0 of 0 (n/a)', the empty caption-metrics table becomes one sentence, and the
+    lede names windows cut from longer videos."""
+    _write_run(tmp_settings)
+    res = tmp_settings.results_dir / "r1"
+    agg = pd.read_parquet(res / "aggregates.parquet")
+    agg = agg[agg["tier"] == "creator"]
+    for col in ("timing_n_clips", "nonspeech_n_clips", "readiness_n_clips", "codeswitch_n_clips"):
+        agg[col] = 0
+    agg.to_parquet(res / "aggregates.parquet")
+    rows = pd.DataFrame(
+        [{"provider": "alpha", "video_id": f"v{i}@1000-30000", "repeat": 0, "status": "ok", "error": None,
+          "tier": "creator"} for i in range(3)]
+        + [{"provider": "beta", "video_id": f"v{i}@1000-30000", "repeat": 0,
+            "status": "ok" if i == 0 else "skipped", "error": None if i == 0 else "quota", "tier": "creator"}
+           for i in range(3)]
+    )  # fmt: skip
+    rows.to_parquet(tmp_settings.runs_dir / "r1" / "rows.parquet")
+    md = build_report("r1", tmp_settings)[0].read_text()
+    assert "0 of 0" not in md and "(n/a, excluded)" not in md
+    assert "| results: alpha | 3 of 3 clips in this run (not eligible: nothing verified) |" in md
+    assert "| results: beta | 1 of 3 clips in this run (not eligible: nothing verified) |" in md
+    assert "beta scored 1 of 3 clips, not run on 2 (account quota)" in md
+    assert "Not measured on this tier" in md and "| timing median / p90 |" not in md
+
+
+def test_site_creator_only_notes(tmp_settings):
+    """The static site mirrors the report: no caption table of n/a but one sentence, round thresholds
+    without a decimal, and a labelled latency line in the run block."""
+    _write_run(tmp_settings)
+    res = tmp_settings.results_dir / "r1"
+    agg = pd.read_parquet(res / "aggregates.parquet")
+    agg = agg[agg["tier"] == "creator"]
+    for col in ("timing_n_clips", "nonspeech_n_clips", "readiness_n_clips", "codeswitch_n_clips"):
+        agg[col] = 0
+    agg.to_parquet(res / "aggregates.parquet")
+    (res / "errors.json").write_text(json.dumps({"providers": {}, "examples": [], "all_fail": ["a", "b"],
+                                                  "all_fail_threshold": 0.5}))  # fmt: skip
+    md, html_path = build_report("r1", tmp_settings)
+    page = html_path.read_text()
+    assert "Not measured in this run" in page
+    assert "above 50% error" in page and "50.0%" not in page
+    assert "<dt>latency</dt>" in page and "contended" in page
+    assert "above 50% error" in md.read_text()
+
+
+def test_lede_names_windows_and_category_guesses_are_flagged(tmp_settings):
+    """The first real run was 127 windows cut from long videos and 23 Shorts, with every category guessed
+    from the channel: the report must not call it 'YouTube Shorts' or present guesses as labels."""
+    from clipbench.report.report import _clip_sources, guessed_categories
+
+    s = pd.DataFrame({"video_id": ["a", "b@1000-20000"]})
+    assert _clip_sources(s) == "YouTube Shorts and short windows cut from longer YouTube videos"
+    assert _clip_sources(pd.DataFrame({"video_id": ["a"]})) == "YouTube Shorts"
+    tmp_settings.data_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame({"video_id": ["a", "b@1000-20000"], "clip_id": ["a", "b@1000-20000"], "language": ["ja", "ja"],
+                  "sample_rank": [0, 1], "category": ["gaming", "vlog_music"],
+                  "category_guess": [True, False]}).to_parquet(tmp_settings.sample_path)  # fmt: skip
+    scores = pd.DataFrame({"video_id": ["a", "b@1000-20000"], "tier": ["creator", "creator"],
+                           "category": ["gaming", "vlog_music"]})  # fmt: skip
+    assert guessed_categories(tmp_settings, "ja", scores) == (1, 2)

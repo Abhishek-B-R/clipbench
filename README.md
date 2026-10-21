@@ -1,5 +1,7 @@
 # clipbench
 
+**Live site:** https://clipbench.abhishekbr.workers.dev
+
 **Which speech-to-text should your video app use?** clipbench is the independent benchmark for captions
 on real short-form video: accuracy, word timing, hallucination over music, and cost, in five languages.
 

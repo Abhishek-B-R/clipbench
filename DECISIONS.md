@@ -152,3 +152,9 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - Channel-clustered bootstrap is reported alongside, never instead: in a simulation with channel-level provider effects the clip bootstrap called 11.7% of null datasets a win and the cluster bootstrap 3.7%, but with few channels the cluster interval is unstable. A "beats" whose clustered interval crosses zero is flagged cluster_sensitive and says so.
 - The estimand is stated as the corpus error rate (sum of errors over sum of reference tokens); the mean of per clip error rates is reported as a secondary number.
 - `clipbench data check --verified` (a small edit to clipbench/data/cli.py) runs the same verified-set check on the local sample.
+
+## Deployment
+
+- The site runs on a dedicated Cloudflare account (separate from the owner's personal domain) at https://clipbench.abhishekbr.workers.dev: one Worker serving the built SPA plus /api/v1, a D1 database, and the rate limiting bindings. No other backend is needed.
+- No custom domain yet: a Worker can only claim a domain in its own account, and the owner's domain lives in another account. Adding one later is a `routes` entry in web/wrangler.jsonc plus SITE_URL at build time.
+- Accounts stay off in production (ACCOUNTS=false, VITE_ACCOUNTS unset), so no auth secrets exist on the Worker.

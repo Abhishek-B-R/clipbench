@@ -8,6 +8,10 @@
   // Better Auth needs AsyncLocalStorage.
   "compatibility_flags": ["nodejs_compat"],
 
+  // Served on the account's workers.dev address. To use a custom domain later, add
+  // "routes": [{ "pattern": "<host>", "custom_domain": true }] (the zone must be in this same account).
+  "workers_dev": true,
+
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
@@ -20,7 +24,7 @@
       "binding": "DB",
       "database_name": "clipbench",
       // `wrangler d1 create clipbench` prints the real id; paste it here before the first deploy.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "8b4c2cf0-4869-417e-8fd9-583b1fd20593",
       "migrations_dir": "migrations"
     }
   ],

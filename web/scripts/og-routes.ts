@@ -18,7 +18,7 @@
  *
  * Every number in a description comes from dist/data (index.json, findings/<lang>.json). Images come from
  * dist/og (written by the exporter); a route without its own image falls back to og/home.png, or none.
- * SITE_URL sets the absolute origin (default https://clipbench.example, a placeholder until a domain exists).
+ * SITE_URL sets the absolute origin (default https://clipbench.abhishekbr.workers.dev, the production domain).
  *
  * Run: bun run scripts/og-routes.ts   (part of `bun run build`)
  */
@@ -29,7 +29,7 @@ import { LANGUAGE_NAME, languageProgress } from "../src/lib/analysis";
 import type { FindingsFile, Run, RunIndex } from "../src/lib/types";
 
 const DIST = process.env.OG_DIST ?? join(import.meta.dir, "..", "dist");
-const SITE = (process.env.SITE_URL ?? "https://clipbench.example").replace(/\/$/, "");
+const SITE = (process.env.SITE_URL ?? "https://clipbench.abhishekbr.workers.dev").replace(/\/$/, "");
 const LINE = "The independent benchmark for captions on real short-form video: accuracy, word timing, hallucination over music, and cost.";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -164,5 +164,4 @@ writeFileSync(
     .join("\n")}\n</urlset>\n`,
 );
 writeFileSync(join(DIST, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${SITE}/sitemap.xml\n`);
-if (!process.env.SITE_URL && !process.env.OG_DIST) console.warn("og-routes: SITE_URL is not set; canonical, og:image and sitemap URLs use the placeholder origin.");
 console.log(`og-routes: wrote ${metas.length} routes, sitemap.xml and robots.txt for ${SITE}`);

@@ -4,6 +4,15 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# No job needs a secret or a network call to a paid provider. Every job runs on every push and pull request.
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -19,3 +28,134 @@ jobs:
       - name: Test
         # No API keys: every paid provider is mocked or skipped.
         run: uv run pytest -q
+
+  web:
+    # The React site (web/): typecheck, unit tests, production build, then the checks on the build output.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      # Vite 8 and vitest run on Node (bun run starts their node shebang), so pin a Node that Vite 8 accepts.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # Matches the bun that wrote web/bun.lock (lockfileVersion 1).
+          bun-version: "1.3.2"
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Test
+        run: bun run test
+      - name: Build
+        # No web/public/data in a checkout (it is gitignored, written by `clipbench export`). The build still
+        # works: og-routes writes every static route with the "in progress" copy and no provider pages.
+        env:
+          SITE_URL: https://clipbench.example
+        run: bun run build
+      - name: Check the build output
+        # copy-numbers.test.ts skips its "production build" checks when dist/ is missing; run them now.
+        run: bunx vitest run test/copy-numbers.test.ts
+
+  worker:
+    # The Cloudflare Worker (web/worker/): its own lockfile, run with npm. No Cloudflare credentials.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web/worker
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # wrangler 4.151 needs Node >= 22.
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/worker/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Generate runtime types
+        # worker-configuration.d.ts is gitignored and tsconfig.json includes it. `wrangler types` reads
+        # web/wrangler.jsonc and runs workerd locally; it needs no login.
+        run: npm run types
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Test
+        # Miniflare with test-only bindings (vitest.config.ts) and fixture assets, not the real build.
+        run: npx vitest run
+      - name: Validate the deploy config (dry run, no upload)
+        # wrangler.jsonc points assets.directory at web/dist, which only the web job builds. A one-file stub is
+        # enough for wrangler to bundle the Worker and check the bindings. --dry-run never contacts the account.
+        run: |
+          mkdir -p ../dist
+          cp test/fixtures/assets/index.html ../dist/index.html
+          npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/dist-check" --config ../wrangler.jsonc
+
+  export-contract:
+    # The web app against what the Python pipeline exports right now, not a stale snapshot: regenerate
+    # web/test/fixtures/python-export/ with tests/fixtures/make_v3_export.py (synthetic clips, fake providers,
+    # mocked judge, no keys), then run the web test that parses and renders it.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.2"
+      - name: Install Python
+        run: uv sync --frozen
+      - name: Install web
+        working-directory: web
+        run: bun install --frozen-lockfile
+      - name: Regenerate the Python-made export
+        run: uv run python tests/fixtures/make_v3_export.py
+      - name: Web parsers and views on the regenerated export
+        working-directory: web
+        run: bunx vitest run test/python-export.test.tsx
+      - name: Report drift from the committed fixture (informational)
+        # Run metadata (created_at, git_commit, installed package versions) changes on every run. Anything else
+        # that differs means the committed fixture is stale: regenerate and commit it. This step never fails.
+        if: always()
+        run: |
+          uv run python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+
+          VOLATILE = {"created_at", "git_commit", "packages"}
+
+          def strip(x):
+              if isinstance(x, dict):
+                  return {k: strip(v) for k, v in x.items() if k not in VOLATILE}
+              if isinstance(x, list):
+                  return [strip(v) for v in x]
+              return x
+
+          root = Path("web/test/fixtures/python-export")
+          stale = []
+          for p in sorted(root.rglob("*.json")):
+              try:
+                  old = subprocess.run(["git", "show", f"HEAD:{p.as_posix()}"], check=True, capture_output=True, text=True).stdout
+              except subprocess.CalledProcessError:
+                  stale.append(f"{p} (new file)")
+                  continue
+              if strip(json.loads(old)) != strip(json.loads(p.read_text())):
+                  stale.append(str(p))
+          if stale:
+              print("::warning::The committed Python export fixture differs from a fresh run beyond run metadata: "
+                    + ", ".join(stale) + ". Regenerate with: uv run python tests/fixtures/make_v3_export.py")
+          else:
+              print("Committed fixture matches a fresh run (ignoring created_at, git_commit, packages).")
+          PY

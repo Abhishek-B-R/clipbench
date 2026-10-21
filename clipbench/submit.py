@@ -141,8 +141,15 @@ def load_adapter(path: Path, class_name: str) -> type[Provider]:
         raise ImportError(f"cannot import {path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[mod_name] = module
-    with no_network() as attempts:
-        spec.loader.exec_module(module)
+    # Never write __pycache__ next to a submitted adapter: inside a bundle it would be an unexpected file,
+    # and check_bundle would stop there before it ever compares adapter_sha256.
+    write_bytecode = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        with no_network() as attempts:
+            spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = write_bytecode
     if attempts:
         raise ImportError(f"importing {path.name} tried to use the network ({', '.join(attempts)})")
     cls = getattr(module, class_name, None)

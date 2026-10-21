@@ -190,3 +190,16 @@ def test_cli_validate_and_dry_run(harness, monkeypatch):
 def test_cli_check_all_without_bundles(harness):
     res = CliRunner().invoke(_app(), ["submission-check", "--all"])
     assert res.exit_code == 0 and "no submission bundles" in res.output
+
+
+def test_loading_an_adapter_never_writes_bytecode_into_its_folder(tmp_path, monkeypatch):
+    # CI runs without PYTHONDONTWRITEBYTECODE; a __pycache__ in a bundle used to hide the hash check.
+    import shutil
+    import sys
+
+    monkeypatch.setattr(sys, "dont_write_bytecode", False)
+    adapter = tmp_path / "adapter.py"
+    shutil.copy(FIXTURE, adapter)
+    submit.load_adapter(adapter, "ExampleApi")
+    assert not (tmp_path / "__pycache__").exists()
+    assert sys.dont_write_bytecode is False  # restored afterwards

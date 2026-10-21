@@ -44,6 +44,92 @@ Notes:
 Language codes sent: `ja`, `es`, `ko` everywhere except AWS (`ja-JP`, `es-US`, `ko-KR`; set
 `spanish_variant="es-ES"` for Castilian Spanish).
 
+## Verification status
+
+Nothing below has been called live yet: every adapter was built from the providers' docs and is tested only
+against mocked transports (`tests/test_providers_contract.py`, `tests/test_streaming_adapters_contract.py`).
+Each section of `pricing.toml` records this in four fields (checked 2026-10-21):
+
+- `live_verified`: `false` everywhere. Set it to `true` only after a real call confirmed the request and
+  response shapes, and settle the matching `unverified` items in the same edit.
+- `price_status`: `documented` when the price was read from an official page (`checked_url`, `checked_on`),
+  `unverified` otherwise.
+- `policy_status`: `documented` when data use and training are established from an official page that
+  covers this product, `unverified` when the terms are stated but the cited source does not cover this
+  product, `unknown` when they are not stated.
+- `unverified`: the open questions, word for word, to settle on the first live run.
+
+Free and local systems (`whisper-local`, `whisper-local-turbo`, `youtube-auto`, `wayin`, `fake`) are
+`not_applicable` and exempt.
+
+**Fail closed.** A real run (`clipbench run`, `clipbench run-stream`) refuses a paid provider whose price is
+missing, whose `price_status` is not `documented`, or whose `policy_status` is not `documented`. The provider
+is skipped with `<id>: refused, <reason>; pass --allow-unverified <id> to run it anyway`, and a run where
+every provider is refused does not start. `--allow-unverified groq-whisper,aws-transcribe` lets named
+providers run; `run_meta.json` records the overridden reasons under `allow_unverified`, the refusals under
+`verification_refused`, and each provider's `price_status`, `policy_status` and `live_verified`. A dry run
+still prices every provider (including the ones only missing keys) and marks the refused ones
+`would be refused: <reason>`. The gate is `clipbench/providers/verification.py`. Canary, long-form and sweep
+runs go through the same runner and have no override flag, so they skip refused providers.
+
+| provider id | price | policy | live verified | real run without override | open questions (`unverified` in pricing.toml) |
+|---|---|---|---|---|---|
+| `groq-whisper` | documented | **unknown** | no | refused | `verbose_json.language` for detect_language is not in the docs; training use of inputs not stated (retention only); Zero Data Retention is a console setting the run cannot confirm; keyterm prompt capped at 400 characters as a stand in for 224 tokens |
+| `deepgram` | documented | documented | no | allowed | `mip_opt_out=true` "pricing impacts" not established; keyterm quality outside English untested |
+| `assemblyai` | documented | documented | no | allowed | terms allow training although the FAQ says it does not happen today, opt-out is a paid plan toggle; Korean runs on the universal-2 fallback (check `speech_model_used`) |
+| `elevenlabs-scribe` | documented | documented | no | allowed | stored by default and used for training unless the account toggle is off, zero retention is Enterprise only; keyterm 20% surcharge and 20 s minimum not confirmed on an invoice |
+| `gemini-flash` | documented | documented | no | allowed | 0.0034 per minute is a token estimate (real cost from `usageMetadata`); 3.8 Flash prices double on 2027-01-01; thinking tokens at `low` are estimated; only a paid tier key keeps data out of training |
+| `aws-transcribe` | **unverified** | documented | no | refused | 0.024 per minute is from third parties (official example uses 0.006); content used for service improvement unless the Organizations opt-out policy is attached |
+| `cf-whisper-large-v3-turbo` | documented | documented | no | allowed | no neurons field in responses (cost estimated); no documented size limit (25 MB guard, 240 s chunks are ours) |
+| `cf-whisper` | documented | documented | no | allowed | model size undocumented; no language parameter; neurons and size limit as above |
+| `cf-whisper-tiny-en` | **unverified** | documented | no | refused | not on the pricing page, whisper rate assumed; neurons and size limit as above |
+| `cf-deepgram-nova-3` | documented | documented | no | allowed | `words[].speaker`, `detected_language` and `model_info` are not in the output schema; how Deepgram's terms combine with Cloudflare's for the partner model; neurons as above |
+| `deepgram-stream` | documented | documented | no | allowed | list price 0.0077 used, 0.0048 is a promotion; `mip_opt_out` pricing impact |
+| `assemblyai-stream` | documented | **unverified** | no | refused | `language_codes` list format undocumented (one code sent); unknown query parameters are ignored, check the `Begin` configuration echo; no training opt-out documented for streaming; session billing estimate adds 3 s |
+| `elevenlabs-stream` | documented | **unverified** | no | refused | billing basis (audio or session) not stated, audio assumed; no policy page recorded for the realtime API |
+| `gemini-stream` | documented | documented | no | allowed | `x-goog-api-key` header on the WebSocket is unverified (docs show `?key=`); 0.009 per minute is a blended estimate, `usageMetadata` not priced; paid tier key needed |
+| `cf-nova-3-stream` | documented | documented | no | allowed | REST WebSocket URL undocumented (docs show a Worker binding); Deepgram shaped messages assumed; neurons not read from the stream |
+
+Known behaviour the mocks pin down, worth confirming live: a malformed 2xx body (not JSON, not an object,
+or without the documented fields) is a `ProviderError` and is not retried; a valid empty transcript is an
+empty result and is still billed; streaming handshake failures (a 429 or 5xx on the upgrade) are not
+retried, the row is an error and the estimate is counted as spent.
+
+### First live test
+
+Before adding any key, with no network needed:
+
+```sh
+.venv/bin/python -m pytest -q && .venv/bin/ruff check .
+.venv/bin/clipbench run --providers all --lang ja --limit 2 --no-stability --dry-run
+.venv/bin/clipbench run-stream --providers all --lang ja --limit 2 --dry-run
+```
+
+The dry runs list every provider that is only missing keys, with its price and any `would be refused`
+note. After adding one provider's keys to `.env`, run its two clip dry run, then the real run (`--no-cache`
+so the request really goes out; `--no-stability` keeps it to two requests). Read the raw responses in the
+cache and settle that provider's `unverified` items before setting `live_verified = true`.
+
+| provider id | keys | two clip dry run, then the same command without `--dry-run` |
+|---|---|---|
+| `deepgram` | `DEEPGRAM_API_KEY` | `.venv/bin/clipbench run --providers deepgram --lang ja --limit 2 --no-stability --no-cache --dry-run` |
+| `assemblyai` | `ASSEMBLYAI_API_KEY` | `.venv/bin/clipbench run --providers assemblyai --lang ko --limit 2 --no-stability --no-cache --dry-run` |
+| `elevenlabs-scribe` | `ELEVENLABS_API_KEY` | `.venv/bin/clipbench run --providers elevenlabs-scribe --lang ja --limit 2 --no-stability --no-cache --dry-run` |
+| `gemini-flash` | `GEMINI_API_KEY` (billing enabled) | `.venv/bin/clipbench run --providers gemini-flash --lang ja --limit 2 --no-stability --no-cache --dry-run` |
+| `groq-whisper` | `GROQ_API_KEY` | `.venv/bin/clipbench run --providers groq-whisper --lang ja --limit 2 --no-stability --no-cache --detect-language --allow-unverified groq-whisper --dry-run` |
+| `aws-transcribe` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `CLIPBENCH_AWS_BUCKET`, the `aws` extra | `.venv/bin/clipbench run --providers aws-transcribe --lang ja --limit 2 --no-stability --no-cache --allow-unverified aws-transcribe --dry-run` |
+| `cf-whisper-large-v3-turbo`, `cf-whisper`, `cf-deepgram-nova-3` | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | `.venv/bin/clipbench run --providers cf-whisper-large-v3-turbo,cf-whisper,cf-deepgram-nova-3 --lang ja --limit 2 --no-stability --no-cache --diarize --dry-run` |
+| `cf-whisper-tiny-en` | as above | `.venv/bin/clipbench run --providers cf-whisper-tiny-en --lang en --limit 2 --no-stability --no-cache --allow-unverified cf-whisper-tiny-en --dry-run` |
+| `deepgram-stream` | `DEEPGRAM_API_KEY` | `.venv/bin/clipbench run-stream --providers deepgram-stream --lang ja --limit 2 --no-cache --dry-run` |
+| `assemblyai-stream` | `ASSEMBLYAI_API_KEY` | `.venv/bin/clipbench run-stream --providers assemblyai-stream --lang ko --limit 2 --no-cache --allow-unverified assemblyai-stream --dry-run` |
+| `elevenlabs-stream` | `ELEVENLABS_API_KEY` | `.venv/bin/clipbench run-stream --providers elevenlabs-stream --lang ko --limit 2 --no-cache --allow-unverified elevenlabs-stream --dry-run` |
+| `gemini-stream` | `GEMINI_API_KEY` | `.venv/bin/clipbench run-stream --providers gemini-stream --lang es --limit 2 --no-cache --dry-run` |
+| `cf-nova-3-stream` | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | `.venv/bin/clipbench run-stream --providers cf-nova-3-stream --lang ja --limit 2 --no-cache --dry-run` |
+
+Pass `--allow-unverified` only after reading that provider's open questions; it is recorded in the run.
+The `--detect-language` and `--diarize` flags in two rows exercise the open output-field questions
+(Groq's `verbose_json.language`, Workers AI nova-3 `speaker`); drop them for a plain first call.
+
 ## Free and local systems
 
 | provider id | model | USD / min | data |
@@ -61,7 +147,8 @@ Language codes sent: `ja`, `es`, `ko` everywhere except AWS (`ja-JP`, `es-US`, `
   `Provider.concurrency` (groq 2, gemini 4, elevenlabs 4, deepgram 8, assemblyai 8, aws 8, cf-* 8).
 - Retries: up to 5 attempts, exponential backoff with full jitter (1 s base, 30 s cap) on 429, 5xx,
   timeouts and network errors. `Retry-After` is honoured (capped at 120 s). Other 4xx fail at once.
-  After the last attempt a `ProviderError` is raised.
+  After the last attempt a `ProviderError` is raised. A 2xx body that is not JSON, not an object, or lacks the
+  documented fields is a `ProviderError` at once (the same request would get the same answer).
 - `latency_ms` is wall clock from the first byte sent to the result, including upload and polling for
   async APIs (AssemblyAI, AWS), excluding our own retry backoff and time queued for a concurrency slot.
 - `cost_usd` uses usage reported by the API when there is one (Gemini tokens, AssemblyAI model used,
@@ -109,18 +196,20 @@ stated. `clipbench providers features` prints it (`--json` with links, `--urls` 
 source), and the export carries it under `features`. `youtube-auto` and `wayin` have no table: they read
 existing captions and are not services a builder can buy.
 
-Open questions to settle with a live call before publishing: Groq's `verbose_json.language`, Workers AI
-nova-3 `speaker` and `detected_language` in its output, Deepgram keyterm quality outside English, and
-the newer `gemini-3.5-transcribe` model (Interactions API, real diarization), which has no adapter yet.
+Open questions to settle with a live call before publishing are listed per provider under Verification
+status (and in `unverified` in `pricing.toml`). Separately, the newer `gemini-3.5-transcribe` model
+(Interactions API, real diarization) has no adapter yet.
 
 ## How to add a provider
 
 1. Look up the provider's current docs: best model for batch ja/es/ko, endpoint, language parameter,
    word timestamps, batch price per minute, minimum billing, and data use / opt-out flags.
 2. Add a section to `clipbench/providers/pricing.toml` with `model_id`, `usd_per_minute`,
-   `min_billed_seconds`, `checked_url`, `checked_on`, `data_policy`, `opt_out`, and the exported
+   `min_billed_seconds`, `checked_url`, `checked_on`, `data_policy`, `opt_out`, the exported
    policy fields `retention_days`, `trains_by_default`, `opt_out_status`, `policy_url` (and
-   `[id.models]` for per-model prices). For a host that serves several models behind one API (Workers
+   `[id.models]` for per-model prices), and the verification fields `live_verified = false`,
+   `price_status`, `policy_status` and `unverified` (see Verification status; a real run refuses the
+   provider until both statuses are `documented`). For a host that serves several models behind one API (Workers
    AI), give each model its own provider id and section, sharing one base class.
 3. Create `clipbench/providers/<name>.py` with a subclass of `HttpProvider` (from `http.py`), or of
    `Provider` for SDK-based or local systems. Set `id`, `env_keys`, `concurrency`, `timeout_s`,
@@ -132,7 +221,8 @@ the newer `gemini-3.5-transcribe` model (Interactions API, real diarization), wh
 5. Add the key to `.env.example`.
 6. Add tests with `httpx.MockTransport` and `no_sleep_policy()`: the request (model, language, auth,
    opt-out flag), the parsed `Result`, a 429 then success, failure after retries, and availability
-   without the key. Never call a real paid API from tests.
+   without the key; add it to `SPECS` in `tests/test_providers_contract.py` for the shared contract
+   (malformed bodies, Retry-After, timeouts). Never call a real paid API from tests.
 7. Add a row to the table above.
 8. Implement the run options the API offers (set `supported_options`), add a `[<id>.features]` table
    with a doc URL and date for every cell, and add a row to the run options table.

@@ -14,6 +14,7 @@ import asyncio
 import contextvars
 import email.utils
 import random
+import re
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -25,9 +26,17 @@ from typing import Any, ClassVar
 import httpx
 import soundfile
 
-from clipbench.providers.base import Provider, ProviderError, call_stats
+from clipbench.providers.base import Provider, ProviderError, ProviderQuotaExhausted, call_stats
 
 RETRY_STATUS = {408, 409, 425, 429, 500, 502, 503, 504, 520, 522, 524, 529}
+
+# Bodies that mean the account is out of quota or credit rather than briefly rate limited (seen live:
+# Workers AI "used up your daily free allocation", Gemini "exceeded your current quota ... billing").
+QUOTA_RE = re.compile(
+    r"daily free allocation|exceeded your current quota|insufficient[_ ]quota|quota exceeded|"
+    r"out of credits|credit balance|insufficient (?:credits|balance|funds)|payment required|billing",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -134,6 +143,18 @@ async def _backoff_sleep(policy: RetryPolicy, delay: float) -> None:
         watch.excluded_s += time.perf_counter() - t0
 
 
+async def _pace_sleep(delay: float) -> None:
+    """Our own request pacing: excluded from latency like backoff, but not a retry and not the retry policy's
+    sleep (so it never shows up as a backoff delay)."""
+    import asyncio as _asyncio
+
+    watch = _current_watch.get()
+    t0 = time.perf_counter()
+    await _asyncio.sleep(delay)
+    if watch is not None:
+        watch.excluded_s += time.perf_counter() - t0
+
+
 # ---------------------------------------------------------------- retry helpers
 
 
@@ -176,10 +197,26 @@ async def retry_async[T](
 class HttpClient:
     """Thin wrapper over httpx.AsyncClient that retries and raises ProviderError."""
 
-    def __init__(self, label: str, client: httpx.AsyncClient, policy: RetryPolicy) -> None:
+    def __init__(
+        self, label: str, client: httpx.AsyncClient, policy: RetryPolicy, requests_per_minute: float | None = None
+    ) -> None:
         self.label = label
         self.client = client
         self.policy = policy
+        # Space requests (retries included) so a provider's documented per-minute limit is never hit.
+        self.min_interval_s = 60.0 / requests_per_minute if requests_per_minute else 0.0
+        self._next_at = 0.0
+        self._pace_lock = asyncio.Lock()
+
+    async def _pace(self) -> None:
+        if not self.min_interval_s:
+            return
+        async with self._pace_lock:
+            loop = asyncio.get_running_loop()
+            wait = self._next_at - loop.time()
+            if wait > 0:
+                await _pace_sleep(wait)
+            self._next_at = max(loop.time(), self._next_at) + self.min_interval_s
 
     async def request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         """Send with retries. Returns a 2xx response or raises ProviderError.
@@ -190,6 +227,7 @@ class HttpClient:
         last_status: int | None = None
         for attempt in range(1, self.policy.max_attempts + 1):
             retry_after: float | None = None
+            await self._pace()
             try:
                 resp = await self.client.request(method, url, **kwargs)
             except httpx.TransportError as e:  # connect/read errors and timeouts
@@ -201,6 +239,12 @@ class HttpClient:
                 if resp.is_success:
                     return resp
                 last_err = f"HTTP {resp.status_code}: {_snippet(resp)}"
+                if resp.status_code == 402 or (resp.status_code not in RETRY_STATUS and QUOTA_RE.search(last_err)):
+                    raise ProviderQuotaExhausted(
+                        f"{self.label}: {method} {url} -> {last_err}",
+                        http_status=resp.status_code,
+                        retries=_retries_so_far(),
+                    )
                 if resp.status_code not in RETRY_STATUS:
                     raise ProviderError(
                         f"{self.label}: {method} {url} -> {last_err}",
@@ -210,7 +254,9 @@ class HttpClient:
                 retry_after = parse_retry_after(resp.headers.get("retry-after"))
             if attempt < self.policy.max_attempts:
                 await _backoff_sleep(self.policy, self.policy.backoff(attempt, retry_after))
-        raise ProviderError(
+        # A quota message that outlasted every retry (Retry-After included) is not a per-minute limit.
+        error = ProviderQuotaExhausted if last_status in (403, 429) and QUOTA_RE.search(last_err) else ProviderError
+        raise error(
             f"{self.label}: {method} {url} failed after {self.policy.max_attempts} attempts: {last_err}",
             http_status=last_status,
             retries=_retries_so_far(),
@@ -231,6 +277,25 @@ class HttpClient:
 # ---------------------------------------------------------------- provider base
 
 
+SHAPE_ERRORS = (KeyError, IndexError, TypeError, ValueError, AttributeError)
+
+
+def shape_error(label: str, body: Any, exc: BaseException | None = None) -> ProviderError:
+    """A 2xx response that does not have the documented shape. Not retried: the same request gets the same
+    answer. Raise it `from` the KeyError / TypeError that found the problem."""
+    detail = f" ({type(exc).__name__}: {exc})" if exc is not None else ""
+    return ProviderError(
+        f"{label}: unexpected response shape{detail}: {str(body)[:300]}", retries=_retries_so_far()
+    )
+
+
+def expect_object(label: str, body: Any) -> dict[str, Any]:
+    """The JSON body as a dict, or a ProviderError (a list, a string or null is not a transcript)."""
+    if not isinstance(body, dict):
+        raise shape_error(label, body)
+    return body
+
+
 def wav_seconds(path: Path) -> float:
     return float(soundfile.info(str(path)).duration)
 
@@ -244,6 +309,8 @@ class HttpProvider(Provider):
 
     base_url: ClassVar[str] = ""
     poll_interval_s: ClassVar[float] = 1.0
+    # Documented per-minute request limit of the provider's tier, enforced client side (None: no pacing).
+    requests_per_minute: ClassVar[float | None] = None
 
     def __init__(
         self,
@@ -278,7 +345,9 @@ class HttpProvider(Provider):
                 timeout=httpx.Timeout(self.timeout_s, connect=min(30.0, self.timeout_s)),
                 transport=self.transport,
             )
-            self._client = HttpClient(self.id, raw, self.retry)
+            # An injected transport is a test double: pacing it would only slow the suite down.
+            rpm = None if self.transport is not None else self.requests_per_minute
+            self._client = HttpClient(self.id, raw, self.retry, rpm)
             self._sem = asyncio.Semaphore(max(1, int(self.concurrency)))
             self._loop = loop
 

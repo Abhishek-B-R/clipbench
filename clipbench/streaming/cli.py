@@ -49,12 +49,18 @@ def register(app: typer.Typer) -> None:
         run_id: str | None = typer.Option(None, "--run-id", help="Resume or name a run."),
         no_cache: bool = typer.Option(False, "--no-cache", help="Stream even when a cached session exists."),
         concurrency: int | None = typer.Option(None, "--concurrency", help="Sessions at once per provider."),
+        allow_unverified: str | None = typer.Option(
+            None, "--allow-unverified",
+            help="Comma separated *-stream ids to run although their price or data policy is not documented "
+            "(recorded in run_meta). Without it a real run refuses them.",
+        ),
     ) -> None:
         """Stream clips through realtime providers at real-time pace; writes a streaming run (kind=stream)."""
         from clipbench.budget import BudgetExceeded
         from clipbench.config import get_settings
-        from clipbench.streaming.registry import resolve
-        from clipbench.streaming.runner import MixedLanguages, NoClips, run_stream
+        from clipbench.providers.verification import parse_allow
+        from clipbench.streaming.registry import STREAM_REGISTRY, resolve
+        from clipbench.streaming.runner import MixedLanguages, NoClips, UnverifiedProviders, run_stream
 
         console = Console(stderr=True)
         if tier not in ("verified", "creator"):
@@ -67,13 +73,17 @@ def register(app: typer.Typer) -> None:
             ids = resolve(providers)
         except KeyError as exc:
             raise typer.BadParameter(str(exc)) from exc
+        allow = parse_allow(allow_unverified)
+        unknown = sorted(allow - set(STREAM_REGISTRY))
+        if unknown:
+            raise typer.BadParameter(f"--allow-unverified: unknown streaming provider {', '.join(unknown)}")
         try:
             result = asyncio.run(
                 run_stream(ids, tier, language=lang, dry_run=dry_run, limit=limit, chunk_ms=chunk_ms, speed=speed,
                            run_id=run_id, no_cache=no_cache, concurrency=concurrency, settings=get_settings(),
-                           console=console)
+                           console=console, allow_unverified=allow)
             )  # fmt: skip
-        except (MixedLanguages, BudgetExceeded) as exc:
+        except (MixedLanguages, BudgetExceeded, UnverifiedProviders) as exc:
             console.print(f"[red]{exc}[/red]")
             raise typer.Exit(2) from exc
         except NoClips as exc:

@@ -44,10 +44,11 @@ from clipbench.budget import (
     load_spend,
     repeat_settings_hash,
     stability_subset,
+    supports_language,
 )
 from clipbench.config import Settings, get_settings
 from clipbench.models import Clip, Result
-from clipbench.providers.base import Provider, ProviderSkip, load_pricing
+from clipbench.providers.base import Provider, ProviderQuotaExhausted, ProviderSkip, load_pricing
 from clipbench.providers.cache import ResultCache
 
 ROW_COLUMNS = [
@@ -118,6 +119,10 @@ class NoClips(ValueError):
     """Nothing to run: no clip has audio and a reference in the requested tier and language."""
 
 
+class UnverifiedProviders(ValueError):
+    """Every provider left for a real run was refused by the verification gate (providers/verification.py)."""
+
+
 def new_run_id() -> str:
     return datetime.now(UTC).strftime("%Y%m%d-%H%M") + "-" + secrets.token_hex(2)
 
@@ -137,6 +142,10 @@ class RunResult:
     meta_path: Path | None = None
     rows: pd.DataFrame | None = None
     n_calls: dict[str, int] = field(default_factory=dict)
+    # Verification gate: providers a real run refuses (or, in a dry run, would refuse), and the ones
+    # --allow-unverified let through. {provider id: reason}
+    refused_providers: dict[str, str] = field(default_factory=dict)
+    allowed_unverified: dict[str, str] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------- helpers
@@ -256,10 +265,13 @@ def _key(row: dict[str, Any]) -> Key:
     return (str(row["provider"]), str(row["video_id"]), int(row["repeat"]))
 
 
+QUOTA_ERROR = "quota"  # provider account out of quota or credit; retried on resume, like budget skips
+
+
 def _is_done(row: dict[str, Any]) -> bool:
     if row.get("status") == "ok":
         return True
-    return row.get("status") == "skipped" and row.get("error") != BUDGET_ERROR
+    return row.get("status") == "skipped" and row.get("error") not in (BUDGET_ERROR, QUOTA_ERROR)
 
 
 def _unsupported(result: Result) -> str | None:
@@ -336,7 +348,10 @@ def _refs_frame(clips: list[Clip]) -> pd.DataFrame:
 
 
 def _provider_meta(p: Provider) -> dict[str, Any]:
+    from clipbench.providers.verification import verification
+
     pricing = load_pricing().get(p.id, {})
+    v = verification(p.id)
     return {
         "id": p.id,
         "model_id": p.model_id,
@@ -347,7 +362,26 @@ def _provider_meta(p: Provider) -> dict[str, Any]:
         "usd_per_minute": p.price_per_minute(),
         "pricing_checked_on": pricing.get("checked_on"),
         "pricing_checked_url": pricing.get("checked_url"),
+        "live_verified": v.live_verified,
+        "price_status": v.price_status,
+        "policy_status": v.policy_status,
     }
+
+
+def _verification_notes(pid: str, refused: dict[str, str] | None, overridden: dict[str, str] | None) -> list[str]:
+    if refused and pid in refused:
+        return [f"would be refused: {refused[pid]}"]
+    if overridden and pid in overridden:
+        return [f"unverified, allowed by --allow-unverified ({overridden[pid]})"]
+    return []
+
+
+def _print_refusal_summary(console: Console, refused: dict[str, str] | None) -> None:
+    if refused:
+        console.print(
+            f"[red]a real run would refuse {', '.join(sorted(refused))}: price or data policy not documented "
+            "(see docs/providers.md, Verification status); name them in --allow-unverified to run anyway[/red]"
+        )
 
 
 # ---------------------------------------------------------------- dry run table
@@ -362,7 +396,12 @@ def print_plan(
     cap: float,
     *,
     title: str = "clipbench run plan (dry run, no network)",
+    refused: dict[str, str] | None = None,
+    overridden: dict[str, str] | None = None,
+    stopped_before: dict[str, tuple[str, str]] | None = None,
 ) -> bool:
+    """`stopped_before`: provider -> (run id, "quota" | "budget") of the latest run of this language and tier
+    that stopped it, so the plan can say where to resume."""
     table = Table(title=title)
     for col in ("provider", "available", "model", "clips", "audio min", "est cost (incl stability)", "note"):
         table.add_column(col, justify="right" if col in ("clips", "audio min") else "left")
@@ -375,6 +414,10 @@ def print_plan(
             note.append(f"{e.cached_requests} cached")
         if not is_billable(p):
             note.append("free")
+        note += _verification_notes(p.id, refused, overridden)
+        if stopped_before and p.id in stopped_before:
+            prev, why = stopped_before[p.id]
+            note.append(f"stopped by {'account quota' if why == QUOTA_ERROR else 'the budget cap'} in {prev}")
         table.add_row(
             p.id, "yes", p.model_id, str(e.n_clips), f"{e.audio_seconds / 60:.1f}", f"${e.total_usd:.4f}",
             ", ".join(note),
@@ -382,16 +425,65 @@ def print_plan(
     for pid, msg in skipped.items():
         table.add_row(pid, "no", "-", "-", "-", "-", msg)
     console.print(table)
-    total = est.total_usd
+    # A real run drops refused providers, so they are not part of what it would spend.
+    refused_ids = set(refused or {})
+    refused_usd = sum(e.total_usd for pid, e in est.providers.items() if pid in refused_ids)
+    total = est.total_usd - refused_usd
     allowed = total + spent <= cap + 1e-12
-    console.print(f"total audio minutes: {est.total_audio_seconds / 60:.1f}")
+    n_prov = len(est.providers)
+    per = max((e.audio_seconds for e in est.providers.values()), default=0.0)
+    console.print(
+        f"audio minutes: {per / 60:.1f} per provider ({est.total_audio_seconds / 60:.1f} over {n_prov} "
+        f"provider{'s' if n_prov != 1 else ''})"
+    )
     console.print(f"total estimated cost: ${total:.4f}")
+    if refused_usd > 0:
+        console.print(f"  plus ${refused_usd:.4f} for refused providers, only if named in --allow-unverified")
     console.print(f"spent so far: ${spent:.4f}")
     console.print(f"cap: ${cap:.2f}")
     console.print(
         "a real run would be allowed" if allowed else "a real run would be REFUSED (estimate + spent > cap)"
     )
+    _print_refusal_summary(console, refused)
+    if stopped_before:
+        runs = sorted({r for r, _ in stopped_before.values()})
+        console.print(
+            f"stopped before: {', '.join(sorted(stopped_before))}. To fill in their missing clips once the "
+            f"account is topped up (or the cap raised), resume with --run-id {runs[-1]}"
+            + (f" (also stopped in: {', '.join(runs[:-1])})" if len(runs) > 1 else "")
+        )
     return allowed
+
+
+def stopped_history(settings: Settings, language: str | None, tier: str) -> dict[str, tuple[str, str]]:
+    """provider -> (run id, reason) for providers whose latest run in this language and tier was stopped
+    by account quota or the budget cap. A later run of the provider that was not stopped clears it."""
+    metas: list[tuple[str, str, dict]] = []
+    if not settings.runs_dir.exists():
+        return {}
+    for path in settings.runs_dir.glob("*/run_meta.json"):
+        try:
+            meta = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if meta.get("tier") != tier or (language and str(meta.get("language", "")).split("-")[0] != language):
+            continue
+        metas.append((str(meta.get("updated_at") or meta.get("created_at") or ""), path.parent.name, meta))
+    out: dict[str, tuple[str, str]] = {}
+    for _, run_id, meta in sorted(metas):
+        quota = set(meta.get("quota_stopped") or [])
+        budget = set(meta.get("budget_stopped") or [])
+        for p in meta.get("providers") or []:
+            pid = p.get("id") if isinstance(p, dict) else None
+            if not pid:
+                continue
+            if pid in quota:
+                out[pid] = (run_id, QUOTA_ERROR)
+            elif pid in budget:
+                out[pid] = (run_id, BUDGET_ERROR)
+            else:
+                out.pop(pid, None)
+    return out
 
 
 def _print_locked_plan(
@@ -404,9 +496,11 @@ def _print_locked_plan(
     stability_n: int,
     stability_repeats: int,
     seed: int,
+    allow: frozenset[str] = frozenset(),
 ) -> None:
     """What the providers that are only missing keys would cost, so the owner sees it before adding them."""
     from clipbench.providers import registry
+    from clipbench.providers.verification import check
 
     locked: list[Provider] = []
     for pid in skipped:
@@ -416,18 +510,23 @@ def _print_locked_plan(
             p = registry.make(pid)
         except Exception:
             continue
-        if is_billable(p):
+        if is_billable(p) and supports_language(p, clips[0].language if clips else None):
             locked.append(p)
     if not locked:
         return
     extra = estimate(locked, clips, stability_n=stability_n, stability_repeats=stability_repeats, seed=seed)
     table = Table(title="if you add the missing keys (estimate from pricing.toml)")
-    for col in ("provider", "model", "usd/min", "clips", "est cost (incl stability)"):
-        table.add_column(col, justify="left" if col in ("provider", "model") else "right")
+    refused, overridden = check(locked, allow)
+    for col in ("provider", "model", "usd/min", "clips", "est cost (incl stability)", "note"):
+        table.add_column(col, justify="left" if col in ("provider", "model", "note") else "right")
     for p in locked:
         e = extra.providers[p.id]
-        table.add_row(p.id, p.model_id, f"{p.price_per_minute():.5f}", str(e.n_clips), f"${e.total_usd:.4f}")
+        note = ", ".join(_verification_notes(p.id, refused, overridden))
+        table.add_row(
+            p.id, p.model_id, f"{p.price_per_minute():.5f}", str(e.n_clips), f"${e.total_usd:.4f}", note
+        )
     console.print(table)
+    _print_refusal_summary(console, refused)
     total = est.total_usd + extra.total_usd
     verdict = "allowed" if total + spent <= cap + 1e-12 else "REFUSED (estimate + spent > cap)"
     console.print(f"total with every provider: ${total:.4f} (spent ${spent:.4f}, cap ${cap:.2f}): {verdict}")
@@ -454,13 +553,22 @@ async def run(
     progress: bool = True,
     language: str | None = None,
     options: dict[str, Any] | None = None,
+    allow_unverified: str | list[str] | frozenset[str] | None = None,
+    sequential_providers: bool = True,
+    max_concurrency: int | None = 4,
 ) -> RunResult:
     """Run `providers` (ids or Provider instances) over `clips` (default: load_clips(tier)).
 
     A run holds exactly one language: scores, reports and exports are per language, and metrics with
     the same name (en, es and hi all use `wer`) would otherwise be pooled. `language` keeps only that
     language's clips; without it, clips in more than one language raise ValueError.
+
+    A real run refuses a paid provider whose price or data policy is not documented in pricing.toml
+    (clipbench/providers/verification.py) unless its id is in `allow_unverified`; the override is recorded in
+    run_meta. A dry run prices refused providers and marks them "would be refused".
     """
+    from clipbench.providers.verification import check, parse_allow, refused_message
+
     settings = settings or get_settings()
     console = console or Console(stderr=True)
     if not stability:
@@ -484,14 +592,34 @@ async def run(
         clips = clips[:limit]
 
     active, skipped = _resolve_providers(providers)
+    run_lang = langs[0] if langs else language
+    for p in [p for p in active if not supports_language(p, run_lang)]:
+        # Pricing (and calling) an English-only model on a Japanese run would only produce skips.
+        active.remove(p)
+        skipped[p.id] = f"{p.id}: skipped, {p.model_id} does not support language {run_lang}"
+    allow = parse_allow(allow_unverified)
+    refused, overridden = check(active, allow)
+    if not dry_run and refused:
+        active = [p for p in active if p.id not in refused]
+        for pid, reason in refused.items():
+            skipped[pid] = refused_message(pid, reason)
+            console.print(f"[red]{skipped[pid]}[/red]")
+        if not active:
+            raise UnverifiedProviders(
+                "refusing to start: every provider was refused by the verification gate "
+                f"({'; '.join(refused_message(pid, r) for pid, r in refused.items())})"
+            )
+    for pid, reason in overridden.items():
+        console.print(f"[yellow]{pid}: unverified ({reason}), allowed by --allow-unverified[/yellow]")
     run_options = {k: v for k, v in (options or {}).items() if v not in (None, False, "", [])}
     if run_options:
         # Run options (diarize, detect_language, keyterms) are provider options, so they are part of the
         # cache key; adapters that do not support one record it in raw_response["clipbench_unsupported"].
         for p in active:
             p.options.update(run_options)
-    for msg in skipped.values():
-        console.print(f"[yellow]{msg}[/yellow]")
+    for pid, msg in skipped.items():
+        if pid not in refused:
+            console.print(f"[yellow]{msg}[/yellow]")
 
     cache = ResultCache(settings.cache_dir)
     est = estimate(
@@ -506,17 +634,40 @@ async def run(
     cap = settings.budget_usd
     run_id = run_id or new_run_id()
 
-    if dry_run:
-        allowed = print_plan(console, est, active, skipped, spent_before, cap)
-        _print_locked_plan(console, skipped, clips, est, spent_before, cap, stability_n, stability_repeats, seed)
-        return RunResult(run_id, True, est, spent_before, cap, allowed, skipped)
-
     if not clips:
-        where = f"tier {tier}" + (f", language {language}" if language else "")
-        raise NoClips(
-            f"no clips to run ({where}): a clip needs a WAV with its hash in data/audio and a reference in "
-            "that tier"
+        # A plan over zero clips would print "$0, allowed", which reads like a working setup.
+        where = f"tier {tier}" + (f", language {language}" if language else "") + (
+            f", --limit {limit}" if limit is not None else ""
         )
+        hint = (
+            " Nothing is verified yet? Verified clips come from `clipbench review`; to run on creator captions "
+            "use --tier creator."
+            if tier == "verified"
+            else ""
+        )
+        msg = (
+            f"no clips to run ({where}): a clip needs a WAV with its hash in data/audio and a reference in "
+            f"that tier.{hint}"
+        )
+        if not dry_run:
+            raise NoClips(msg)
+        console.print(f"[red]{msg} The plan below covers zero clips.[/red]")
+    if dry_run:
+        stopped_prev = {
+            pid: v for pid, v in stopped_history(settings, run_lang, tier).items() if pid in {p.id for p in active}
+        }
+        allowed = print_plan(
+            console, est, active, skipped, spent_before, cap, refused=refused, overridden=overridden,
+            stopped_before=stopped_prev,
+        )  # fmt: skip
+        _print_locked_plan(
+            console, skipped, clips, est, spent_before, cap, stability_n, stability_repeats, seed, allow
+        )
+        return RunResult(
+            run_id, True, est, spent_before, cap, allowed, skipped,
+            refused_providers=refused, allowed_unverified=overridden,
+        )  # fmt: skip
+
     check_can_start(est, cap, spent_before)
 
     rows_dir = settings.runs_dir / run_id
@@ -554,6 +705,7 @@ async def run(
     new_rows: dict[Key, dict[str, Any]] = {}
     new_texts: dict[Key, dict[str, Any]] = {}
     stopped: dict[str, bool] = {p.id: False for p in active}
+    stop_reason: dict[str, str] = {}
     calls: dict[str, int] = {p.id: 0 for p in active}
     subset = stability_subset(clips, stability_n, seed)
 
@@ -636,7 +788,14 @@ async def run(
         )
         return row
 
-    sems = {p.id: asyncio.Semaphore(max(1, int(p.concurrency))) for p in active}
+    # Latency is only comparable when providers do not compete for the same uplink: by default one provider
+    # runs at a time with at most `max_concurrency` requests in flight (measured live: Deepgram took 4.6 s
+    # alone and 38 s while nine other providers uploaded at the same time).
+    def _slots(p: Provider) -> int:
+        n = max(1, int(p.concurrency))
+        return min(n, max_concurrency) if max_concurrency else n
+
+    sems = {p.id: asyncio.Semaphore(_slots(p)) for p in active}
 
     async def do_job(p: Provider, c: Clip, repeat: int, advance) -> None:
         try:
@@ -659,7 +818,7 @@ async def run(
         billable = is_billable(p)
         async with sems[p.id]:
             if stopped[p.id]:
-                row.update(status="skipped", error=BUDGET_ERROR)
+                row.update(status="skipped", error=stop_reason.get(p.id, BUDGET_ERROR))
                 await emit(row, None)
                 return
             reserved = 0.0
@@ -699,6 +858,23 @@ async def run(
                 )
                 await emit(row, None)
                 return
+            except ProviderQuotaExhausted as exc:
+                # Out of quota or credit: every further clip would fail the same way, so stop this provider
+                # and leave its clips for a resume once the account is topped up.
+                if billable:
+                    await guard.release(reserved)
+                if not stopped[p.id]:
+                    console.print(f"[red]{p.id}: stopping, the account is out of quota: {str(exc)[:200]}[/red]")
+                stopped[p.id] = True
+                stop_reason[p.id] = QUOTA_ERROR
+                row.update(
+                    status="skipped",
+                    error=QUOTA_ERROR,
+                    http_status=getattr(exc, "http_status", None),
+                    retries=int(getattr(exc, "retries", 0) or 0),
+                )
+                await emit(row, None)
+                return
             except Exception as exc:
                 if billable:
                     await guard.release(reserved)
@@ -733,7 +909,11 @@ async def run(
         def advance(pid: str) -> None:
             bar.advance(tasks[pid])
 
-        await asyncio.gather(*(do_job(p, c, r, advance) for p, c, r in jobs))
+        if sequential_providers:
+            for p in active:
+                await asyncio.gather(*(do_job(q, c, r, advance) for q, c, r in jobs if q.id == p.id))
+        else:
+            await asyncio.gather(*(do_job(p, c, r, advance) for p, c, r in jobs))
 
     # Compact: previous state, then this pass on top.
     all_rows = {**prev_rows, **new_rows}
@@ -785,13 +965,23 @@ async def run(
             and m.get("id") in set(rows_df["provider"].astype(str))
         ],
         "skipped_providers": {pid: _scrub_paths(msg, settings) for pid, msg in skipped.items()},
-        "budget_stopped": [pid for pid, s in stopped.items() if s],
+        # Verification gate (providers/verification.py): who was refused, and who ran unverified because
+        # the operator named them in --allow-unverified, with the reason that was overridden.
+        "verification_refused": refused,
+        "allow_unverified": overridden,
+        "budget_stopped": [pid for pid, s in stopped.items() if s and stop_reason.get(pid) != QUOTA_ERROR],
+        "quota_stopped": [pid for pid, s in stopped.items() if s and stop_reason.get(pid) == QUOTA_ERROR],
         "sample_seed": settings.sample_seed,
         "stability_seed": seed,
         "stability_n": stability_n,
         "stability_repeats": stability_repeats,
         "kind": "batch",
         "options": run_options,
+        "latency_mode": {
+            "sequential_providers": sequential_providers,
+            "max_concurrency": max_concurrency,
+            "note": "one provider at a time" if sequential_providers else "providers in parallel (latency contended)",
+        },
         "tier": tier,
         "language": clips[0].language if clips else (language or settings.language),
         "n_clips": int(rows_df["video_id"].nunique()) if len(rows_df) else len(clips),
@@ -817,4 +1007,6 @@ async def run(
         meta_path=meta_path,
         rows=rows_df,
         n_calls=calls,
+        refused_providers=refused,
+        allowed_unverified=overridden,
     )

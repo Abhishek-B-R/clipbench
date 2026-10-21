@@ -20,6 +20,7 @@ class FakeStream(StreamingProvider):
     paid: ClassVar[bool] = False
     uploads_audio: ClassVar[bool] = False
     concurrency: ClassVar[int] = 4
+    verification_exempt: ClassVar[bool] = True  # test double, outside the verification gate
 
     @classmethod
     def default_model_id(cls) -> str:

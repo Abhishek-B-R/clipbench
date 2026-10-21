@@ -17,7 +17,14 @@ from typing import Any, ClassVar
 
 from clipbench.models import Clip, Result, Word
 from clipbench.providers.base import normalize_language_code
-from clipbench.providers.http import HttpProvider, stopwatch, wav_seconds
+from clipbench.providers.http import (
+    SHAPE_ERRORS,
+    HttpProvider,
+    expect_object,
+    shape_error,
+    stopwatch,
+    wav_seconds,
+)
 
 # Deepgram recommends 20 to 50 keyterms and caps a request at 500 tokens; 100 terms is its stated maximum.
 MAX_KEYTERMS = 100
@@ -86,15 +93,18 @@ class Deepgram(HttpProvider):
         seconds = wav_seconds(audio_path)
         audio = audio_path.read_bytes()
         async with self.slot(), stopwatch() as watch:
-            resp = await self.http.request(
+            body = await self.http.json(
                 "POST",
                 "/listen",
                 params=self.params(language),
                 content=audio,
                 headers={"content-type": "audio/wav"},
             )
-            body = resp.json()
-        alt, words, speakers, detected = parse_alternative(body)
+        body = expect_object(self.id, body)
+        try:
+            alt, words, speakers, detected = parse_alternative(body)
+        except SHAPE_ERRORS as e:
+            raise shape_error(self.id, body, e) from e
         meta = body.get("metadata") or {}
         billed = float(meta.get("duration") or seconds)
         infos = list((meta.get("model_info") or {}).values())

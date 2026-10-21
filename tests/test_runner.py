@@ -200,7 +200,7 @@ async def test_dry_run_prints_plan_and_writes_nothing(tmp_settings, clips):
     out = console.export_text()
     assert res.dry_run and res.allowed
     assert p.calls == 0
-    for s in ("fake", "fake-off", "missing FAKE_KEY", "total audio minutes", "total estimated cost",
+    for s in ("fake", "fake-off", "missing FAKE_KEY", "audio minutes: ", "per provider", "total estimated cost",
               "spent so far", "cap: $10.00", "a real run would be allowed"):
         assert s in out
     assert f"${sum(c.duration_s for c in clips) * 0.01:.4f}" in out
@@ -418,8 +418,24 @@ async def test_run_without_clips_is_refused(tmp_settings):
     with pytest.raises(ValueError, match="no clips"):
         await run([FakeProvider()], "verified", clips=[], settings=tmp_settings, progress=False, run_id="r-none")
     assert not (tmp_settings.runs_dir / "r-none").exists()
-    res = await run([FakeProvider()], "verified", clips=[], settings=tmp_settings, progress=False, dry_run=True)
+    console = Console(record=True, width=250)
+    res = await run([FakeProvider()], "verified", clips=[], settings=tmp_settings, progress=False, dry_run=True,
+                    console=console)  # fmt: skip
     assert res.dry_run
+    # a zero clip plan must not read like a working setup
+    out = console.export_text()
+    assert "no clips to run (tier verified)" in out and "--tier creator" in out
+
+
+def test_cli_dry_run_rejects_unknown_language_and_empty_plan(tmp_settings):
+    from typer.testing import CliRunner
+
+    from clipbench.cli import app
+
+    r = CliRunner().invoke(app, ["run", "--dry-run", "--lang", "xx", "--providers", "fake"])
+    assert r.exit_code == 2 and "--lang must be one of" in r.output
+    r = CliRunner().invoke(app, ["run", "--dry-run", "--providers", "fake"])
+    assert r.exit_code == 1
 
 
 async def test_paid_provider_without_price_is_skipped(tmp_settings, clips):
@@ -541,3 +557,93 @@ async def test_run_options_reach_providers_and_change_cache_key(tmp_settings, cl
         assert col in rows.columns
     assert json.loads(rows["options"].iloc[0]) == {"diarize": True, "keyterms": ["clipbench"]}
     assert (rows["retries"] == 0).all() and not rows["timed_out"].any()
+
+
+async def test_providers_run_one_at_a_time_by_default(tmp_settings, clips):
+    log: list[tuple[str, str]] = []
+
+    class Logged(FakeProvider):
+        async def transcribe(self, audio_path, language, *, clip=None):
+            log.append((self.id, "start"))
+            await asyncio.sleep(0.01)
+            out = await super().transcribe(audio_path, language, clip=clip)
+            log.append((self.id, "end"))
+            return out
+
+    class A(Logged):
+        id = "fake-a"
+
+    class B(Logged):
+        id = "fake-b"
+
+    await run([A(), B()], "verified", clips=clips, settings=tmp_settings, progress=False, run_id="r-seq")
+    first_b = next(i for i, (pid, _) in enumerate(log) if pid == "fake-b")
+    assert all(pid == "fake-a" for pid, _ in log[:first_b])  # every A call finished before B began
+    assert sum(1 for pid, ev in log if pid == "fake-a" and ev == "end") == len(clips)
+    meta = json.loads((tmp_settings.runs_dir / "r-seq" / "run_meta.json").read_text())
+    assert meta["latency_mode"]["sequential_providers"] is True and meta["latency_mode"]["max_concurrency"] == 4
+
+
+class QuotaAfterOne(FakeProvider):
+    id: ClassVar[str] = "fake-quota"
+
+    async def transcribe(self, audio_path, language, *, clip=None):
+        from clipbench.providers.base import ProviderQuotaExhausted
+
+        if self.calls >= 1:
+            raise ProviderQuotaExhausted("429 quota exceeded")
+        return await super().transcribe(audio_path, language, clip=clip)
+
+
+async def test_quota_stop_is_reported_and_dry_run_points_to_resume(tmp_settings, clips):
+    """A provider that runs out of account quota: its other clips are 'skipped: quota' (not errors), the
+    run meta lists it, the CLI prints a resume command, and the next dry run names the run to resume."""
+    from clipbench.runner_cli import resume_hint
+
+    res = await run([QuotaAfterOne()], "verified", clips=clips, settings=tmp_settings, progress=False,
+                    stability=False)  # fmt: skip
+    rows = res.rows
+    assert (rows["status"] == "ok").sum() == 1
+    assert set(rows.loc[rows["status"] != "ok", "error"]) == {"quota"}
+    assert set(rows.loc[rows["status"] != "ok", "status"]) == {"skipped"}
+    meta = json.loads(res.meta_path.read_text())
+    assert meta["quota_stopped"] == ["fake-quota"]
+    hint = resume_hint(res, "verified", "ja")
+    assert hint and "account out of quota" in hint
+    assert f"clipbench run --run-id {res.run_id} --tier verified --lang ja --providers fake-quota" in hint
+
+    console = Console(record=True, width=250)
+    await run([QuotaAfterOne()], "verified", clips=clips, settings=tmp_settings, console=console, dry_run=True)
+    out = console.export_text()
+    assert f"stopped by account quota in {res.run_id}" in out
+    assert f"resume with --run-id {res.run_id}" in out
+
+
+async def test_dry_run_total_leaves_out_refused_providers(tmp_settings, clips, monkeypatch):
+    """A real run drops providers the verification gate refuses, so the dry run's total must not count them."""
+    from clipbench.providers import verification
+
+    class PaidFake(FakeProvider):
+        paid: ClassVar[bool] = True
+
+    monkeypatch.setattr(verification, "check", lambda ps, allow: ({"fake": "price_status is unverified"}, {}))
+    console = Console(record=True, width=250)
+    res = await run([PaidFake(cost_per_minute=0.6)], "verified", clips=clips, settings=tmp_settings,
+                    console=console, dry_run=True)  # fmt: skip
+    out = console.export_text()
+    assert "total estimated cost: $0.0000" in out
+    assert "for refused providers, only if named in --allow-unverified" in out
+    assert res.allowed
+
+
+async def test_provider_without_the_language_is_skipped_not_priced(tmp_settings, clips):
+    class EnglishOnly(FakeProvider):
+        id: ClassVar[str] = "fake-en"
+        paid: ClassVar[bool] = True
+        languages: ClassVar[frozenset[str]] = frozenset({"en"})
+
+    console = Console(record=True, width=250)
+    res = await run([EnglishOnly(cost_per_minute=0.6), FakeProvider()], "verified", clips=clips,
+                    settings=tmp_settings, console=console, dry_run=True)  # fmt: skip
+    assert "fake-en" not in res.estimate.providers
+    assert "does not support language ja" in res.skipped_providers["fake-en"]

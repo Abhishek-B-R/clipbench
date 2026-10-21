@@ -21,6 +21,8 @@ class FakeProvider(Provider):
     id: ClassVar[str] = "fake"
     paid: ClassVar[bool] = False
     uploads_audio: ClassVar[bool] = False
+    # Test double: subclasses that set paid=True (budget tests) stay outside the verification gate.
+    verification_exempt: ClassVar[bool] = True
 
     def __init__(
         self,

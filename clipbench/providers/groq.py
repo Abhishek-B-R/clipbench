@@ -17,7 +17,14 @@ from typing import Any, ClassVar
 
 from clipbench.models import Clip, Result, Word
 from clipbench.providers.base import normalize_language_code
-from clipbench.providers.http import HttpProvider, stopwatch, wav_seconds
+from clipbench.providers.http import (
+    SHAPE_ERRORS,
+    HttpProvider,
+    expect_object,
+    shape_error,
+    stopwatch,
+    wav_seconds,
+)
 
 PROMPT_MAX_CHARS = 400
 
@@ -39,6 +46,8 @@ class GroqWhisper(HttpProvider):
     id: ClassVar[str] = "groq-whisper"
     env_keys: ClassVar[tuple[str, ...]] = ("GROQ_API_KEY",)
     concurrency: ClassVar[int] = 2  # 20 RPM / 7.2k audio seconds per hour on the listed tier
+    # Seen live: "Limit 20, Used 20" on the on_demand tier; pace below it (retries count too).
+    requests_per_minute: ClassVar[float | None] = 18
     timeout_s: ClassVar[float] = 120.0
     base_url: ClassVar[str] = "https://api.groq.com/openai/v1"
     supported_options: ClassVar[frozenset[str]] = frozenset({"detect_language", "keyterms"})
@@ -72,19 +81,24 @@ class GroqWhisper(HttpProvider):
         audio = audio_path.read_bytes()
         data = self.form(language)
         async with self.slot(), stopwatch() as watch:
-            resp = await self.http.request(
+            body = await self.http.json(
                 "POST",
                 "/audio/transcriptions",
                 data=data,
                 files={"file": (audio_path.name, audio, "audio/wav")},
             )
-            body = resp.json()
-        words = [
-            Word(
-                text=w["word"], start_ms=round(float(w["start"]) * 1000), end_ms=round(float(w["end"]) * 1000)
-            )
-            for w in body.get("words") or []
-        ]
+        body = expect_object(self.id, body)
+        if not isinstance(body.get("text"), str):  # every verbose_json reply has text, "" for silence
+            raise shape_error(self.id, body)
+        try:
+            words = [
+                Word(
+                    text=w["word"], start_ms=round(float(w["start"]) * 1000), end_ms=round(float(w["end"]) * 1000)
+                )
+                for w in body.get("words") or []
+            ]
+        except SHAPE_ERRORS as e:
+            raise shape_error(self.id, body, e) from e
         return Result(
             text=(body.get("text") or "").strip(),
             words=words or None,

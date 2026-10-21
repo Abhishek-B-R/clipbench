@@ -266,15 +266,19 @@ def canary_spent(spend: dict[str, Any], month: str) -> float:
 
 def record_month(settings: Settings, month: str) -> float:
     """Write the month's canary total into data/spend.json (`canary_by_month`). Returns it."""
-    from clipbench.budget import _atomic_write_json, load_spend
+    from clipbench.budget import update_spend
 
-    spend = load_spend(settings.spend_path)
-    total = canary_spent(spend, month)
-    by_month = dict(spend.get("canary_by_month") or {})
-    by_month[month] = round(total, 6)
-    spend["canary_by_month"] = by_month
-    _atomic_write_json(settings.spend_path, spend)
-    return total
+    totals: list[float] = []
+
+    def change(spend: dict[str, Any]) -> None:
+        total = canary_spent(spend, month)
+        by_month = dict(spend.get("canary_by_month") or {})
+        by_month[month] = round(total, 6)
+        spend["canary_by_month"] = by_month
+        totals.append(total)
+
+    update_spend(settings.spend_path, change)
+    return totals[0]
 
 
 def check_month(est_usd: float, spent: float, cap: float, month: str) -> None:

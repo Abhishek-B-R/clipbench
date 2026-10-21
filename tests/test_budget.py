@@ -162,3 +162,76 @@ async def test_spend_updated_and_cached_rerun_costs_nothing(tmp_settings, clips)
     await run([p2], "verified", clips=clips, settings=tmp_settings, progress=False, stability=False)
     assert p2.calls == 0
     assert load_spend(tmp_settings.spend_path) == first
+
+
+_WORKER = """
+import asyncio, sys
+from pathlib import Path
+from clipbench.budget import BudgetGuard
+
+async def main(path, n):
+    g = BudgetGuard(Path(path), cap=1.0, run_id=sys.argv[3])
+    won = 0
+    for i in range(n):
+        if await g.reserve(0.05):
+            await asyncio.sleep(0.001)
+            await g.record("p", f"{sys.argv[3]}-{i}", 0.05, 0.05)
+            won += 1
+    print(won)
+
+asyncio.run(main(sys.argv[1], int(sys.argv[2])))
+"""
+
+
+def test_guard_cap_holds_across_processes(tmp_path):
+    """Two clipbench processes sharing one spend.json must not both reserve past the cap or drop each
+    other's events (the old guard kept the ledger in memory and the last writer won)."""
+    import subprocess
+    import sys
+
+    path = tmp_path / "data" / "spend.json"
+    script = tmp_path / "worker.py"
+    script.write_text(_WORKER)
+    import os
+
+    env = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parent.parent)}
+    procs = [
+        subprocess.Popen([sys.executable, str(script), str(path), "40", f"r{i}"], stdout=subprocess.PIPE,
+                         text=True, env=env)  # fmt: skip
+        for i in range(2)
+    ]
+    won = [int(p.communicate(timeout=120)[0].strip()) for p in procs]
+    data = load_spend(path)
+    assert sum(won) == 20  # $1.00 cap / $0.05 per request
+    assert data["total_usd"] == pytest.approx(1.0)
+    assert len(data["events"]) == 20
+    assert "reserved" not in data
+    assert (tmp_path / "data" / "spend.json.lock").exists()
+
+
+async def test_guard_sees_other_guards_reservation(tmp_path):
+    path = tmp_path / "spend.json"
+    a = BudgetGuard(path, cap=1.0, run_id="a")
+    b = BudgetGuard(path, cap=1.0, run_id="b")
+    assert await a.reserve(0.7)
+    assert not await b.reserve(0.5)  # a's open 0.7 counts against the shared cap
+    await a.release(0.7)
+    assert await b.reserve(0.5)
+
+
+async def test_guard_ignores_reservation_of_dead_process(tmp_path):
+    path = tmp_path / "spend.json"
+    path.write_text(json.dumps({"total_usd": 0.0, "by_provider": {}, "events": [],
+                                "reserved": {"x": {"usd": 0.9, "pid": 2**22 + 12345}}}))  # fmt: skip
+    g = BudgetGuard(path, cap=1.0, run_id="r")
+    assert await g.reserve(0.5)
+
+
+async def test_guard_works_without_fcntl(tmp_path, monkeypatch):
+    import clipbench.budget as budget
+
+    monkeypatch.setattr(budget, "fcntl", None)
+    g = BudgetGuard(tmp_path / "spend.json", cap=1.0, run_id="r")
+    assert await g.reserve(0.4)
+    await g.record("p", "v", 0.4, 0.4)
+    assert load_spend(tmp_path / "spend.json")["total_usd"] == pytest.approx(0.4)

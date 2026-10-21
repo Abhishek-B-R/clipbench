@@ -19,7 +19,14 @@ from typing import Any, ClassVar
 
 from clipbench.models import Clip, Result, Word
 from clipbench.providers.base import ProviderError, load_pricing, normalize_language_code
-from clipbench.providers.http import HttpProvider, stopwatch, wav_seconds
+from clipbench.providers.http import (
+    SHAPE_ERRORS,
+    HttpProvider,
+    expect_object,
+    shape_error,
+    stopwatch,
+    wav_seconds,
+)
 
 
 class AssemblyAI(HttpProvider):
@@ -77,19 +84,23 @@ class AssemblyAI(HttpProvider):
         transcript_id: str | None = None
         async with self.slot(), stopwatch() as watch:
             try:
-                up = await self.http.json(
+                up = expect_object(self.id, await self.http.json(
                     "POST", "/upload", content=audio, headers={"content-type": "application/octet-stream"}
-                )
-                job = await self.http.json(
+                ))  # fmt: skip
+                if not up.get("upload_url"):
+                    raise shape_error(self.id, up)
+                job = expect_object(self.id, await self.http.json(
                     "POST", "/transcript", json=self.request_body(up["upload_url"], language)
-                )
-                transcript_id = job["id"]
+                ))  # fmt: skip
+                if not job.get("id"):
+                    raise shape_error(self.id, job)
+                transcript_id = str(job["id"])
                 deadline = time.monotonic() + self.poll_timeout_s
                 while job.get("status") not in ("completed", "error"):
                     if time.monotonic() > deadline:
                         raise ProviderError(f"assemblyai: transcript {transcript_id} timed out while polling")
                     await self.sleep_poll()
-                    job = await self.http.json("GET", f"/transcript/{transcript_id}")
+                    job = expect_object(self.id, await self.http.json("GET", f"/transcript/{transcript_id}"))
                 latency = watch.ms
             finally:
                 if transcript_id and self.options.get("delete_after"):
@@ -98,7 +109,10 @@ class AssemblyAI(HttpProvider):
             raise ProviderError(f"assemblyai: transcript {transcript_id} failed: {job.get('error')}")
         used = job.get("speech_model_used") or self.model_id
         raw_words = job.get("words") or []
-        words = [Word(text=w["text"], start_ms=int(w["start"]), end_ms=int(w["end"])) for w in raw_words]
+        try:
+            words = [Word(text=w["text"], start_ms=int(w["start"]), end_ms=int(w["end"])) for w in raw_words]
+        except SHAPE_ERRORS as e:
+            raise shape_error(self.id, job, e) from e
         speakers = None
         if self.diarize and any(w.get("speaker") is not None for w in raw_words):
             speakers = [None if w.get("speaker") is None else str(w["speaker"]) for w in raw_words]

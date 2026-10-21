@@ -16,7 +16,14 @@ from typing import Any, ClassVar
 
 from clipbench.models import Clip, Result, Word
 from clipbench.providers.base import normalize_language_code
-from clipbench.providers.http import HttpProvider, stopwatch, wav_seconds
+from clipbench.providers.http import (
+    SHAPE_ERRORS,
+    HttpProvider,
+    expect_object,
+    shape_error,
+    stopwatch,
+    wav_seconds,
+)
 
 TRUTHY = {"1", "true", "yes", "on"}
 KEYTERM_FORBIDDEN = set("<>{}[]\\")
@@ -86,23 +93,28 @@ class ElevenLabsScribe(HttpProvider):
         audio = audio_path.read_bytes()
         params = {"enable_logging": "false"} if self.zero_retention else None
         async with self.slot(), stopwatch() as watch:
-            resp = await self.http.request(
+            body = await self.http.json(
                 "POST",
                 "/speech-to-text",
                 params=params,
                 data=self.form(language),
                 files={"file": (audio_path.name, audio, "audio/wav")},
             )
-            body = resp.json()
-        kept = [
-            w for w in body.get("words") or [] if w.get("type", "word") == "word" and w.get("start") is not None
-        ]
-        words = [
-            Word(
-                text=w["text"], start_ms=round(float(w["start"]) * 1000), end_ms=round(float(w["end"]) * 1000)
-            )
-            for w in kept
-        ]
+        body = expect_object(self.id, body)
+        if not isinstance(body.get("text"), str):  # every reply has text, "" for silence
+            raise shape_error(self.id, body)
+        try:
+            kept = [
+                w for w in body.get("words") or [] if w.get("type", "word") == "word" and w.get("start") is not None
+            ]
+            words = [
+                Word(
+                    text=w["text"], start_ms=round(float(w["start"]) * 1000), end_ms=round(float(w["end"]) * 1000)
+                )
+                for w in kept
+            ]
+        except SHAPE_ERRORS as e:
+            raise shape_error(self.id, body, e) from e
         speakers = None
         if self.diarize and any(w.get("speaker_id") is not None for w in kept):
             speakers = [None if w.get("speaker_id") is None else str(w["speaker_id"]) for w in kept]

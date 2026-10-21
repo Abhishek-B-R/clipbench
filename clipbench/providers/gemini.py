@@ -24,7 +24,14 @@ from typing import Any, ClassVar
 
 from clipbench.models import Clip, Result
 from clipbench.providers.base import ProviderError, load_pricing, normalize_language_code
-from clipbench.providers.http import HttpProvider, stopwatch, wav_seconds
+from clipbench.providers.http import (
+    SHAPE_ERRORS,
+    HttpProvider,
+    expect_object,
+    shape_error,
+    stopwatch,
+    wav_seconds,
+)
 
 LANGUAGE_NAMES = {"ja": "Japanese", "es": "Spanish", "ko": "Korean", "en": "English"}
 
@@ -148,10 +155,16 @@ class GeminiFlash(HttpProvider):
                         await self.http.request("DELETE", f"/v1beta/{uploaded['name']}")
                     except ProviderError:
                         pass
+        body = expect_object(self.id, body)
         block = (body.get("promptFeedback") or {}).get("blockReason")
         if block:
             raise ProviderError(f"gemini-flash: prompt blocked: {block}")
-        text = extract_text(body)
+        if not isinstance(body.get("candidates"), list) or not body["candidates"]:
+            raise shape_error(self.id, body)  # no candidate and no block reason: not a reply we can score
+        try:
+            text = extract_text(body)
+        except SHAPE_ERRORS as e:
+            raise shape_error(self.id, body, e) from e
         detected = None
         if self.detect_language:
             text, detected = parse_detect_reply(text)

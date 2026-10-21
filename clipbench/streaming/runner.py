@@ -69,6 +69,10 @@ class MixedLanguages(ValueError):
     """The clips are in more than one language."""
 
 
+class UnverifiedProviders(ValueError):
+    """Every streaming provider left for a real run was refused by the verification gate."""
+
+
 def clip_conditions(clip: Clip) -> list[str]:
     """Audio conditions (docs/V3.md): the reference's own, plus `music` implied by the background_music
     tag or a music non-speech span."""
@@ -92,6 +96,8 @@ class StreamRunResult:
     texts_path: Path | None = None
     meta_path: Path | None = None
     rows: pd.DataFrame | None = None
+    refused_providers: dict[str, str] = field(default_factory=dict)
+    allowed_unverified: dict[str, str] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------- helpers
@@ -254,18 +260,27 @@ def _scrub(message: str | None, settings: Settings) -> str | None:
     return _scrub_paths(message, settings)
 
 
-def print_stream_plan(console: Console, est: Estimate, providers, skipped, spent: float, cap: float) -> bool:
+def print_stream_plan(
+    console: Console, est: Estimate, providers, skipped, spent: float, cap: float,
+    refused: dict[str, str] | None = None, overridden: dict[str, str] | None = None,
+) -> bool:  # fmt: skip
     from clipbench.runner import print_plan
 
     return print_plan(
-        console, est, providers, skipped, spent, cap, title="clipbench streaming run plan (dry run, no network)"
-    )
+        console, est, providers, skipped, spent, cap, title="clipbench streaming run plan (dry run, no network)",
+        refused=refused, overridden=overridden,
+    )  # fmt: skip
 
 
-def _print_locked(console: Console, skipped: dict[str, str], clips: list[Clip], chunk_ms: int, speed: float) -> None:
+def _print_locked(
+    console: Console, skipped: dict[str, str], clips: list[Clip], chunk_ms: int, speed: float,
+    allow: frozenset[str] = frozenset(),
+) -> None:  # fmt: skip
     """What the providers that are only missing keys would cost, from pricing.toml."""
     from rich.table import Table
 
+    from clipbench.providers.verification import check
+    from clipbench.runner import _print_refusal_summary, _verification_notes
     from clipbench.streaming import registry
 
     locked = []
@@ -278,13 +293,16 @@ def _print_locked(console: Console, skipped: dict[str, str], clips: list[Clip], 
     if not locked:
         return
     extra = estimate_stream(locked, clips, speed=speed)
+    refused, overridden = check(locked, allow)
     table = Table(title="if you add the missing keys (streaming estimate from pricing.toml)")
-    for col in ("provider", "model", "billing", "usd/min", "clips", "est cost"):
+    for col in ("provider", "model", "billing", "usd/min", "clips", "est cost", "note"):
         table.add_column(col)
     for p in locked:
         e = extra.providers[p.id]
-        table.add_row(p.id, p.model_id, p.billing, f"{p.price_per_minute():.5f}", str(e.n_clips), f"${e.total_usd:.4f}")
+        table.add_row(p.id, p.model_id, p.billing, f"{p.price_per_minute():.5f}", str(e.n_clips),
+                      f"${e.total_usd:.4f}", ", ".join(_verification_notes(p.id, refused, overridden)))  # fmt: skip
     console.print(table)
+    _print_refusal_summary(console, refused)
     console.print(f"total with every streaming provider: ${extra.total_usd:.4f}")
 
 
@@ -323,11 +341,16 @@ async def run_stream(
     connect: Connect | None = None,
     clock: Clock | None = None,
     quiet_s: float | None = None,
+    allow_unverified: str | list[str] | frozenset[str] | None = None,
 ) -> StreamRunResult:
     """Stream `clips` (default: load_clips(tier, language)) through `providers`.
 
     `connect`, `clock` and `quiet_s` are test hooks (in-memory server, fake clock, short quiet period).
+    A real run refuses a paid provider whose price or data policy is not documented in pricing.toml unless its
+    id is in `allow_unverified` (recorded in run_meta); a dry run prices it and marks it "would be refused".
     """
+    from clipbench.providers.verification import check, parse_allow, refused_message
+
     settings = settings or get_settings()
     console = console or Console(stderr=True)
     if clips is None:
@@ -345,10 +368,24 @@ async def run_stream(
         clips = clips[:limit]
 
     active, skipped = resolve_providers(providers)
-    for p in active:
-        configure(p, chunk_ms, speed)
     for msg in skipped.values():
         console.print(f"[yellow]{msg}[/yellow]")
+    allow = parse_allow(allow_unverified)
+    refused, overridden = check(active, allow)
+    if not dry_run and refused:
+        active = [p for p in active if p.id not in refused]
+        for pid, reason in refused.items():
+            skipped[pid] = refused_message(pid, reason)
+            console.print(f"[red]{skipped[pid]}[/red]")
+        if not active:
+            raise UnverifiedProviders(
+                "refusing to start: every streaming provider was refused by the verification gate "
+                f"({'; '.join(refused_message(pid, r) for pid, r in refused.items())})"
+            )
+    for pid, reason in overridden.items():
+        console.print(f"[yellow]{pid}: unverified ({reason}), allowed by --allow-unverified[/yellow]")
+    for p in active:
+        configure(p, chunk_ms, speed)
     if speed != 1.0:
         console.print(f"[yellow]speed {speed}: latency numbers are not comparable with real-time runs[/yellow]")
 
@@ -361,9 +398,10 @@ async def run_stream(
     run_id = run_id or new_run_id()
 
     if dry_run:
-        allowed = print_stream_plan(console, est, active, skipped, spent_before, cap)
-        _print_locked(console, skipped, clips, chunk_ms, speed)
-        return StreamRunResult(run_id, True, est, spent_before, cap, allowed, skipped)
+        allowed = print_stream_plan(console, est, active, skipped, spent_before, cap, refused, overridden)
+        _print_locked(console, skipped, clips, chunk_ms, speed, allow)
+        return StreamRunResult(run_id, True, est, spent_before, cap, allowed, skipped,
+                               refused_providers=refused, allowed_unverified=overridden)  # fmt: skip
     if not clips:
         raise NoClips(f"no clips to stream (tier {tier}{', language ' + language if language else ''})")
     check_can_start(est, cap, spent_before)
@@ -551,6 +589,8 @@ async def run_stream(
             and m.get("id") in set(rows_df["provider"].astype(str))
         ],
         "skipped_providers": {pid: _scrub(msg, settings) for pid, msg in skipped.items()},
+        "verification_refused": refused,
+        "allow_unverified": overridden,
         "budget_stopped": [pid for pid, s in stopped.items() if s],
         "tier": tier,
         "language": clips[0].language if clips else language,
@@ -568,6 +608,7 @@ async def run_stream(
     return StreamRunResult(
         run_id=run_id, dry_run=False, estimate=est, spent_before=spent_before, cap=cap, allowed=True,
         skipped_providers=skipped, rows_path=rows_path, texts_path=texts_path, meta_path=meta_path, rows=rows_df,
+        refused_providers=refused, allowed_unverified=overridden,
     )  # fmt: skip
 
 
@@ -581,7 +622,10 @@ def _ws_version() -> dict[str, str]:
 
 
 def provider_meta(p: StreamingProvider) -> dict[str, Any]:
+    from clipbench.providers.verification import verification
+
     pricing = p.pricing()
+    v = verification(p.id)
     return {
         "id": p.id,
         "model_id": p.model_id,
@@ -593,4 +637,7 @@ def provider_meta(p: StreamingProvider) -> dict[str, Any]:
         "usd_per_minute": p.price_per_minute(),
         "pricing_checked_on": pricing.get("checked_on"),
         "pricing_checked_url": pricing.get("checked_url"),
+        "live_verified": v.live_verified,
+        "price_status": v.price_status,
+        "policy_status": v.policy_status,
     }

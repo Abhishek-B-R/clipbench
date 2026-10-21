@@ -1,10 +1,24 @@
 # Provider prices and data terms. See docs/INTERFACES.md and docs/providers.md.
 # Prices are USD, pay-as-you-go, batch / pre-recorded, as checked on `checked_on`.
 # `models` overrides usd_per_minute per model id. Re-check before publishing results.
+#
+# Verification (docs/providers.md, "Verification status"), on every section:
+#   live_verified  true only after a real call confirmed the request and response shapes
+#   price_status   "documented" (read from an official page, see checked_url / checked_on) or "unverified"
+#   policy_status  "documented" (data use and training established from an official page), "unverified"
+#                  (stated, but the source does not cover this product) or "unknown" (not stated)
+#   unverified     open questions to settle on the first live run
+# Free and local systems use "not_applicable". A real run refuses a paid provider whose price is missing
+# or not documented, or whose policy is not documented, unless it is named in --allow-unverified
+# (clipbench/providers/verification.py).
 
 [fake]
 model_id = "fake-1"
 usd_per_minute = 0.0
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "not_applicable"    # documented | unverified | not_applicable
+policy_status = "not_applicable"   # documented | unverified | unknown | not_applicable
+unverified = []
 
 # ------------------------------------------------------------------ free / local
 
@@ -17,6 +31,10 @@ data_policy = "runs locally, audio never leaves the machine"
 opt_out = "not needed"
 # policy fields from data_policy above; a missing key means unknown (exported as null)
 opt_out_status = "not_needed"   # applied | not_offered | not_needed
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "not_applicable"    # documented | unverified | not_applicable
+policy_status = "not_applicable"   # documented | unverified | unknown | not_applicable
+unverified = []
 
 [whisper-local.features]   # B20 feature matrix; a missing value means unknown or not stated
 languages = ["en", "ja", "ko", "es", "hi"]
@@ -63,6 +81,10 @@ data_policy = "runs locally, audio never leaves the machine"
 opt_out = "not needed"
 # policy fields from data_policy above; a missing key means unknown (exported as null)
 opt_out_status = "not_needed"   # applied | not_offered | not_needed
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "not_applicable"    # documented | unverified | not_applicable
+policy_status = "not_applicable"   # documented | unverified | unknown | not_applicable
+unverified = []
 
 [whisper-local-turbo.features]   # B20 feature matrix; a missing value means unknown or not stated
 languages = ["en", "ja", "ko", "es", "hi"]
@@ -109,6 +131,10 @@ data_policy = "reads auto captions already on disk; nothing is uploaded"
 opt_out = "not needed"
 # policy fields from data_policy above; a missing key means unknown (exported as null)
 opt_out_status = "not_needed"   # applied | not_offered | not_needed
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "not_applicable"    # documented | unverified | not_applicable
+policy_status = "not_applicable"   # documented | unverified | unknown | not_applicable
+unverified = []
 
 [wayin]
 model_id = "wayin"
@@ -119,6 +145,10 @@ data_policy = "reads existing Wayin output on disk; nothing is uploaded"
 opt_out = "not needed"
 # policy fields from data_policy above; a missing key means unknown (exported as null)
 opt_out_status = "not_needed"   # applied | not_offered | not_needed
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "not_applicable"    # documented | unverified | not_applicable
+policy_status = "not_applicable"   # documented | unverified | unknown | not_applicable
+unverified = []
 
 # ------------------------------------------------------------------ paid
 
@@ -135,6 +165,15 @@ retention_days = 30
 opt_out_status = "not_offered"   # applied | not_offered | not_needed
 policy_url = "https://console.groq.com/docs/your-data"
 notes = "whisper-large-v3 chosen over turbo for accuracy on ja/ko. Rate limits on the listed tier: 20 RPM, 7.2k audio seconds per hour."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "documented"        # documented | unverified | not_applicable
+policy_status = "unknown"          # documented | unverified | unknown | not_applicable
+unverified = [
+  "detect_language: verbose_json `language` (a lowercase English name such as \"japanese\") is not shown in Groq's docs; needs a live check",
+  "data use: the your-data page states retention (none by default, logs up to 30 days) but not whether inputs are used for training",
+  "Zero Data Retention is a console setting with no request flag; a run cannot confirm it is on",
+  "keyterms: the Whisper prompt limit is 224 tokens; the adapter caps the prompt at 400 characters as a stand in",
+]
 [groq-whisper.models]
 "whisper-large-v3" = 0.00185
 "whisper-large-v3-turbo" = 0.000667   # 0.04 USD per hour
@@ -189,6 +228,13 @@ trains_by_default = true
 opt_out_status = "applied"   # applied | not_offered | not_needed
 policy_url = "https://developers.deepgram.com/docs/the-deepgram-model-improvement-partnership-program"
 notes = "Nova-3 multilingual (language=multi) is 0.0052/min; not used."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "documented"        # documented | unverified | not_applicable
+policy_status = "documented"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "mip_opt_out=true: the API reference notes pricing impacts; whether opting out changes the 0.0043 USD per minute rate is not established",
+  "keyterms: keyterm prompting quality outside English is untested",
+]
 [deepgram.models]
 "nova-3" = 0.0043
 "nova-3-general" = 0.0043
@@ -241,6 +287,13 @@ opt_out = "none per request; account Data Controls toggle (paid plans only, forf
 opt_out_status = "not_offered"   # applied | not_offered | not_needed
 policy_url = "https://www.assemblyai.com/docs/faq/are-files-submitted-to-the-api-used-for-model-training"
 notes = "speech_models = [universal-3-5-pro, universal-2]. Universal-3.5 Pro covers ja and es; ko falls back to universal-2. Cost uses speech_model_used."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "documented"        # documented | unverified | not_applicable
+policy_status = "documented"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "data use: the FAQ says API data is not used for training today, but the terms allow it; the opt-out is an account Data Controls toggle on paid plans only, with no request flag",
+  "Korean is served by the universal-2 fallback in speech_models; check speech_model_used (and the 0.0025 USD per minute price it selects) on the first ko call",
+]
 [assemblyai.models]
 "universal-3-5-pro" = 0.0035
 "universal-2" = 0.0025            # 0.15 USD per hour
@@ -295,6 +348,13 @@ opt_out = "enable_logging=false (zero retention mode) is Enterprise only; set CL
 trains_by_default = true
 opt_out_status = "not_offered"   # applied | not_offered | not_needed
 notes = "tag_audio_events=false so (laughter) style tags do not count as insertions."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "documented"        # documented | unverified | not_applicable
+policy_status = "documented"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "data use: logs and transcripts are stored by default and non-Enterprise audio may be used for training unless the account toggle is off; zero retention (enable_logging=false) is Enterprise only",
+  "keyterms: the 20% surcharge and the 20 s minimum above 100 terms are priced in from the docs; not confirmed on an invoice",
+]
 [elevenlabs-scribe.models]
 "scribe_v2" = 0.003667
 
@@ -352,6 +412,15 @@ trains_by_default = false
 opt_out_status = "not_needed"   # applied | not_offered | not_needed
 policy_url = "https://ai.google.dev/gemini-api/terms"
 notes = "Prices for 3.8 Flash double on 2027-01-01 (1.50 input, 7.50 output per M). Thinking cannot be disabled on 3.8 Flash; adapter uses thinkingLevel=low. Audio tokens: https://ai.google.dev/gemini-api/docs/audio"
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "documented"        # documented | unverified | not_applicable
+policy_status = "documented"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "usd_per_minute 0.0034 is an estimate (32 audio tokens per second, about 100 prompt and 500 output tokens); the actual cost comes from usageMetadata",
+  "3.8 Flash token prices double on 2027-01-01; update token_prices before then",
+  "thinking cannot be turned off on 3.8 Flash; output tokens at thinkingLevel low are estimated",
+  "data use: only a billing-enabled (paid tier) key keeps prompts out of product improvement; a free tier key is used to improve products",
+]
 [gemini-flash.token_prices."gemini-3.8-flash"]   # USD per 1M tokens
 input = 0.75
 audio_input = 0.75
@@ -413,6 +482,13 @@ trains_by_default = true
 opt_out_status = "not_offered"   # applied | not_offered | not_needed
 policy_url = "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_ai-opt-out.html"
 notes = "The pricing tier table did not render when checked. Third-party sources give 0.024/min tier 1 (US East); the official page's batch example uses 0.006/min. 0.024 kept as the conservative figure for the budget guard. Verify before publishing cost results."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "unverified"        # documented | unverified | not_applicable
+policy_status = "documented"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "price: the official tier table did not render; 0.024 USD per minute is from third-party sources and the official batch example uses 0.006",
+  "data use: content may be used for service improvement unless the AWS Organizations AI services opt-out policy is attached; there is no request flag",
+]
 
 [aws-transcribe.features]   # B20 feature matrix; a missing value means unknown or not stated
 languages = ["en", "ja", "ko", "es", "hi"]
@@ -474,6 +550,13 @@ trains_by_default = false
 opt_out_status = "not_needed"   # applied | not_offered | not_needed
 policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
 notes = "Base64 JSON input with language and task=transcribe; word timings in segments[].words. Model page lists 0.000513 per audio minute. Files longer than chunk_seconds (240) are split into WAV chunks."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "documented"        # documented | unverified | not_applicable
+policy_status = "documented"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "billing: no response field reports neurons today; cost is estimated from neurons_per_minute",
+  "no request size or duration limit is documented; the 25 MB guard and the 240 s chunks are clipbench's own choices",
+]
 
 [cf-whisper-large-v3-turbo.features]   # B20 feature matrix; a missing value means unknown or not stated
 languages = ["en", "ja", "ko", "es", "hi"]
@@ -526,6 +609,15 @@ trains_by_default = false
 opt_out_status = "not_needed"   # applied | not_offered | not_needed
 policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
 notes = "Raw bytes input with NO language parameter: the language is auto detected, so non-English clips can come back in the wrong language. Model size is not documented. Word timings in words[]."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "documented"        # documented | unverified | not_applicable
+policy_status = "documented"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "model size of @cf/openai/whisper is not documented",
+  "no language parameter: the language is auto detected, so non-English clips can come back in the wrong language",
+  "billing: no response field reports neurons today; cost is estimated from neurons_per_minute",
+  "no request size or duration limit is documented; the 25 MB guard and the 240 s chunks are clipbench's own choices",
+]
 
 [cf-whisper.features]   # B20 feature matrix; a missing value means unknown or not stated
 languages = ["en", "ja", "ko", "es", "hi"]
@@ -577,6 +669,14 @@ trains_by_default = false
 opt_out_status = "not_needed"   # applied | not_offered | not_needed
 policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
 notes = "Beta, English only (other languages are skipped). Price not listed anywhere when checked; budget guard uses the whisper rate."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "unverified"        # documented | unverified | not_applicable
+policy_status = "documented"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "price: not on the Workers AI pricing page; the @cf/openai/whisper rate (41.14 neurons per minute) is assumed",
+  "billing: no response field reports neurons today; cost is estimated from neurons_per_minute",
+  "no request size or duration limit is documented; the 25 MB guard and the 240 s chunks are clipbench's own choices",
+]
 
 [cf-whisper-tiny-en.features]   # B20 feature matrix; a missing value means unknown or not stated
 languages = ["en"]
@@ -627,6 +727,15 @@ trains_by_default = false
 opt_out_status = "applied"   # applied | not_offered | not_needed
 policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
 notes = "Raw bytes with options as query parameters (language, punctuate, smart_format, mip_opt_out). Nova-3 batch covers en, ja, ko, es, hi. Costs more through Workers AI (0.0052) than direct Deepgram monolingual (0.0043). @cf/deepgram/flux is skipped: WebSocket only, English only, no word timings."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "documented"        # documented | unverified | not_applicable
+policy_status = "documented"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "output fields: the output schema does not list words[].speaker or detected_language; they are read from the Deepgram shape when present (needs a live check)",
+  "model_info (provider_version) in the output is not in the schema either",
+  "data use: Deepgram terms apply to the hosted partner model next to Cloudflare's data-usage page; how they combine is not stated",
+  "billing: no response field reports neurons today; cost is estimated from neurons_per_minute",
+]
 
 [cf-deepgram-nova-3.features]   # B20 feature matrix; a missing value means unknown or not stated
 languages = ["en", "ja", "ko", "es", "hi"]
@@ -691,6 +800,13 @@ opt_out = "mip_opt_out=true on every session"
 opt_out_status = "applied"
 policy_url = "https://developers.deepgram.com/docs/the-deepgram-model-improvement-partnership-program"
 notes = "Nova-3 monolingual streaming. The budget guard uses the 0.0077 list price so it never under estimates when the 0.0048 promotion ends. Flux (flux-general-multi) lacks ko and is not adapted."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "documented"        # documented | unverified | not_applicable
+policy_status = "documented"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "price: the 0.0077 USD per minute list price is used; the pricing page shows 0.0048 as a limited-time promotion",
+  "mip_opt_out=true: the API reference notes pricing impacts; not established for streaming",
+]
 
 [assemblyai-stream]
 model_id = "universal-3-6-pro"
@@ -711,6 +827,15 @@ opt_out = "none per request"
 opt_out_status = "not_offered"
 policy_url = "https://www.assemblyai.com/docs/faq/are-files-submitted-to-the-api-used-for-model-training"
 notes = "Billed on session duration (socket open time), not audio. Universal-3.6 Pro covers ko; 3.5 Pro does not. Universal-Streaming English and Multilingual (0.15 USD per hour) cover en plus five European languages only. language_codes query format UNVERIFIED (sent as a single code)."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "documented"        # documented | unverified | not_applicable
+policy_status = "unverified"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "language_codes: how a list goes on the query string is not documented; a single code is sent as language_codes=<code>",
+  "unknown query parameters are ignored, not rejected: check the Begin message's configuration echo on the first live session",
+  "data use: no training opt-out is documented for streaming; the cited FAQ is about files submitted to the API",
+  "billing: per session duration (socket open time); the estimate adds session_overhead_s (3 s) per clip",
+]
 
 [elevenlabs-stream]
 model_id = "scribe_v2_realtime"
@@ -730,6 +855,13 @@ opt_out = "enable_logging=false (zero retention) is Enterprise only; set CLIPBEN
 trains_by_default = true
 opt_out_status = "not_offered"
 notes = "Billing basis (audio or session) not stated; audio assumed. 90+ languages."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "documented"        # documented | unverified | not_applicable
+policy_status = "unverified"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "billing basis (audio sent or session time) is not stated; audio is assumed",
+  "data use: no policy page is recorded for the realtime API; the batch terms (stored by default, training unless the account toggle is off) are assumed to apply",
+]
 
 [gemini-stream]
 model_id = "gemini-3.5-transcribe-live"
@@ -750,6 +882,14 @@ trains_by_default = false
 opt_out_status = "not_needed"
 policy_url = "https://ai.google.dev/gemini-api/terms"
 notes = "Token priced: 3.50 per 1M audio input tokens, 21.00 per 1M text output tokens (thinking included). Sessions up to 10 minutes. Languages as BCP-47 (es-419 for Spanish). API key sent as x-goog-api-key header, UNVERIFIED for the WebSocket (docs show ?key=). The general Live models (gemini-3.8-live) also transcribe input but answer with audio, so the dedicated transcribe model is used."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "documented"        # documented | unverified | not_applicable
+policy_status = "documented"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "auth: the API key is sent as the x-goog-api-key header; the Live API docs show a ?key= query parameter, so header auth on the WebSocket is unverified",
+  "price: 0.009 USD per minute is the pricing page's blended estimate; usageMetadata is recorded but not used for cost",
+  "data use: only a billing-enabled (paid tier) key keeps data out of product improvement",
+]
 
 [cf-nova-3-stream]
 model_id = "@cf/deepgram/nova-3"
@@ -772,3 +912,11 @@ trains_by_default = false
 opt_out_status = "not_needed"
 policy_url = "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
 notes = "Model page lists Real-time: Yes and the WebSocket price. The REST WebSocket URL and message shape are UNVERIFIED (docs show a Worker binding with websocket: true). @cf/deepgram/flux (0.0077 per minute, WebSocket only) is English only and not adapted."
+live_verified = false              # nothing here has been checked with a live call yet
+price_status = "documented"        # documented | unverified | not_applicable
+policy_status = "documented"       # documented | unverified | unknown | not_applicable
+unverified = [
+  "endpoint: the REST WebSocket URL is not documented (docs show a Worker binding with websocket: true); wss://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/deepgram/nova-3 with a Bearer token is assumed",
+  "messages: Deepgram shaped Results (is_final) and a final Metadata message are assumed",
+  "billing: no neuron usage is read from the stream; cost is estimated from neurons_per_minute",
+]

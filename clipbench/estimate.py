@@ -86,7 +86,7 @@ def _supports(p, option: str) -> bool:
 
 def estimate_all(settings: Settings | None = None, a: Assumptions = Assumptions()) -> list[tuple[str, str, float]]:
     """Rows of (track, detail, usd) for every language together."""
-    from clipbench.budget import estimate
+    from clipbench.budget import estimate, supports_language
 
     s = settings or get_settings()
     rows: list[tuple[str, str, float]] = []
@@ -98,19 +98,23 @@ def estimate_all(settings: Settings | None = None, a: Assumptions = Assumptions(
         rows.append((track, detail, usd))
 
     # 1. Batch, with the stability reruns.
-    usd = sum(estimate(batch, c).total_usd for c in all_clips.values())
-    add("batch", f"{len(batch)} paid providers x {a.clips_per_lang} clips x {len(LANGS)} languages, plus stability reruns", usd)
+    def langs(ps: list, lang: str) -> list:
+        return [p for p in ps if supports_language(p, lang)]
+
+    usd = sum(estimate(langs(batch, lang), c).total_usd for lang, c in all_clips.items())
+    add("batch", f"{len(batch)} paid providers x {a.clips_per_lang} clips x {len(LANGS)} languages (each provider "
+        "only on languages it supports), plus stability reruns", usd)
 
     # 2. Extra batch passes for metrics that need different settings (no stability reruns).
     lid = [p for p in batch if _supports(p, "detect_language")]
-    usd = sum(estimate(lid, c, stability_n=0).total_usd for c in all_clips.values())
+    usd = sum(estimate(langs(lid, lang), c, stability_n=0).total_usd for lang, c in all_clips.items())
     add("language ID pass", f"{len(lid)} providers with detection, every clip again", usd)
     kt = [p for p in batch if _supports(p, "keyterms")]
-    usd = sum(estimate(kt, c, stability_n=0).total_usd for c in all_clips.values())
+    usd = sum(estimate(langs(kt, lang), c, stability_n=0).total_usd for lang, c in all_clips.items())
     add("keyterms pass", f"{len(kt)} providers with custom vocabulary, every clip again", usd)
     dz = [p for p in batch if _supports(p, "diarize")]
     n_dz = max(1, round(a.clips_per_lang * a.diarize_share))
-    usd = sum(estimate(dz, c[:n_dz], stability_n=0).total_usd for c in all_clips.values())
+    usd = sum(estimate(langs(dz, lang), c[:n_dz], stability_n=0).total_usd for lang, c in all_clips.items())
     add("diarization pass", f"{len(dz)} providers on {n_dz} multi-speaker clips per language", usd)
 
     # 3. Streaming track.
@@ -134,12 +138,12 @@ def estimate_all(settings: Settings | None = None, a: Assumptions = Assumptions(
 
     # 4. SNR sweeps: clean clips mixed at each SNR with each bed kind, padded with bed only audio.
     sweep_durs = [d + a.sweep_pad_s for d in durs[: a.sweep_clips]] * (a.sweep_snrs * a.sweep_bed_kinds)
-    usd = sum(estimate(batch, _clips(lang, sweep_durs, "sw"), stability_n=0).total_usd for lang in LANGS)
+    usd = sum(estimate(langs(batch, lang), _clips(lang, sweep_durs, "sw"), stability_n=0).total_usd for lang in LANGS)
     add("SNR sweeps", f"{a.sweep_clips} clean clips x {a.sweep_snrs} SNRs x {a.sweep_bed_kinds} bed kinds", usd)
 
     # 5. Long-form.
     lf = [a.longform_minutes * 60.0] * a.longform_videos
-    usd = sum(estimate(batch, _clips(lang, lf, "lf"), stability_n=0).total_usd for lang in LANGS)
+    usd = sum(estimate(langs(batch, lang), _clips(lang, lf, "lf"), stability_n=0).total_usd for lang in LANGS)
     add("long-form", f"{a.longform_videos} videos of {a.longform_minutes:.0f} min per language", usd)
 
     # 6. Semantic judge: one call per (clip, provider) pair, including free providers' outputs.
@@ -155,7 +159,7 @@ def estimate_all(settings: Settings | None = None, a: Assumptions = Assumptions(
 
     # 7. A month of canaries (their own monthly cap applies on top).
     can = _durations(s, a.canary_clips, a.default_clip_s)
-    one = sum(estimate(batch, _clips(lang, can, "cn"), stability_n=0).total_usd for lang in LANGS)
+    one = sum(estimate(langs(batch, lang), _clips(lang, can, "cn"), stability_n=0).total_usd for lang in LANGS)
     add("canaries, per month", f"{a.canary_clips} clips per language, weekly", one * a.canary_runs_per_month)
     return rows
 
@@ -179,7 +183,7 @@ def register(app: typer.Typer) -> None:
         for track, detail, usd in rows:
             t.add_row(track, detail, f"${usd:,.2f}")
         total = sum(u for _, _, u in rows)
-        t.add_row("[bold]total[/bold]", "", f"[bold]${total:,.2f}[/bold]")
+        t.add_row("[bold]total[/bold]", "one complete run plus one month of canaries", f"[bold]${total:,.2f}[/bold]")
         console.print(t)
         console.print(
             f"Clip length: mean {mean(durs):.1f} s from data/sample.parquet (other languages assumed the same). "

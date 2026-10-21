@@ -29,7 +29,14 @@ from typing import Any, ClassVar
 
 from clipbench.models import Clip, Result, Word
 from clipbench.providers.base import Provider, ProviderError, ProviderSkip, normalize_language_code
-from clipbench.providers.http import RetryPolicy, retry_async, stopwatch, wav_seconds
+from clipbench.providers.http import (
+    SHAPE_ERRORS,
+    RetryPolicy,
+    retry_async,
+    shape_error,
+    stopwatch,
+    wav_seconds,
+)
 
 LANGUAGE_CODES = {"ja": "ja-JP", "es": "es-US", "ko": "ko-KR", "en": "en-US", "hi": "hi-IN"}
 MAX_SPEAKER_LABELS = 10
@@ -206,8 +213,11 @@ class AwsTranscribe(Provider):
                 latency = watch.ms
             finally:
                 await self._cleanup(s3, tx, bucket, [in_key, out_key], job_name if started else None)
-        body = json.loads(payload)
-        return parse_transcript(body, self, seconds, latency, job=job)
+        try:
+            body = json.loads(payload)
+            return parse_transcript(body, self, seconds, latency, job=job)
+        except SHAPE_ERRORS as e:
+            raise shape_error(self.id, payload[:300], e) from e
 
     async def _cleanup(self, s3: Any, tx: Any, bucket: str, keys: list[str], job_name: str | None) -> None:
         """Best effort; never masks the real error."""

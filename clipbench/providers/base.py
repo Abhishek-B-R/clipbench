@@ -40,6 +40,11 @@ class ProviderError(Exception):
         self.retries = retries
 
 
+class ProviderQuotaExhausted(ProviderError):
+    """The account is out of quota, credit or free allowance (not a per-minute rate limit). Retrying more
+    clips cannot succeed, so the runner stops this provider and leaves its remaining clips for a resume."""
+
+
 @dataclass
 class CallStats:
     """Retries and last HTTP status of one transcribe() call, filled by the retry helpers."""

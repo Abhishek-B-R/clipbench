@@ -98,8 +98,22 @@ async def test_network_failure_has_no_status(wav):
 
 
 async def test_parse_error_gets_stats_attached(wav):
-    """A non ProviderError raised after a successful request still carries the call's stats."""
+    """A malformed 2xx body is a ProviderError (not a bare KeyError) and carries the call's stats."""
     p = groq(lambda req: httpx.Response(200, json={"words": [{"word": "x"}]}))  # no start/end
+    with pytest.raises(ProviderError, match="unexpected response shape") as info:
+        await p.transcribe(wav, "es")
+    assert info.value.http_status == 200
+
+
+async def test_non_provider_error_gets_stats_attached(wav):
+    """Any other exception raised inside transcribe() after a request still carries the call's stats."""
+
+    class Broken(GroqWhisper):
+        async def transcribe(self, audio_path, language, *, clip=None):
+            await self.http.request("POST", "/audio/transcriptions", data={"model": "m"})
+            raise KeyError("boom")
+
+    p = Broken(transport=httpx.MockTransport(lambda req: httpx.Response(200, json={})), retry=no_sleep_policy())
     with pytest.raises(KeyError) as info:
         await p.transcribe(wav, "es")
     assert info.value.http_status == 200  # type: ignore[attr-defined]

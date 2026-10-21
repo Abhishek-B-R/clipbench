@@ -41,7 +41,7 @@ from clipbench.models import Clip, Result, Word
 from clipbench.providers.base import ProviderError, ProviderSkip, load_pricing, normalize_language_code
 from clipbench.providers.deepgram import MAX_KEYTERMS, parse_alternative
 from clipbench.providers.groq import keyterm_prompt
-from clipbench.providers.http import HttpProvider, stopwatch, wav_seconds
+from clipbench.providers.http import SHAPE_ERRORS, HttpProvider, shape_error, stopwatch, wav_seconds
 
 ALL_LANGUAGES = frozenset({"en", "ja", "ko", "es", "hi"})
 
@@ -148,12 +148,17 @@ class WorkersAIProvider(HttpProvider):
                     body = resp.json()
                 except ValueError as e:
                     raise ProviderError(f"{self.id}: non-JSON response: {resp.text[:300]}") from e
+                if not isinstance(body, dict):
+                    raise shape_error(self.id, body)
                 if body.get("success") is False or not isinstance(body.get("result"), dict):
                     raise ProviderError(f"{self.id}: request failed: {body.get('errors') or body}")
                 bodies.append(body)
-                text, chunk_words = self.parse(body["result"])
+                try:
+                    text, chunk_words = self.parse(body["result"])
+                    chunk_speakers, chunk_lang = self.extras(body["result"])
+                except SHAPE_ERRORS as e:
+                    raise shape_error(self.id, body, e) from e
                 texts.append(text)
-                chunk_speakers, chunk_lang = self.extras(body["result"])
                 if chunk_speakers is not None and len(chunk_speakers) == len(chunk_words):
                     speakers.extend(chunk_speakers)
                     any_speakers = True

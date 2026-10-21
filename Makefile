@@ -2,6 +2,7 @@
 PROVIDERS ?= all
 TIER ?= verified
 RUN ?= latest
+LANG_CODE ?= ja
 
 .PHONY: setup build-data sample fetch-audio review dry-run run score errors report publish-check test lint check-data align
 
@@ -22,10 +23,10 @@ review:
 	uv run clipbench review
 
 dry-run:
-	uv run clipbench run --providers $(PROVIDERS) --tier $(TIER) --dry-run
+	uv run clipbench run --providers $(PROVIDERS) --tier $(TIER) --lang $(LANG_CODE) --dry-run
 
 run:
-	uv run clipbench run --providers $(PROVIDERS) --tier $(TIER)
+	uv run clipbench run --providers $(PROVIDERS) --tier $(TIER) --lang $(LANG_CODE)
 
 score:
 	uv run clipbench score $(RUN)
@@ -46,7 +47,6 @@ lint:
 test:
 	uv run pytest -q
 
-LANG_CODE ?= en
 
 check-data:
 	uv run clipbench data check --lang $(LANG_CODE)

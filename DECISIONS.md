@@ -42,7 +42,9 @@ One line each: what was decided and why. Newest at the bottom of each section.
 
 ## Runner and budget
 
-- Rows store the list cost even on a cache hit, and the original call's latency; data/spend.json records only real requests. Cost per hour and latency stay comparable across reruns.
+- Rows store the list cost even on a cache hit, and the original call's latency; data/spend.json records only real requests. Cost per hour stays comparable across reruns. Latency aggregates (p50, p95, RTF) leave cache hits out (2026-10-21): the first real run's cache hits came from a smoke run with ten providers uploading at once (Deepgram 38 s for a clip it does in 4.6 s alone), so their latency describes another run's load. Compute and reliability already counted only fresh requests.
+- The budget ledger is shared by every clipbench process: each read-modify-write holds an fcntl lock on data/spend.json.lock, and open reservations are written into the ledger so two concurrent runs cannot both reserve up to the cap (2026-10-21). Without fcntl (Windows) only the in-process lock applies.
+- Creator-tier clips have audio_condition `unknown`, not `no_music` (2026-10-21): no reviewer listened, so the first real report's "Music vs no music" table claiming all 150 clips were music-free was wrong.
 - The budget guard applies to any provider with a nonzero price, not only `paid=True`, so the fake provider can test it.
 - Stability reruns (20 seeded clips x 3) run only for paid providers; local and on-disk systems are deterministic or free. Each repeat has its own cache key, so rerunning a run is still free.
 - `--limit` and the stability subset sort by video_id first, so they do not depend on input order.
@@ -134,3 +136,19 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - Canary scheduler: GitHub Actions cron on a self-hosted runner on the owner's Mac, because canaries need the private references and audio and YouTube often refuses cloud IPs; scheduled runs stay dry until CANARY_LIVE=true, with a separate monthly cap (canary_budget_usd_per_month).
 - Semantic WER is published only after >= 50 human-labelled pairs per language with Spearman >= 0.7 and MAE <= 0.2 against the judge; no labels exist yet and none are invented.
 - Rows record which run options a provider ignored (unsupported_options), so comparisons such as keyterms on/off exclude providers that never applied them.
+
+## Research safeguards (review fixes)
+
+- Providers count toward publication only when eligible: ok repeat-0 results on at least `min_provider_coverage` (clipbench.toml, 0.9) of the language's verified evaluation clips. Before, any provider with one ok verified row counted toward the six, so a provider with 3 of 100 clips could unlock a ranking. Exactly at the threshold counts. Excluded providers carry their coverage and scored/skipped/errored counts as the reason.
+- The setting is read in clipbench/report/rules.py (not clipbench/config.py) so the gate has one source of truth; env CLIPBENCH_MIN_PROVIDER_COVERAGE overrides it.
+- `providers_ok` keeps its v2 name but now means eligible providers, so older readers of the export (web Gate, OG images) gate on the right number without a code change.
+- Publication also requires the verified clips themselves to pass the diversity rules, with categories from the verified files only (guesses never count). The legacy channels/categories fields stay descriptive.
+- The verified evaluation set is the union of verified repeat-0 rows in rows.parquet and verified clips in scores.parquet, so clips that every provider failed still count in the coverage denominator.
+- Excluded providers are filtered out before ranking, findings and the Benjamini-Hochberg step. Exclusion depends on coverage, not results, so shrinking the test family this way keeps BH valid. Their aggregates rows are still exported with eligible=false so the site can explain the exclusion.
+- The ranking order is defined once (rules.rank_order: eligible only, error rate ascending, ties by provider id) and exported as `ranking`, so the site no longer sorts on its own.
+- The export's `paired` table is now the eligible-only, BH-adjusted table. Before, the web read raw unadjusted verdicts.
+- Bootstrap intervals are expanded percentile intervals (Hesterberg 2015). Simulation showed the plain percentile interval called 8.5% of null datasets a win at n = 15 (findings allow slices from 15 clips); the expanded one 5.35%.
+- Bootstrap p values use (k + 1) / (B + 1) and are inverted from the same expanded interval, so p <= 0.05 exactly when the CI excludes zero. The old 2k/B gave p = 0 whenever no resample crossed zero, which BH accepts at any number of tests: 7.3% of all-null runs had a "beats" against 4.0% now. Cost: the smallest p with 1000 resamples is about 0.003, which lowers BH power in runs with many tests.
+- Channel-clustered bootstrap is reported alongside, never instead: in a simulation with channel-level provider effects the clip bootstrap called 11.7% of null datasets a win and the cluster bootstrap 3.7%, but with few channels the cluster interval is unstable. A "beats" whose clustered interval crosses zero is flagged cluster_sensitive and says so.
+- The estimand is stated as the corpus error rate (sum of errors over sum of reference tokens); the mean of per clip error rates is reported as a secondary number.
+- `clipbench data check --verified` (a small edit to clipbench/data/cli.py) runs the same verified-set check on the local sample.

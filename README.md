@@ -10,9 +10,51 @@ languages mid sentence. clipbench scores each system on what a caption product a
 clips a person checked by ear, with every comparison backed by a paired statistical test and code
 anyone can rerun.
 
-![Headline chart: accuracy against cost per audio hour](docs/headline.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-dark.png">
+  <img alt="The clipbench site: which speech-to-text should your video app use, with progress per language" src="docs/screenshots/home-light.png">
+</picture>
 
-*Headline chart placeholder: written by `clipbench report` once the first language is published.*
+**Status:** results are in progress. No language is published yet: rankings appear only once a language
+has 100 verified clips scored by at least 6 providers (see below). The pipeline has run end to end on
+creator captions, which are reported as an unverified reference, never as a ranking.
+
+## First run (October 2026)
+
+The full pipeline ran live on 150 Japanese Shorts and clips from 41 channels: 11 systems (Whisper
+large-v3 and turbo on a laptop, Workers AI Whisper and Nova-3, Groq, Deepgram, AssemblyAI, ElevenLabs
+Scribe, Gemini Flash and YouTube's own auto captions), about 1,600 transcriptions including stability
+reruns plus 125 YouTube auto caption tracks, for under 2 USD of API spend. Gemini Flash and Workers AI
+Nova-3 hit their account quota after 11 and 28 clips, and 25 clips have no YouTube auto track, so those
+three cover fewer clips. Scored against creator captions, which are unverified, so this is a pipeline
+check rather than a ranking. What it already surfaced:
+
+- **Latency is easy to measure wrong.** With ten providers uploading at once, one provider measured 38 s
+  for a clip it returns in 4.6 s alone. clipbench now runs one provider at a time and records the mode.
+- **Creator captions favour YouTube.** YouTube's auto captions scored closest to creator captions, most
+  likely because many creators start from them. Only references corrected by ear are fair ground truth.
+- **Hallucination is real.** One Whisper deployment without a language hint had a 20% hallucination rate
+  (output characters beyond 1.5 times the reference length, per reference character), mostly repetition loops.
+- **References break.** Ten clips failed on every system; at least one is Korean speech under a Japanese
+  caption track. They go back to the review queue automatically.
+
+## What is built
+
+- **Data pipeline:** clip lists from any public ids, caption tracks classified from YouTube metadata,
+  stratified sampling (at most 5% per channel, 6 content categories), gentle audio fetching.
+- **Review tool:** a local web app to correct captions by ear and tag music, speakers, names, formatting
+  spans and code-switching, with keyboard shortcuts.
+- **Providers:** 14 batch and 5 streaming adapters behind one interface, with retries, quota detection,
+  pacing, a result cache, a hard budget cap and a verification gate that refuses unvetted paid providers.
+- **Scoring:** language-aware normalisation (kana readings for Japanese, mixed-script Hindi), caption
+  timing against forced alignment, hallucination over music, caption readiness, code-switch accuracy,
+  multiple valid spellings, diarization, language ID, caption file readability, and an LLM judge that
+  only publishes once it agrees with human labels.
+- **Statistics:** bootstrap intervals validated by simulation, paired tests with Benjamini-Hochberg
+  correction, channel-clustered sensitivity checks, and a publication gate on coverage and diversity.
+- **Site and API:** a static site and a Cloudflare Worker that serve only what passed the gate, with a
+  public JSON API and embeddable badges; a privacy check blocks any audio or caption text from being
+  published.
 
 ## What it measures
 
@@ -25,8 +67,11 @@ anyone can rerun.
 | Code-switch accuracy (English inside non-English clips) | real creator speech |
 | Cost per audio hour, latency, real-time factor | the bill and the wait |
 
-Languages: English, Japanese, Korean, Spanish, Hindi and Hinglish. A language is published only with
-100 or more verified clips and 6 or more providers. Until then the site shows progress, not a ranking.
+Languages: English (`en`), Japanese (`ja`), Korean (`ko`), Spanish (`es`) and Hindi (`hi`). Hinglish is
+not a separate language: it is Hindi speech mixed with English, scored inside `hi` (mixed Devanagari and
+Latin script) and as code-switching. A language is published only with 100 or more verified clips, 6 or
+more providers that each scored at least 90% of them, and a verified set that passes the diversity rules.
+Until then the site shows progress, not a ranking.
 How every number is made: [METHODOLOGY.md](METHODOLOGY.md). Every judgement call: [DECISIONS.md](DECISIONS.md).
 
 ## Quickstart

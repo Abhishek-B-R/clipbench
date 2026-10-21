@@ -13,14 +13,64 @@ export interface RunSummary {
   providers: string[];
 }
 
-/** Per-language publication status (docs/V2.md, "Languages"). Written by the exporter; computed defensively when missing. */
+/** A provider seen in the run that is not eligible for ranking (docs/V3.md, "Publication gate fields"). */
+export interface ProviderExclusion {
+  provider: string;
+  /** Share 0..1 of the verified evaluation clips with an ok row; null when the run has no verified clips. */
+  coverage: number | null;
+  n_scored: number | null;
+  n_skipped: number | null;
+  n_error: number | null;
+  /** Display sentence written by the exporter. */
+  reason: string | null;
+}
+
+/** Diversity of the verified evaluation clips (clipbench.data.check.check_verified). */
+export interface VerifiedDiversity {
+  channels: number;
+  largest_channel_share: number | null;
+  categories: string[];
+  passes: boolean;
+  /** Display sentences, empty when `passes`. */
+  problems: string[];
+}
+
+/** The three publication conditions, each computed by the exporter. */
+export interface GateFlags {
+  verified_clips_ok: boolean;
+  providers_ok: boolean;
+  diversity_ok: boolean;
+}
+
+/**
+ * Per-language publication status (docs/V2.md "Languages", docs/V3.md "Publication gate fields"). Written by the
+ * exporter; the site only reads it. A status without `gate` (an older export) is treated as not published.
+ */
 export interface LanguageStatus {
   lang: string;
   verified_clips: number;
+  /** Number of ELIGIBLE providers (= providers_eligible.length). */
   providers_ok: number;
   published: boolean;
   channels?: number;
   categories?: string[] | number;
+  largest_channel_share?: number | null;
+  providers_eligible?: string[];
+  providers_excluded?: ProviderExclusion[];
+  /** Coverage threshold the exporter used, 0..1. */
+  min_coverage?: number;
+  verified_diversity?: VerifiedDiversity;
+  gate?: GateFlags;
+}
+
+/** One row of the exporter's ranking (`ranking[tier][metric]`, slice all, eligible providers only). */
+export interface RankEntry {
+  provider: string;
+  rank: number;
+  error_rate: number;
+  ci_low: number;
+  ci_high: number;
+  n_clips: number;
 }
 
 export interface RunIndex {
@@ -97,6 +147,16 @@ export interface Aggregate {
   error_rate_lattice?: number | null;
   ci_low_lattice?: number | null;
   ci_high_lattice?: number | null;
+  // Publication gate (docs/V3.md). Missing in older exports: treated as not eligible.
+  /** The provider is in providers_eligible. Rows with false are never ranked or compared. */
+  eligible?: boolean;
+  /** The provider's coverage of the verified evaluation clips, 0..1, or null. */
+  coverage?: number | null;
+  /** Channel-clustered 95% interval (sensitivity analysis) and the channels behind it. */
+  ci_low_cluster?: number | null;
+  ci_high_cluster?: number | null;
+  n_channels?: number | null;
+  mean_clip_error_rate?: number | null;
 }
 
 export interface Paired {
@@ -112,7 +172,15 @@ export interface Paired {
   ci_low: number;
   ci_high: number;
   p_value: number;
+  /** Benjamini-Hochberg adjusted verdict. Use it for any "beats" wording. */
   verdict: Verdict;
+  /** Unadjusted verdict and the BH-adjusted p value (docs/V3.md). Missing in older exports. */
+  verdict_raw?: Verdict;
+  p_adjusted?: number | null;
+  ci_low_cluster?: number | null;
+  ci_high_cluster?: number | null;
+  p_value_cluster?: number | null;
+  n_channels?: number | null;
 }
 
 export interface Stability {
@@ -141,6 +209,8 @@ export interface FindingV2 {
   status: "draft" | "verified" | string;
   source: { table: "aggregates" | "paired" | string; filters: Record<string, string | number | boolean | null> };
   numbers?: Record<string, number | null>;
+  /** True when the comparison's channel-clustered interval crosses zero (docs/V3.md). */
+  cluster_sensitive?: boolean;
 }
 
 export interface FindingsFile {
@@ -200,6 +270,8 @@ export interface Run {
   providers: Provider[];
   aggregates: Aggregate[];
   paired: Paired[];
+  /** {tier: {metric: [...]}}: the one ranking order, eligible providers only, {} when unpublished (docs/V3.md). */
+  ranking?: Partial<Record<Tier, Record<string, RankEntry[]>>>;
   stability: Stability[];
   findings: Finding[];
   errors: { providers: Record<string, ProviderErrors>; examples: ErrorExample[]; all_fail?: string[] };

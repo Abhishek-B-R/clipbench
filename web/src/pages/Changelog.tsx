@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { ArrowDown, ArrowRight, ArrowUp, Download, Plus, Minus, RefreshCw } from "lucide-react";
 import type { Run } from "@/lib/types";
 import { runUrl, useAllRuns } from "@/lib/data";
-import { LANGUAGE_NAME, defaultTier, isPublished, primaryMetric, providerColor, providerLabel, runChanges, type RunChange } from "@/lib/analysis";
+import { LANGUAGE_NAME, defaultTier, eligibleProviders, isPublished, primaryMetric, providerColor, providerLabel, runChanges, type RunChange } from "@/lib/analysis";
 import { date, pct, signedPts } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -74,14 +74,14 @@ function Entry({ c, latest, json, last }: { c: RunChange; latest: boolean; json:
             {!ranked ? "Pipeline run, not ranked." : !c.prev ? "First published run." : sameLeader ? `${providerLabel(run, c.leader!.provider)} still leads.` : c.leader ? `New leader: ${providerLabel(run, c.leader.provider)}.` : "Run published."}
           </h2>
           <p className="mt-1 text-[13.5px] text-ink-2">
-            {run.providers.length} models on {n} {tier === "verified" ? "verified" : "creator-captioned"} clips in {LANGUAGE_NAME[run.language] ?? run.language}
+            {run.providers.length} models{ranked ? ` (${eligibleProviders(run).size} ranked)` : ""} on {n} {tier === "verified" ? "verified" : "creator-captioned"} clips in {LANGUAGE_NAME[run.language] ?? run.language}
             {ranked && c.leader ? `. Lowest ${primaryMetric(run).name.toUpperCase()}: ${pct(c.leader.error_rate)} (${pct(c.leader.ci_low)} to ${pct(c.leader.ci_high)}).` : `. ${LANGUAGE_NAME[run.language] ?? run.language} is below the publication gate, so no ranking or leader is shown.`}
           </p>
           {(c.prev ? c.added.length + c.removed.length + c.changed.length > 0 : true) && (
             <ul className="mt-3 flex flex-wrap gap-1.5">
               {(c.prev ? c.added : []).map((p) => (
                 <Change key={`a${p}`} icon={<Plus size={12} />} run={run} id={p}>
-                  Added {providerLabel(run, p)} <span className="font-mono text-[11.5px] text-ink-3">{run.providers.find((x) => x.id === p)?.model_id}</span>
+                  Added {providerLabel(run, p)} <span className="font-mono text-[11.5px] break-all text-ink-3">{run.providers.find((x) => x.id === p)?.model_id}</span>
                 </Change>
               ))}
               {c.removed.map((p) => (
@@ -125,10 +125,10 @@ function Entry({ c, latest, json, last }: { c: RunChange; latest: boolean; json:
 
 function Change({ icon, children, run, id }: { icon: React.ReactNode; children: React.ReactNode; run: Run; id: string }) {
   return (
-    <li className="inline-flex h-7 items-center gap-1.5 rounded-sm border border-line bg-sunken/60 px-2 text-[12.5px] text-ink">
-      <span className="text-ink-3">{icon}</span>
+    <li className="inline-flex max-w-full min-h-7 items-center gap-1.5 rounded-sm border border-line bg-sunken/60 px-2 py-1 text-[12.5px] text-ink">
+      <span className="shrink-0 text-ink-3">{icon}</span>
       <SeriesDot color={providerColor(run, id)} size={6} />
-      {children}
+      <span className="min-w-0">{children}</span>
     </li>
   );
 }

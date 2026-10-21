@@ -2,6 +2,9 @@ import { Link } from "react-router";
 import { ArrowRight } from "lucide-react";
 import type { Run } from "@/lib/types";
 import { int } from "@/lib/format";
+import { RULES } from "@/lib/config";
+import { defaultTier, primaryMetric } from "@/lib/analysis";
+import { Reveal } from "@/components/layout/Section";
 
 /** Computed from the export, never typed: how many clips a person has actually checked. */
 function verifiedSentence(run?: Run) {
@@ -10,7 +13,6 @@ function verifiedSentence(run?: Run) {
   const v = run.clips.filter((c) => c.tier === "verified").length;
   return v > 0 ? `${base} Verified so far: ${int(v)} ${v === 1 ? "clip" : "clips"}.` : `${base} No clip in the latest run is verified yet.`;
 }
-import { Reveal } from "@/components/layout/Section";
 
 /** Four trust signals, each with a small diagram drawn in the page's own language. */
 export function Method({ run }: { run?: Run }) {
@@ -37,7 +39,7 @@ export function Method({ run }: { run?: Run }) {
       n: "04",
       title: "Open, but no captions leak",
       body: "Code, clip ids and per-clip scores are public. Audio and transcripts are not, and a publish check scans every file for caption text.",
-      art: <ArtOpen />,
+      art: <ArtOpen run={run} />,
     },
   ];
   return (
@@ -108,7 +110,7 @@ function ArtBudget() {
   return (
     <svg viewBox="0 0 240 96" className={svg} aria-hidden>
       <line x1="20" x2="220" y1="22" y2="22" stroke="var(--signal)" strokeDasharray="3 3" />
-      <text x="220" y="16" textAnchor="end" fontFamily="var(--font-mono)" fontSize="9" fill="var(--signal-ink)">cap $10.00</text>
+      <text x="220" y="16" textAnchor="end" fontFamily="var(--font-mono)" fontSize="9" fill="var(--signal-ink)">cap ${RULES.budgetCapUsd.toFixed(2)}</text>
       {bars.map((h, i) => (
         <rect key={i} x={24 + i * 21} y={82 - h} width="13" height={h} rx="2" fill={i === bars.length - 1 ? "var(--ink)" : "var(--line-strong)"} />
       ))}
@@ -116,13 +118,21 @@ function ArtBudget() {
   );
 }
 
-function ArtOpen() {
+/** Two real per-clip rows from the latest export (ids and scores are public); placeholders before it loads. */
+function ArtOpen({ run }: { run?: Run }) {
+  const metric = run ? primaryMetric(run).name : "cer";
+  const tier = run ? defaultTier(run) : undefined;
+  const rows = (run?.per_clip ?? [])
+    .filter((r) => r.metric === metric && r.tier === tier && Number.isFinite(r.error_rate))
+    .slice(0, 2)
+    .map((r) => `${r.video_id.slice(0, 7)}, ${r.error_rate.toFixed(3)}`);
+  while (rows.length < 2) rows.push("...");
   return (
     <svg viewBox="0 0 240 96" className={svg} aria-hidden>
       <g fontFamily="var(--font-mono)" fontSize="10">
-        <text x="24" y="30" fill="var(--ink-2)">video_id, cer</text>
-        <text x="24" y="48" fill="var(--ink-3)">DEMO7kq, 0.082</text>
-        <text x="24" y="66" fill="var(--ink-3)">DEMOx2p, 0.117</text>
+        <text x="24" y="30" fill="var(--ink-2)">video_id, {metric}</text>
+        <text x="24" y="48" fill="var(--ink-3)">{rows[0]}</text>
+        <text x="24" y="66" fill="var(--ink-3)">{rows[1]}</text>
       </g>
       <rect x="150" y="24" width="66" height="44" rx="4" fill="var(--sunken)" stroke="var(--line-strong)" />
       <rect x="160" y="36" width="46" height="5" rx="2" fill="var(--line-strong)" />

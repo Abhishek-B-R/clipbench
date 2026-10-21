@@ -6,6 +6,7 @@ import { ACCOUNTS } from "@/lib/flags";
 import { useRun, useSource } from "@/lib/data";
 import { API_V1, badgeSnippets } from "@/lib/config";
 import { cn } from "@/lib/cn";
+import { overall } from "@/lib/analysis";
 import { Badge } from "@/components/ui/Badge";
 import { CodeBlock, type CodeSample } from "@/components/ui/CodeBlock";
 import { Rule } from "@/components/layout/Section";
@@ -142,7 +143,7 @@ export default function ApiDocs() {
           </Section>
           <Section id="leaderboard" title="Leaderboard" method="GET" path="/api/v1/leaderboard/:lang" code={<CodeBlock samples={get(`${API_V1.leaderboard(lang)}?tier=verified&slice_kind=category&slice=gaming`)} />}>
             <p>
-              The ranking for one language from its latest run: one row per model for a tier, metric and slice, sorted by error rate, plus the metrics and slices you can ask for. A language below the publication gate answers with its status and <Mono>published: false</Mono>, never a ranking.
+              The ranking for one language from its latest run: one row per eligible model for a tier, metric and slice, plus the metrics and slices you can ask for. All clips follow the export's <Mono>ranking</Mono>; other slices use the same rule (error rate, then provider id). Models below the coverage minimum are listed under <Mono>not_ranked</Mono> with their coverage and reason, never ranked. A language below the publication gate answers with its status and <Mono>published: false</Mono>, never a ranking.
             </p>
             <Fields
               head={["Parameter", "In", "Description"]}
@@ -156,13 +157,14 @@ export default function ApiDocs() {
             <Fields
               head={["Field", "Type", "Description"]}
               rows={[
-                ["rows[]", "object[]", "provider, model_id, error_rate, ci_low, ci_high, n_clips, too_small."],
+                ["rows[]", "object[]", "rank, provider, model_id, error_rate, ci_low, ci_high, n_clips, too_small, coverage, plus the channel-clustered ci_low_cluster, ci_high_cluster and n_channels when present."],
+                ["not_ranked[]", "object[]", "provider, label, coverage, reason: models seen in the run that are not eligible."],
                 ["metrics, slices", "string[], object[]", "What else this language's run can be cut by."],
               ]}
             />
           </Section>
           <Section id="model" title="One model" method="GET" path="/api/v1/models/:provider" code={<CodeBlock samples={get(API_V1.model(pid))} />}>
-            <p>One model across every language it was run in: per language, its aggregates on every slice, its canary history and drift events, and its reliability across all runs. Unpublished languages are listed with <Mono>published: false</Mono> and no numbers.</p>
+            <p>One model across every language it was run in: per language, its aggregates on every slice, its canary history and drift events, and its reliability across all runs, with <Mono>eligible</Mono>, <Mono>coverage</Mono> and its <Mono>rank</Mono> (null when not ranked, with the exclusion <Mono>reason</Mono>). Unpublished languages are listed with <Mono>published: false</Mono> and no numbers.</p>
             <Fields head={["Parameter", "In", "Description"]} rows={[["provider", "path", "A provider id from a run's providers[]."]]} />
           </Section>
           <Section id="history" title="Canary history" method="GET" path="/api/v1/history/:lang" code={<CodeBlock samples={get(`${API_V1.history(lang)}?provider=${pid}`)} />}>
@@ -179,7 +181,7 @@ export default function ApiDocs() {
           </Section>
           <Section id="badge" title="Badge" method="GET" path="/api/v1/badge/:provider/:lang.svg" code={<CodeBlock title="Embed" samples={[{ label: "Markdown", code: badge.markdown }, { label: "HTML", code: badge.html }, { label: "URL", code: badge.img }]} />}>
             <p>
-              A small SVG badge with a model's current error rate on verified clips in a language, for a README or a pricing page. It is computed from the latest published run when requested and cached for an hour. For a language that is not published yet the badge says so instead of showing a number.
+              A small SVG badge with a model's current error rate on verified clips in a language, for a README or a pricing page. It is computed from the latest published run when requested and cached for an hour. For a language that is not published yet, or a model below the coverage minimum, the badge says so instead of showing a number.
             </p>
             <Fields head={["Parameter", "In", "Description"]} rows={[["provider", "path", "Provider id."], ["lang", "path", "Language code, then .svg."], ["metric", "query", "Optional; the primary metric by default."]]} />
             <p>Every model page has its own snippet ready to copy.</p>
@@ -194,7 +196,8 @@ export default function ApiDocs() {
                 ["metrics[]", "object[]", "name, label, primary. ja uses cer (primary) and cer_reading."],
                 ["providers[]", "object[]", "id, model_id, label, usd_per_hour, pricing_checked_on, paid, uploads_audio, plus data policy fields when known."],
                 ["aggregates[]", "object[]", "One row per provider, tier, metric and slice. See below."],
-                ["paired[]", "object[]", "Paired bootstrap per pair of providers and slice. See below."],
+                ["paired[]", "object[]", "Paired bootstrap per pair of eligible providers and slice. See below."],
+                ["ranking", "object", "ranking[tier][metric]: rank, provider, error_rate, ci_low, ci_high, n_clips for all clips, eligible providers only. Empty when the language is not published."],
                 ["stability[]", "object[]", "Run-to-run disagreement on a repeated subset."],
                 ["findings[]", "object[]", "Plain-language claims with the table they come from."],
                 ["errors", "object", "Top substitutions and worst clips per provider; snippets of a few characters."],
@@ -213,6 +216,8 @@ export default function ApiDocs() {
                 ["slice_kind, slice", "string", "all/all, condition/<condition>, category/<category>, audio_condition/<music or no_music>, tag/<tag>, or duration/<bucket>."],
                 ["error_rate_lattice, ci_low_lattice, ci_high_lattice", "number or null", "Scored against the closest valid form of the reference (kana or kanji, numerals or words)."],
                 ["n_clips, too_small", "number, boolean", "too_small is true under 15 clips: do not rank on it."],
+                ["eligible, coverage", "boolean, number or null", "Whether the provider may be ranked, and its share of the verified clips with a result. Rows with eligible false are never ranked or compared."],
+                ["ci_low_cluster, ci_high_cluster, n_channels", "number or null", "Channel-clustered 95% interval (a sensitivity check) and the channels behind it."],
                 ["error_rate, ci_low, ci_high", "number", "Corpus rate with a 95% percentile bootstrap interval (0 to 1)."],
                 ["hallucination_rate, long_output_rate", "number", "See the methodology."],
                 ["cost_per_hour, latency_p50, latency_p95, rtf", "number or null", "USD per audio hour at list price; milliseconds; real-time factor."],
@@ -224,7 +229,8 @@ export default function ApiDocs() {
                 ["provider_a, provider_b", "string", "Alphabetical, so provider_a < provider_b."],
                 ["diff, ci_low, ci_high", "number", "a minus b on shared clips; negative means a makes fewer errors."],
                 ["p_value", "number", "Two-sided, from 1000 paired resamples."],
-                ["verdict", "string", "a_better, b_better or no_difference (interval crosses zero)."],
+                ["verdict", "string", "a_better, b_better or no_difference, after the Benjamini-Hochberg correction. Use this one."],
+                ["verdict_raw, p_adjusted", "string, number", "The unadjusted verdict and the adjusted p value."],
               ]}
             />
             <p>
@@ -331,7 +337,7 @@ function Mono({ children }: { children: ReactNode }) {
 
 function Fields({ head, rows }: { head: string[]; rows: string[][] }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-line bg-surface">
+    <div tabIndex={0} className="overflow-x-auto rounded-md border border-line bg-surface">
       <table className="w-full min-w-[440px] border-separate border-spacing-0 text-[13px]">
         <thead>
           <tr>
@@ -380,8 +386,8 @@ function examples(origin: string, runId: string) {
     ],
     get: [
       { label: "curl", lang: "shell", code: `curl ${base}/runs/${runId} \\\n  -H "Authorization: Bearer $CLIPBENCH_KEY"` },
-      { label: "JavaScript", lang: "js", code: `const run = await fetch("${base}/runs/${runId}", {\n  headers: { Authorization: \`Bearer \${process.env.CLIPBENCH_KEY}\` },\n}).then((r) => r.json());\n\n// Overall ranking on verified clips\nconst rows = run.aggregates\n  .filter((a) => a.tier === "verified" && a.slice_kind === "all" && a.metric === "cer")\n  .sort((a, b) => a.error_rate - b.error_rate);` },
-      { label: "Python", lang: "python", code: `import os, requests\n\nrun = requests.get(\n    "${base}/runs/${runId}",\n    headers={"Authorization": f"Bearer {os.environ['CLIPBENCH_KEY']}"},\n).json()\n\nrows = sorted(\n    (a for a in run["aggregates"]\n     if a["tier"] == "verified" and a["slice_kind"] == "all" and a["metric"] == "cer"),\n    key=lambda a: a["error_rate"],\n)` },
+      { label: "JavaScript", lang: "js", code: `const run = await fetch("${base}/runs/${runId}", {\n  headers: { Authorization: \`Bearer \${process.env.CLIPBENCH_KEY}\` },\n}).then((r) => r.json());\n\n// Overall ranking on verified clips: eligible providers only, already ordered ({} when unpublished)\nconst rows = run.ranking?.verified?.cer ?? [];` },
+      { label: "Python", lang: "python", code: `import os, requests\n\nrun = requests.get(\n    "${base}/runs/${runId}",\n    headers={"Authorization": f"Bearer {os.environ['CLIPBENCH_KEY']}"},\n).json()\n\n# Overall ranking on verified clips: eligible providers only, already ordered ({} when unpublished)\nrows = run["ranking"].get("verified", {}).get("cer", [])` },
     ],
   };
   return out;
@@ -410,6 +416,8 @@ function useExamples() {
         2,
       )
     : "// Loading the live run";
-  const first = run?.providers[0];
+  // A ranked provider for the examples (an excluded one gets no badge value).
+  const ranked = run ? overall(run)[0]?.provider : undefined;
+  const first = run?.providers.find((p) => p.id === ranked) ?? run?.providers[0];
   return { latest, list, one, provider: first?.id, providerLabel: first?.label, lang: run?.language };
 }

@@ -43,5 +43,13 @@ describe("og-routes", () => {
     const model = readFileSync(join(dist, "providers", `${p.id}.html`), "utf8");
     expect(model).toContain(`<title>${p.label} | clipbench</title>`);
     expect(model).not.toMatch(/\d+(\.\d+)?%/);
+
+    // robots.txt and sitemap.xml come from the same route list, with absolute SITE_URL links.
+    const sitemap = readFileSync(join(dist, "sitemap.xml"), "utf8");
+    expect(sitemap).toContain("<loc>https://bench.test/</loc>");
+    expect(sitemap).toContain(`<loc>https://bench.test/findings/ja/${first.slug}</loc>`);
+    expect(sitemap).toContain(`<loc>https://bench.test/providers/${p.id}</loc>`);
+    expect(sitemap).not.toContain("/api/");
+    expect(readFileSync(join(dist, "robots.txt"), "utf8")).toContain("Sitemap: https://bench.test/sitemap.xml");
   });
 });

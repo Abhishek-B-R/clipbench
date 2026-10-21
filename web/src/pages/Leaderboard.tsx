@@ -11,9 +11,9 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { VIEW_LABEL, viewsIn, type LeaderView } from "@/components/v3/views";
 import { CaptionMetricsTable } from "@/components/charts/CaptionMetrics";
 import { loadRun, runUrl, useRunFor } from "@/lib/data";
-import { Gated } from "@/components/ui/Gate";
+import { Gated, NotRanked } from "@/components/ui/Gate";
 import { LANGUAGE_NAME, TIER_LABEL, aggregatesFor, isPublished, pickMetric, pickTier, pair, providerColor, providerLabel } from "@/lib/analysis";
-import { date, ms, pct, usdPerHour } from "@/lib/format";
+import { date, int, ms, pct, usdPerHour } from "@/lib/format";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Figure } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
@@ -159,19 +159,21 @@ function useHistory(run: Run | undefined) {
   return runs;
 }
 
-function Board({ run, tier, metric, kind, slice, history, highlight, lattice }: { run: Run; tier: Tier; metric: string; kind: SliceKind; slice: string; history: Run[]; highlight: string | null; lattice: boolean }) {
+export function Board({ run, tier, metric, kind, slice, history, highlight, lattice }: { run: Run; tier: Tier; metric: string; kind: SliceKind; slice: string; history: Run[]; highlight: string | null; lattice: boolean }) {
   const strict = aggregatesFor(run, { tier, metric, kind, slice });
   // "Any valid form" (A7): the same rows scored against the closest valid path through the reference's alternatives.
   const lat = lattice ? latticeFor(run, tier, metric, kind, slice) : null;
+  // The order and the rank always come from the strict ranking (the export's `ranking` for slice all); "any valid
+  // form" only swaps the numbers shown.
+  const rankOfRow = new Map(strict.map((a, i) => [a.provider, i + 1]));
   const rows = lat
-    ? strict
-        .flatMap((a) => {
-          const l = lat.get(a.provider);
-          return l ? [{ ...a, error_rate: l.error_rate, ci_low: l.ci_low ?? l.error_rate, ci_high: l.ci_high ?? l.error_rate }] : [];
-        })
-        .sort((a, b) => a.error_rate - b.error_rate)
+    ? strict.flatMap((a) => {
+        const l = lat.get(a.provider);
+        return l ? [{ ...a, error_rate: l.error_rate, ci_low: l.ci_low ?? l.error_rate, ci_high: l.ci_high ?? l.error_rate }] : [];
+      })
     : strict;
-  const leader = rows[0];
+  const leader = strict[0];
+  const clustered = rows.some((r) => r.ci_low_cluster != null && r.ci_high_cluster != null);
   const sem = v3(run).semantic;
   const semRows = sem?.published ? inSlice(sem.rows, tier, kind, slice) : [];
   const semOf = (id: string) => semRows.find((x) => x.provider === id);
@@ -185,7 +187,7 @@ function Board({ run, tier, metric, kind, slice, history, highlight, lattice }: 
   }, [history, tier, metric, kind, slice]);
 
   const columns: Column<Aggregate>[] = [
-    { key: "rank", header: "#", cell: (_, i) => <span className="num text-ink-3">{String(i + 1).padStart(2, "0")}</span>, className: "w-10" },
+    { key: "rank", header: "#", cell: (r) => <span className="num text-ink-3">{String(rankOfRow.get(r.provider) ?? 0).padStart(2, "0")}</span>, className: "w-10" },
     {
       key: "model",
       header: "Model",
@@ -219,10 +221,31 @@ function Board({ run, tier, metric, kind, slice, history, highlight, lattice }: 
       cell: (r) => (
         <span className="num text-[12.5px] text-ink-3">
           {pct(r.ci_low)} to {pct(r.ci_high)}
+          {!lat && r.ci_low_cluster != null && r.ci_high_cluster != null && (
+            <span className="block text-[11px]" title="Channel-clustered 95% interval: resamples whole channels instead of clips (sensitivity analysis).">
+              by channel {pct(r.ci_low_cluster)} to {pct(r.ci_high_cluster)}
+              {r.n_channels != null ? `, ${int(r.n_channels)} ch` : ""}
+            </span>
+          )}
         </span>
       ),
       headerClassName: "hidden xl:table-cell",
       className: "hidden xl:table-cell",
+    },
+    {
+      key: "cov",
+      header: (
+        <Tooltip content="Share of the verified clips this model returned a result for. Only models at or above the minimum are ranked.">
+          <span tabIndex={0} className="cursor-help">
+            Coverage
+          </span>
+        </Tooltip>
+      ),
+      align: "right",
+      sort: (r) => r.coverage ?? null,
+      cell: (r) => <span className="num text-[12.5px] text-ink-3">{pct(r.coverage)}</span>,
+      headerClassName: "hidden lg:table-cell",
+      className: "hidden lg:table-cell",
     },
     ...(semRows.length
       ? [
@@ -299,7 +322,9 @@ function Board({ run, tier, metric, kind, slice, history, highlight, lattice }: 
       caption={
         <>
           {rows.some((r) => r.too_small) ? "Lower is better. Fewer than 15 clips per model: read the ranking as a first look, not a result." : "Lower is better. Click a header to sort; click a model for its page."}
-          {lat && " Any valid form counts a span as right when it matches one of the reference's accepted spellings (kana or kanji, numerals or words). The paired test runs on strict scores only."}
+          {lat && " Any valid form counts a span as right when it matches one of the reference's accepted spellings (kana or kanji, numerals or words). Order, rank and the paired test stay on strict scores."}
+          {" "}The vs-leader column uses paired tests corrected for multiple comparisons (Benjamini-Hochberg).
+          {clustered && " The by-channel interval resamples whole channels, a check on clips from one channel looking alike."}
         </>
       }
       source={`source: aggregates${lat ? " (error_rate_lattice)" : ""} + paired, run=${run.run_id}, tier=${tier}, metric=${metric}, slice_kind=${kind}, slice=${slice}`}
@@ -311,6 +336,7 @@ function Board({ run, tier, metric, kind, slice, history, highlight, lattice }: 
         </p>
       )}
       <DataTable columns={columns} rows={rows} rowKey={(r) => r.provider} caption="Leaderboard" highlight={highlight ? (r) => r.provider === highlight : undefined} />
+      <NotRanked run={run} className="m-4 sm:m-5" />
       {sem && !sem.published && (
         <p className="border-t border-line px-4 py-2.5 text-[12.5px] text-ink-3 sm:px-5">
           No semantic error column: {sem.reason ?? "the LLM judge has not passed its calibration against human labels, so its scores are not published."}{" "}

@@ -99,3 +99,13 @@ describe("picker URL inputs", () => {
     }
   });
 });
+
+describe("clip links", () => {
+  it("opens a window at its start on the source video, never with the clip id suffix", async () => {
+    const { youtubeUrl } = await import("@/lib/analysis");
+    expect(youtubeUrl({ video_id: "-FhGrbQW10w@452000-499000", kind: "window", start_s: 452 })).toBe("https://www.youtube.com/watch?v=-FhGrbQW10w&t=452s");
+    // A window id without its clip row (worst clips on a model page) still links to the right place.
+    expect(youtubeUrl({ video_id: "abcDEF12345@61500-90000" })).toBe("https://www.youtube.com/watch?v=abcDEF12345&t=61s");
+    expect(youtubeUrl({ video_id: "abcDEF12345", kind: "short" })).toBe("https://www.youtube.com/shorts/abcDEF12345");
+  });
+});

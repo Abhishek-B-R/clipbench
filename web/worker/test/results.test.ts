@@ -17,8 +17,31 @@ describe("leaderboards", () => {
       [1, "model-a"],
       [2, "model-b"],
     ]);
-    expect(body.rows[0]).toMatchObject({ label: "Model A", error_rate: 0.1, n_clips: 3 });
+    expect(body.rows[0]).toMatchObject({ label: "Model A", error_rate: 0.1, n_clips: 3, coverage: 1, n_channels: 31 });
+    expect(body.rows[0].ci_low_cluster).toBeCloseTo(0.07);
     expect(body.slices).toContainEqual({ slice_kind: "audio_condition", slice: "music" });
+  });
+
+  it("takes the order from the export's ranking and never ranks a provider below the coverage minimum", async () => {
+    // model-c has the lowest error rate but 50% coverage: a client-side sort would put it first.
+    const body = await json(await anon("/api/v1/leaderboard/ja"));
+    expect(body.rows.map((r: { provider: string }) => r.provider)).not.toContain("model-c");
+    expect(body.not_ranked).toEqual([
+      { provider: "model-c", label: "Model C", coverage: 0.5, reason: expect.stringContaining("below the 90.0% minimum") },
+    ]);
+    const music = await json(await anon("/api/v1/leaderboard/ja?slice_kind=audio_condition&slice=music"));
+    expect(music.rows.map((r: { provider: string }) => r.provider)).toEqual(["model-b", "model-a"]);
+    const reading = await json(await anon("/api/v1/leaderboard/ja?metric=cer_reading"));
+    expect(reading.rows.map((r: { provider: string }) => r.provider)).toEqual(["model-a"]);
+  });
+
+  it("treats an older export without gate fields as not published", async () => {
+    const body = await json(await anon("/api/v1/leaderboard/es"));
+    expect(body).toMatchObject({ language: "es", run_id: "r4-es-old", published: false });
+    expect(body.status.published).toBe(false);
+    expect(body.rows).toBeUndefined();
+    expect(JSON.stringify(body)).not.toContain("error_rate");
+    expect(await (await anon("/api/v1/badge/model-a/es.svg")).text()).toContain(">not published es<");
   });
 
   it("filters by slice and metric, and validates parameters", async () => {
@@ -65,10 +88,21 @@ describe("per model, history, drift, reliability", () => {
     expect(ja.history).toHaveLength(2);
     expect(ja.drift.map((e: { kind: string }) => e.kind).sort()).toEqual(["provider_version", "score"]);
     expect(ja.reliability).toMatchObject({ failure_rate: 0.05, latency_p99: 2100 });
+    expect(ja).toMatchObject({ eligible: true, coverage: 1, rank: 1, reason: null });
     const en = body.languages.find((l: { language: string }) => l.language === "en");
     expect(en).toEqual({ language: "en", run_id: "r3-en", published: false });
+    expect(body.languages.find((l: { language: string }) => l.language === "es")).toEqual({ language: "es", run_id: "r4-es-old", published: false });
     expect((await anon("/api/v1/models/nobody")).status).toBe(404);
     expect((await anon("/api/v1/models/Bad%20Id")).status).toBe(400);
+  });
+
+  it("gives an excluded provider its eligibility and coverage, no numbers and no rank", async () => {
+    const body = await json(await anon("/api/v1/models/model-c"));
+    const ja = body.languages.find((l: { language: string }) => l.language === "ja");
+    expect(ja).toMatchObject({ published: true, eligible: false, coverage: 0.5, rank: null });
+    expect(ja.reason).toContain("below the 90.0% minimum");
+    expect(ja.aggregates).toBeUndefined();
+    expect(JSON.stringify(ja)).not.toContain("error_rate");
   });
 
   it("serves history, drift and reliability of a published language", async () => {
@@ -115,6 +149,11 @@ describe("badges", () => {
     expect(unpub.status).toBe(200);
     expect(await unpub.text()).toContain(">not published en<");
     expect(await (await anon("/api/v1/badge/model-a/ko.svg")).text()).toContain(">not published ko<");
+    const excluded = await anon("/api/v1/badge/model-c/ja.svg");
+    expect(excluded.status).toBe(200);
+    const text = await excluded.text();
+    expect(text).toContain(">not ranked ja<");
+    expect(text).not.toMatch(/\d%/);
     const none = await anon("/api/v1/badge/nobody/ja.svg");
     expect(none.status).toBe(404);
     expect(await none.text()).toContain(">no data ja<");

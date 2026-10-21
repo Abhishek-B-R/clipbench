@@ -2,7 +2,9 @@
  * Writes the SYNTHETIC fixture in test/fixtures/sample/ (docs/WEB.md, "Run data"). Tests and `vite dev` only.
  * Providers are "Model A".."Model F" and clip ids start with "DEMO": nothing here is a real result.
  * Numbers are generated per clip, then aggregated with the same rules as clipbench.scoring
- * (corpus-style mean, seeded bootstrap 95% CI, paired bootstrap), so every view is internally consistent.
+ * (corpus-style mean, seeded bootstrap 95% CI, paired bootstrap with a (k + 1) / (B + 1) p value, Benjamini-Hochberg
+ * per tier, channel-clustered sensitivity intervals) and carry the publication gate fields of docs/V3.md
+ * (languages[].gate, eligible, coverage, ranking), so every view is internally consistent.
  *
  * Run: bun run scripts/gen-sample.ts
  */
@@ -149,11 +151,85 @@ function bootstrap(xs: number[], seed: number, B = 400) {
 
 const round = (x: number, d = 4) => Math.round(x * 10 ** d) / 10 ** d;
 
+/**
+ * Channel-clustered bootstrap (docs/V3.md "Aggregates" / "Paired"): resample whole channels, as clipbench.scoring.stats
+ * does for its sensitivity analysis. Returns the interval, the share of resamples on the other side of zero and n.
+ */
+function clusterBootstrap(values: number[], channels: string[], seed: number, B = 200) {
+  const groups = new Map<string, number[]>();
+  values.forEach((v, i) => (groups.get(channels[i]!) ?? groups.set(channels[i]!, []).get(channels[i]!)!).push(v));
+  const keys = [...groups.keys()].sort();
+  const r = rng(seed);
+  const out: number[] = [];
+  for (let b = 0; b < B; b++) {
+    let sum = 0;
+    let n = 0;
+    for (let k = 0; k < keys.length; k++) {
+      const g = groups.get(keys[Math.floor(r() * keys.length)]!)!;
+      for (const v of g) sum += v;
+      n += g.length;
+    }
+    out.push(sum / Math.max(n, 1));
+  }
+  const m = mean(values);
+  const opposite = out.filter((x) => (m >= 0 ? x <= 0 : x >= 0)).length;
+  return { lo: pct(out, 0.025), hi: pct(out, 0.975), p: Math.min(1, (2 * (opposite + 1)) / (B + 1)), n: keys.length };
+}
+
+/** Benjamini-Hochberg within each tier, like clipbench/report/findings.py adjust_paired (q = 0.05). */
+function adjustPaired(rows: Record<string, unknown>[], q = 0.05) {
+  for (const r of rows) {
+    r.verdict_raw = r.verdict;
+    r.p_adjusted = null;
+  }
+  for (const tier of new Set(rows.map((r) => r.tier as string))) {
+    const g = rows.filter((r) => r.tier === tier && Number.isFinite(r.p_value as number)).sort((a, b) => (a.p_value as number) - (b.p_value as number));
+    const m = g.length;
+    let min = 1;
+    for (let i = m - 1; i >= 0; i--) {
+      min = Math.min(min, ((g[i]!.p_value as number) * m) / (i + 1));
+      g[i]!.p_adjusted = round(Math.min(1, min), 4);
+    }
+  }
+  for (const r of rows) if ((r.verdict === "a_better" || r.verdict === "b_better") && !((r.p_adjusted as number | null) != null && (r.p_adjusted as number) <= q)) r.verdict = "no_difference";
+}
+
+/** Publication gate fields (docs/V3.md "Language status"), computed the way clipbench/report/rules.py does. */
+function gateFor(clipsV: Clip[], providers: readonly { id: string }[], minCoverage = 0.9) {
+  const counts = new Map<string, number>();
+  for (const c of clipsV) counts.set(c.channel, (counts.get(c.channel) ?? 0) + 1);
+  const cats = [...new Set(clipsV.map((c) => c.category))].filter((c) => c !== "other").sort();
+  const share = clipsV.length ? round(Math.max(...counts.values()) / clipsV.length) : null;
+  const problems = [
+    ...(counts.size < 30 ? [`${counts.size} channels, needs at least 30`] : []),
+    ...(share != null && share > 0.05 ? [`largest channel holds ${(share * 100).toFixed(1)}% of verified clips, limit 5%`] : []),
+    ...(cats.length < 6 ? [`${cats.length} categories, needs at least 6`] : []),
+    ...(clipsV.length === 0 ? ["no verified clips"] : []),
+  ];
+  const eligible = providers.map((p) => p.id).sort(); // every synthetic model scores every clip: coverage 1.0
+  const gate = { verified_clips_ok: clipsV.length >= 100, providers_ok: eligible.length >= 6, diversity_ok: problems.length === 0 };
+  return {
+    lang: "ja",
+    verified_clips: clipsV.length,
+    providers_ok: eligible.length,
+    published: Object.values(gate).every(Boolean),
+    channels: counts.size,
+    categories: cats,
+    largest_channel_share: share,
+    providers_eligible: eligible,
+    providers_excluded: [] as unknown[],
+    min_coverage: minCoverage,
+    verified_diversity: { channels: counts.size, largest_channel_share: share, categories: cats, passes: problems.length === 0, problems },
+    gate,
+  };
+}
+
 function makeRun(runId: string, createdAt: string, seed: number, drift: Record<PId, number>, include: readonly PId[], versions: Partial<Record<PId, string>>, v3 = false) {
   const r = rng(seed);
   const PROVIDERS = ALL_PROVIDERS.filter((p) => include.includes(p.id)).map((p) => ({ ...p, model_id: versions[p.id] ?? p.model_id }));
   const clipsV = makeClips(r, "verified", 150);
   const clipsC = makeClips(r, "creator", 240);
+  clipsV.forEach((c, i) => (c.channel = `Demo channel ${String((i % 40) + 1).padStart(2, "0")}`));
   const allClips = [...clipsV, ...clipsC];
 
   type V2 = { timing_med: number | null; within: number | null; nonspeech_min: number; halluc_words: number | null; punct: number | null; casing: number | null; cs: number | null };
@@ -248,6 +324,13 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
             ...v2agg(g),
             // A7: scored against the closest valid path through the reference's alternatives (synthetic factor).
             error_rate_lattice: round(mean(er) * lat3), ci_low_lattice: round(lo * lat3), ci_high_lattice: round(hi * lat3),
+            // docs/V3.md "Aggregates": gate and sensitivity columns.
+            eligible: true, coverage: 1,
+            mean_clip_error_rate: round(mean(er)),
+            ...(() => {
+              const c = clusterBootstrap(er, g.map((x) => x.clip.channel), s++);
+              return { ci_low_cluster: round(c.lo), ci_high_cluster: round(c.hi), n_channels: c.n };
+            })(),
           });
         }
         const ids = [...PROVIDERS.map((p) => p.id)].sort();
@@ -267,14 +350,31 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
               const m = sum / diffs.length;
               if (Math.sign(m) !== Math.sign(d) || m === 0) opposite++;
             }
-            const p = Math.min(1, (2 * opposite) / 400);
+            // (k + 1) / (B + 1), like clipbench.scoring.stats: a bootstrap p value is never 0.
+            const p = Math.min(1, (2 * (opposite + 1)) / 401);
             const verdict = lo > 0 ? "b_better" : hi < 0 ? "a_better" : "no_difference";
-            paired.push({ tier, metric, slice_kind: sl.kind, slice: sl.name, provider_a: ids[i], provider_b: ids[j], n_clips: a.length, diff: round(d), ci_low: round(lo), ci_high: round(hi), p_value: round(p, 3), verdict });
+            const c = clusterBootstrap(diffs, a.map((x) => x.clip.channel), s++);
+            paired.push({ tier, metric, slice_kind: sl.kind, slice: sl.name, provider_a: ids[i], provider_b: ids[j], n_clips: a.length, diff: round(d), ci_low: round(lo), ci_high: round(hi), p_value: round(p, 3), verdict, ci_low_cluster: round(c.lo), ci_high_cluster: round(c.hi), p_value_cluster: round(c.p, 3), n_channels: c.n });
           }
         }
       }
     }
   }
+
+  adjustPaired(paired);
+  const language = gateFor(clipsV, PROVIDERS);
+  // docs/V3.md "Ranking": slice all, eligible providers, error_rate then id; {} while unpublished.
+  const ranking: Record<string, Record<string, unknown[]>> = {};
+  if (language.published)
+    for (const a of aggregates as { tier: string; metric: string; slice_kind: string; provider: string; error_rate: number; ci_low: number; ci_high: number; n_clips: number }[]) {
+      if (a.slice_kind !== "all") continue;
+      ((ranking[a.tier] ??= {})[a.metric] ??= []).push(a);
+    }
+  for (const t of Object.values(ranking))
+    for (const [m, rowsM] of Object.entries(t))
+      t[m] = (rowsM as { provider: string; error_rate: number; ci_low: number; ci_high: number; n_clips: number }[])
+        .sort((x, y) => x.error_rate - y.error_rate || x.provider.localeCompare(y.provider))
+        .map((x, i) => ({ provider: x.provider, rank: i + 1, error_rate: x.error_rate, ci_low: x.ci_low, ci_high: x.ci_high, n_clips: x.n_clips }));
 
   const per_clip = rows
     .filter((x) => x.metric === "cer")
@@ -327,7 +427,8 @@ function makeRun(runId: string, createdAt: string, seed: number, drift: Record<P
     ],
     errors: { providers: errorsProviders, examples },
     clips: allClips.map((c) => ({ video_id: c.video_id, tier: c.tier, duration_s: c.duration_s, channel: c.channel, tags: c.tags, kind: c.kind, start_s: c.start_s, category: c.category, audio_condition: c.audio_condition, conditions: c.conditions })),
-    languages: [{ lang: "ja", verified_clips: clipsV.length, providers_ok: PROVIDERS.length, published: clipsV.length >= 100 && PROVIDERS.length >= 6, channels: new Set(clipsV.map((c) => c.channel)).size, categories: [...new Set(clipsV.map((c) => c.category))].filter((c) => c !== "other") }],
+    languages: [language],
+    ranking,
     per_clip,
     ...(v3 ? v3Sections({ createdAt, providers: PROVIDERS, rows, clips: clipsV, aggregates, seed }) : NO_V3),
     limitations: [
@@ -612,7 +713,7 @@ for (const run of RUNS) {
   writeFileSync(join(OUT, "runs", `${run.id}.json`), JSON.stringify(data));
   const n_clips: Record<string, number> = {};
   for (const c of data.clips) n_clips[c.tier] = (n_clips[c.tier] ?? 0) + 1;
-  index.runs.push({ run_id: run.id, created_at: run.at, language: "ja", tiers: ["verified", "creator"], n_clips, providers: data.providers.map((p) => p.id) });
+  index.runs.push({ run_id: run.id, created_at: run.at, language: "ja", tiers: ["verified", "creator"], n_clips, providers: data.providers.map((p) => p.id), languages: data.languages });
 }
 index.runs.reverse();
 
@@ -622,7 +723,7 @@ index.runs.reverse();
  */
 function makeFindings(data: ReturnType<typeof makeRun>) {
   type A = { provider: string; tier: string; metric: string; slice_kind: string; slice: string; error_rate: number; too_small: boolean; timing_within_200ms: number | null; halluc_per_nonspeech_min: number | null };
-  type P = { tier: string; metric: string; slice_kind: string; slice: string; provider_a: string; provider_b: string; diff: number; p_value: number; verdict: string };
+  type P = { tier: string; metric: string; slice_kind: string; slice: string; provider_a: string; provider_b: string; diff: number; p_value: number; p_adjusted: number | null; verdict: string; ci_low_cluster: number; ci_high_cluster: number; p_value_cluster: number };
   const aggs = data.aggregates as unknown as A[];
   const pairs = data.paired as unknown as P[];
   const label = (id: string) => data.providers.find((p) => p.id === id)!.label;
@@ -632,12 +733,16 @@ function makeFindings(data: ReturnType<typeof makeRun>) {
   const lead = (kind: string, slice: string, what: string, slug: string) => {
     const [w, r] = rows(kind, slice);
     const t = w && r ? test(kind, slice, w.provider, r.provider) : undefined;
+    // Adjusted verdict only (docs/V3.md "Paired"); a lead whose channel-clustered interval crosses zero says so.
     if (!w || !r || !t || t.verdict === "no_difference") return;
+    const p = t.p_adjusted ?? t.p_value;
+    const sensitive = t.ci_low_cluster <= 0 && t.ci_high_cluster >= 0;
     out.push({
       id: `f-${slug}`, slug, status: "draft",
-      text: `${label(w.provider)} makes the fewest errors ${what}: ${(w.error_rate * 100).toFixed(1)}% against ${(r.error_rate * 100).toFixed(1)}% for ${label(r.provider)}, the runner-up (${t.p_value < 0.001 ? "p < 0.001" : `p = ${t.p_value.toFixed(3)}`}).`,
+      text: `${label(w.provider)} makes the fewest errors ${what}: ${(w.error_rate * 100).toFixed(1)}% against ${(r.error_rate * 100).toFixed(1)}% for ${label(r.provider)}, the runner-up (${p < 0.001 ? "adjusted p < 0.001" : `adjusted p = ${p.toFixed(3)}`}).${sensitive ? " Resampling whole channels instead of clips, the interval includes no difference, so this lead may come from a few channels." : ""}`,
       source: { table: "paired", filters: { tier: "verified", metric: "cer", slice_kind: kind, slice, provider_a: w.provider, provider_b: r.provider } },
-      numbers: { error_rate: w.error_rate, runner_up_error_rate: r.error_rate, p_value: t.p_value },
+      numbers: { error_rate: w.error_rate, runner_up_error_rate: r.error_rate, p_value: t.p_value, p_adjusted: p, ...(sensitive ? { ci_low_cluster: t.ci_low_cluster, ci_high_cluster: t.ci_high_cluster, p_value_cluster: t.p_value_cluster } : {}) },
+      cluster_sensitive: sensitive,
     });
   };
   lead("all", "all", "overall", "lowest-error-overall");
@@ -651,6 +756,7 @@ function makeFindings(data: ReturnType<typeof makeRun>) {
       text: `${label(timing.provider)} places the most words within 200 ms of when they are said: ${(timing.timing_within_200ms! * 100).toFixed(1)}% of matched words.`,
       source: { table: "aggregates", filters: { tier: "verified", metric: "cer", slice_kind: "all", slice: "all", sort: "timing" } },
       numbers: { timing_within_200ms: timing.timing_within_200ms },
+      cluster_sensitive: false,
     });
   const music = rows("audio_condition", "music").filter((a) => a.halluc_per_nonspeech_min != null).sort((a, b) => b.halluc_per_nonspeech_min! - a.halluc_per_nonspeech_min!)[0];
   if (music)
@@ -659,6 +765,7 @@ function makeFindings(data: ReturnType<typeof makeRun>) {
       text: `${label(music.provider)} invents the most words over music and silence: ${music.halluc_per_nonspeech_min!.toFixed(2)} words per minute of non-speech audio on clips with music.`,
       source: { table: "aggregates", filters: { tier: "verified", metric: "cer", slice_kind: "audio_condition", slice: "music", sort: "halluc" } },
       numbers: { halluc_per_nonspeech_min: music.halluc_per_nonspeech_min },
+      cluster_sensitive: false,
     });
   return { lang: "ja", run_id: data.run_id, created_at: data.created_at, published: data.languages[0]!.published, findings: out };
 }

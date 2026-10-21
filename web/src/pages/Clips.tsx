@@ -6,6 +6,7 @@ import { useRun } from "@/lib/data";
 import { LANGUAGE_NAME, TAG_LABEL, isPublished, median, perClipMatrix, pickTier, primaryMetric, providerColor, providerLabel, providerOrder, tagsInRun, youtubeUrl } from "@/lib/analysis";
 import { duration, pct } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { CATEGORIES } from "@/lib/config";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Figure } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
@@ -240,10 +241,11 @@ function ClipTable({ run, rows }: { run: Run; rows: Row[] }) {
     { key: "med", header: "Median", align: "right", cell: (c) => <span className="num text-ink-2">{Number.isNaN(c.med) ? "n/a" : pct(c.med)}</span> },
     {
       key: "tags",
-      header: "Tags",
+      header: "Type and tags",
       cell: (c) =>
-        c.tags.filter((t) => TAG_LABEL[t]).length ? (
+        c.tags.filter((t) => TAG_LABEL[t]).length || (c.category && CATEGORIES[c.category]) ? (
           <span className="flex max-w-[340px] flex-wrap gap-1">
+            {c.category && CATEGORIES[c.category] && <Badge tone="outline" mono={false}>{CATEGORIES[c.category]}</Badge>}
             {c.tags
               .filter((t) => TAG_LABEL[t])
               .map((t) => (
@@ -253,7 +255,7 @@ function ClipTable({ run, rows }: { run: Run; rows: Row[] }) {
               ))}
           </span>
         ) : (
-          <span className="text-[12px] text-ink-3">None</span>
+          <span className="text-[12px] text-ink-3">No tags</span>
         ),
       className: "hidden whitespace-normal md:table-cell",
       headerClassName: "hidden md:table-cell",

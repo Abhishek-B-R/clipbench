@@ -164,7 +164,7 @@ function BlockView({ b, n }: { b: Block; n?: number }) {
     }
     case "table":
       return (
-        <div className="my-5 overflow-x-auto rounded-md border border-line bg-surface">
+        <div tabIndex={0} className="my-5 overflow-x-auto rounded-md border border-line bg-surface">
           <table className="w-full border-separate border-spacing-0 text-[13.5px]">
             <thead>
               <tr>
@@ -289,7 +289,7 @@ function ScoreFigure() {
   const tone = { H: "", S: "bg-signal-soft text-signal-ink", D: "bg-signal-soft text-signal-ink", I: "bg-ins-soft text-ins" };
   return (
     <Figure n={2} className="my-8" title="Scoring one clip" caption="Reference and hypothesis after normalisation, aligned character by character. CER = (S + D + I) / (H + S + D)." source="source: clipbench/scoring/metrics.py (jiwer alignment)">
-      <div className="overflow-x-auto">
+      <div tabIndex={0} className="overflow-x-auto">
         <table className="mx-auto border-separate border-spacing-x-1 border-spacing-y-1.5" lang="ja">
           <tbody>
             {(["ref", "hyp", "op"] as const).map((row) => (

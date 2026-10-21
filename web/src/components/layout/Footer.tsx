@@ -16,7 +16,7 @@ const COLS = [
       { to: "/features", label: "Feature matrix" },
       { to: "/compare", label: "Compare models" },
       { to: "/picker", label: "Pick a provider" },
-      { to: "/findings/en", label: "Findings" },
+      { to: "/findings", label: "Findings" },
       { to: "/clips", label: "Clip set" },
       { to: "/changelog", label: "Changelog" },
     ],
@@ -55,6 +55,8 @@ const BARS = Array.from({ length: 96 }, (_, i) => {
 export function Footer() {
   const run = useRun();
   const r = run.data?.run;
+  // Findings open on the latest run's language (the one with data), not on a fixed language.
+  const findingsTo = `/findings/${r?.language ?? LANGUAGES[0]}`;
   return (
     <footer className="border-t border-line">
       <div className="frame frame-lines">
@@ -84,7 +86,7 @@ export function Footer() {
                           {l.label}
                         </a>
                       ) : (
-                        <Link to={l.to} className="text-[13.5px] text-ink-2 hover:text-ink">
+                        <Link to={l.to === "/findings" ? findingsTo : l.to} className="text-[13.5px] text-ink-2 hover:text-ink">
                           {l.label}
                         </Link>
                       )}

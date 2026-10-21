@@ -2,7 +2,7 @@ import { Link, useSearchParams } from "react-router";
 import { ArrowRight } from "lucide-react";
 import type { Run, SliceKind, Tier } from "@/lib/types";
 import { useRunFor } from "@/lib/data";
-import { LANGUAGE_NAME, TIER_LABEL, isPublished, pickTier, providerColor, providerLabel } from "@/lib/analysis";
+import { LANGUAGE_NAME, TIER_LABEL, eligibleProviders, excludedProviders, isEligible, isPublished, pickTier, providerColor, providerLabel, runLanguageStatus } from "@/lib/analysis";
 import { SLICE_KIND_LABEL, sliceLabel } from "@/lib/metrics";
 import { slicesIn, streamPair, v3, type StreamRow, type Streaming as StreamingData } from "@/lib/v3";
 import { date, ms, pct, signedPts } from "@/lib/format";
@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/State";
 import { TierControl, TierNote } from "@/components/ui/TierControl";
-import { Gated } from "@/components/ui/Gate";
+import { Gated, NotRankedList, minCoverage } from "@/components/ui/Gate";
 import { buttonClass } from "@/components/ui/Button";
 import { SliceFilter, readSlice, sliceParams } from "@/components/ui/SliceFilter";
 import { Help, ModelCell, ValueCell, bestBy } from "@/components/v3/shared";
@@ -75,7 +75,7 @@ export default function Streaming() {
                 <div className="grid grid-cols-1 gap-8">
                   <TierNote tier={tier} />
                   <StreamingBoard run={run} st={st} tier={tier} kind={kind} slice={slice} />
-                  <Timeline run={run} rows={inSlice(st.rows, tier, kind, slice)} kind={kind} slice={slice} />
+                  <Timeline run={run} rows={inSlice(st.rows, tier, kind, slice).filter((r) => isEligible(run, r.provider))} kind={kind} slice={slice} />
                 </div>
               )
             )}
@@ -87,12 +87,18 @@ export default function Streaming() {
 }
 
 export function StreamingBoard({ run, st, tier, kind, slice }: { run: Run; st: StreamingData; tier: Tier; kind: SliceKind; slice: string }) {
-  const rows = [...inSlice(st.rows, tier, kind, slice)].sort((a, b) => (a.error_rate ?? 9) - (b.error_rate ?? 9));
+  // Providers below the batch coverage minimum are never ranked here either (clipbench.report.rules): they are listed
+  // as not ranked. Order: final error rate, ties by provider id; the rank stays with the row when re-sorted.
+  const ok = isPublished(run) ? eligibleProviders(run) : new Set<string>();
+  const sliceRows = inSlice(st.rows, tier, kind, slice);
+  const rows = sliceRows.filter((r) => ok.has(r.provider)).sort((a, b) => (a.error_rate ?? 9) - (b.error_rate ?? 9) || (a.provider < b.provider ? -1 : a.provider > b.provider ? 1 : 0));
+  const rankOfRow = new Map(rows.map((r, i) => [r.provider, i + 1]));
+  const notRanked = excludedProviders(run).filter((e) => sliceRows.some((r) => r.provider === e.provider));
   const leader = rows[0];
   const max = maxOf(rows.map((r) => r.ci_high ?? r.error_rate ?? 0), 0.1) * 1.08;
   const hasPairs = st.paired.length > 0;
   const columns: Column<StreamRow>[] = [
-    { key: "rank", header: "#", cell: (_, i) => <span className="num text-ink-3">{String(i + 1).padStart(2, "0")}</span>, className: "w-10" },
+    { key: "rank", header: "#", cell: (r) => <span className="num text-ink-3">{String(rankOfRow.get(r.provider) ?? 0).padStart(2, "0")}</span>, className: "w-10" },
     { key: "model", header: "Model", sticky: true, sort: (r) => providerLabel(run, r.provider), cell: (r) => <ModelCell run={run} id={r.provider} sub={r.model_id} /> },
     {
       key: "err",
@@ -145,6 +151,7 @@ export function StreamingBoard({ run, st, tier, kind, slice }: { run: Run; st: S
       bodyClassName="p-0 sm:p-0"
     >
       {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.provider} caption="Streaming leaderboard" /> : <div className="p-4 sm:p-5"><EmptyState title={`No streaming results for ${SLICE_KIND_LABEL[kind].toLowerCase()} ${sliceLabel(kind, slice).toLowerCase()}.`} /></div>}
+      <NotRankedList items={notRanked} label={(id) => providerLabel(run, id)} min={minCoverage(runLanguageStatus(run))} className="m-4 sm:m-5" />
     </Figure>
   );
 }

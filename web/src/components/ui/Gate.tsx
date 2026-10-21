@@ -1,19 +1,25 @@
 import { Link } from "react-router";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import type { ReactNode } from "react";
-import type { LanguageStatus, Run } from "@/lib/types";
-import { LANGUAGE_NAME, runLanguageStatus, type LanguageProgress } from "@/lib/analysis";
+import type { LanguageStatus, ProviderExclusion, Run } from "@/lib/types";
+import { LANGUAGE_NAME, excludedProviders, hasGate, providerLabel, runLanguageStatus, type LanguageProgress } from "@/lib/analysis";
 import { RULES } from "@/lib/config";
-import { date, int } from "@/lib/format";
+import { date, int, pct } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { Badge } from "./Badge";
 import { Corners } from "./Card";
 import { buttonClass } from "./Button";
 
 /**
- * Publication gate UI (docs/V2.md, "Languages"). A language shows a ranking only with enough verified clips and
- * providers; until then every view shows progress toward the gate, computed from the export, never a ranking.
+ * Publication gate UI (docs/V2.md "Languages", docs/V3.md "Publication gate fields"). A language shows a ranking only
+ * when the exporter's three gate flags are true: enough verified clips, enough eligible providers (coverage at least
+ * `min_coverage`), and a diverse verified set. Every value here is read from the export, never recomputed.
  */
+
+/** The coverage threshold to state: the export's, else the configured default. */
+export function minCoverage(status?: Pick<LanguageStatus, "min_coverage">) {
+  return typeof status?.min_coverage === "number" ? status.min_coverage : RULES.minProviderCoverage;
+}
 
 /** One "n of target" bar. Ink fill, hairline track, numbers in mono. */
 export function GateBar({ label, value, target, className }: { label: string; value: number; target: number; className?: string }) {
@@ -40,17 +46,79 @@ export function GateBar({ label, value, target, className }: { label: string; va
   );
 }
 
-export function GateBars({ status, className }: { status: LanguageStatus; className?: string }) {
+/** One pass/fail condition with the exporter's problems listed under it. */
+export function GateCheck({ label, ok, problems, className }: { label: string; ok: boolean | null; problems?: string[]; className?: string }) {
   return (
-    <div className={cn("grid gap-4", className)}>
-      <GateBar label="Verified clips" value={status.verified_clips} target={RULES.publishMinVerified} />
-      <GateBar label="Providers with results" value={status.providers_ok} target={RULES.publishMinProviders} />
+    <div className={cn("grid gap-1.5", className)}>
+      <div className="flex items-baseline justify-between gap-3 text-[12.5px]">
+        <span className="text-ink-2">{label}</span>
+        <span className={cn("num", ok ? "text-good" : "text-ink")}>{ok == null ? "unknown" : ok ? "passes" : "not yet"}</span>
+      </div>
+      {problems && problems.length > 0 && (
+        <ul className="grid gap-1 text-[12.5px] text-ink-3" aria-label={`${label}: problems`}>
+          {problems.map((p) => (
+            <li key={p} className="flex gap-2">
+              <span aria-hidden>-</span>
+              <span>{p}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
 
+/** The three publication conditions: verified clips, eligible providers, diversity of the verified set. */
+export function GateBars({ status, className }: { status: LanguageStatus; className?: string }) {
+  const gated = hasGate(status);
+  const div = status.verified_diversity;
+  return (
+    <div className={cn("grid gap-4", className)}>
+      <GateBar label="Verified clips" value={status.verified_clips} target={RULES.publishMinVerified} />
+      <GateBar label={`Eligible providers (at least ${pct(minCoverage(status), 0)} coverage)`} value={gated ? status.providers_ok : 0} target={RULES.publishMinProviders} />
+      <GateCheck label="Verified set diversity" ok={gated ? status.gate.diversity_ok === true : null} problems={gated ? (div?.problems ?? []) : []} />
+      {!gated && <p className="text-[12.5px] text-ink-3">This export has no publication gate fields, so it is treated as not published.</p>}
+    </div>
+  );
+}
+
+/**
+ * Providers that are not ranked, with their coverage and the exporter's reason. Shown next to every ranked list so
+ * an excluded provider is explained, never ranked.
+ */
+export function NotRankedList({ items, label, min, className, title = "Not ranked" }: { items: ProviderExclusion[]; label?: (id: string) => string; min?: number; className?: string; title?: string }) {
+  if (!items.length) return null;
+  return (
+    <section className={cn("@container rounded-sm border border-dashed border-line-strong bg-paper px-4 py-3 sm:px-5", className)} aria-label={title} data-testid="not-ranked">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <Badge tone="outline">{title}</Badge>
+        <span className="text-[12.5px] text-ink-3">
+          {min != null ? `A provider is ranked only with results on at least ${pct(min, 0)} of the verified clips.` : "These providers have no eligibility in this export."}
+        </span>
+      </div>
+      <ul className="mt-3 grid gap-2">
+        {items.map((e) => (
+          <li key={e.provider} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-0.5 text-[13px] @2xl:grid-cols-[minmax(0,220px)_124px_minmax(0,1fr)]" data-provider={e.provider}>
+            <Link to={`/providers/${encodeURIComponent(e.provider)}`} className="font-medium text-ink hover:underline">
+              {label ? label(e.provider) : e.provider}
+            </Link>
+            <span className="num whitespace-nowrap text-ink-2">coverage {pct(e.coverage)}</span>
+            <span className="col-span-2 text-ink-3 @2xl:col-span-1">{e.reason ?? "Not eligible in this run."}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** The run's not-ranked group (excludedProviders), labelled with the run's provider names. */
+export function NotRanked({ run, className, title }: { run: Run; className?: string; title?: string }) {
+  const st = runLanguageStatus(run);
+  return <NotRankedList items={excludedProviders(run)} label={(id) => providerLabel(run, id)} min={hasGate(st) ? minCoverage(st) : undefined} className={className} title={title} />;
+}
+
 /** Calm "not published yet" state for ranking views (leaderboard, compare, picker, model pages). */
-export function NotPublished({ status, scored, models, what = "ranking", className }: { status: LanguageStatus; scored?: number; models?: number; what?: string; className?: string }) {
+export function NotPublished({ status, scored, models, what = "ranking", className, run }: { status: LanguageStatus; scored?: number; models?: number; what?: string; className?: string; run?: Run }) {
   const name = LANGUAGE_NAME[status.lang] ?? status.lang;
   return (
     <section className={cn("relative grid gap-8 rounded-md border border-line bg-surface p-6 shadow-card sm:p-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-12", className)}>
@@ -63,8 +131,9 @@ export function NotPublished({ status, scored, models, what = "ranking", classNa
           No {what} for {name} yet.
         </h2>
         <p className="mt-3 max-w-[60ch] text-[15px] text-ink-2">
-          A language gets a ranking once it has {int(RULES.publishMinVerified)} clips whose captions a person corrected by ear and results from at least {int(RULES.publishMinProviders)} providers. Below that, the
-          intervals are too wide to say which model is better, so we show progress instead of a table that would mislead.
+          A language gets a ranking once it has {int(RULES.publishMinVerified)} clips whose captions a person corrected by ear, at least {int(RULES.publishMinProviders)} providers with results on at least{" "}
+          {pct(minCoverage(status), 0)} of those clips, and a verified set spread across enough channels and categories. Below that, a ranking could rest on too
+          few clips, too few channels or uneven coverage, so we show progress instead of a table that would mislead.
         </p>
         {scored != null && scored > 0 && (
           <p className="mt-3 max-w-[60ch] text-[13.5px] text-ink-3">
@@ -88,6 +157,11 @@ export function NotPublished({ status, scored, models, what = "ranking", classNa
         <div className="label mb-4">Publication gate</div>
         <GateBars status={status} />
       </div>
+      {run ? (
+        <NotRanked run={run} className="lg:col-span-2" />
+      ) : (
+        <NotRankedList items={status.providers_excluded ?? []} min={hasGate(status) ? minCoverage(status) : undefined} className="lg:col-span-2" />
+      )}
     </section>
   );
 }
@@ -104,9 +178,10 @@ export function LanguageBoard({ rows, className }: { rows: LanguageProgress[]; c
               <span className="text-[15px] font-medium text-ink">{LANGUAGE_NAME[l.lang] ?? l.lang}</span>
             </span>
             <GateBar label="Verified clips" value={l.verified_clips} target={RULES.publishMinVerified} />
-            <GateBar label="Providers" value={l.providers_ok} target={RULES.publishMinProviders} />
+            <GateBar label="Eligible providers" value={l.providers_ok} target={RULES.publishMinProviders} />
             <span className="flex items-center justify-between gap-3 md:justify-end">
               {l.published ? <Badge tone="good">Published</Badge> : l.latestRun ? <Badge tone="outline">Collecting</Badge> : <Badge>Not started</Badge>}
+              {!l.published && hasGate(l) && <span className="text-[11.5px] text-ink-3">{l.gate.diversity_ok ? "diversity passes" : "diversity not yet"}</span>}
               <ArrowUpRight size={14} className="text-ink-3 transition-colors group-hover:text-ink" aria-hidden />
             </span>
           </Link>
@@ -130,5 +205,5 @@ export function Gated({ run, what, children, lang }: { run: Run | null | undefin
   if (run === null) return <NotPublished status={{ lang: lang ?? "en", verified_clips: 0, providers_ok: 0, published: false }} what={what} />;
   const st = runLanguageStatus(run);
   if (st.published) return <>{children}</>;
-  return <NotPublished status={st} scored={run.clips.length} models={run.providers.length} what={what} />;
+  return <NotPublished status={st} scored={run.clips.length} models={run.providers.length} what={what} run={run} />;
 }

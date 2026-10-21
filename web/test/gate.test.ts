@@ -1,4 +1,4 @@
-/** Publication gate (docs/V2.md, "Languages"): computed defensively when the exporter has not written it. */
+/** Publication gate (docs/V2.md "Languages", docs/V3.md "Publication gate fields"): read from the export, fail closed without it. */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -24,6 +24,13 @@ describe("publication gate", () => {
     expect(s.verified_clips).toBeGreaterThanOrEqual(100);
     expect(s.providers_ok).toBeGreaterThanOrEqual(6);
     expect(isPublished(full)).toBe(true);
+  });
+
+  it("never publishes from client-side counts when the exporter's status is missing", () => {
+    const s = runLanguageStatus({ ...full, languages: undefined });
+    expect(s.published).toBe(false);
+    expect(s.providers_ok).toBe(0);
+    expect(isPublished({ ...full, languages: [{ lang: full.language, verified_clips: 150, providers_ok: 6, published: true }] })).toBe(false);
   });
 
   it("does not publish an early creator-only run", () => {

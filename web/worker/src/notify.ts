@@ -1,6 +1,7 @@
 import { sendEmail } from "./email";
 import { newRunEmail, summarize } from "./emails/new-run";
 import { now } from "./http";
+import { isPublished, type Run } from "./gate";
 
 export type NotifyResult = {
   run_id: string;
@@ -13,10 +14,10 @@ export type NotifyResult = {
   unpublished?: boolean;
 };
 
-/** True when the exporter marked the run's own language published (languages[] in the run JSON). */
+/** True when the exporter marked the run's own language published and every gate flag is true (src/gate.ts). */
 export function isPublishedRun(run: unknown): boolean {
-  const r = run as { language?: string; languages?: { lang?: string; published?: boolean }[] };
-  return Boolean(r?.languages?.some((l) => l.lang === r.language && l.published === true));
+  const r = run as Run | null;
+  return Boolean(r && typeof r.language === "string" && isPublished(r, r.language));
 }
 
 async function loadRun(env: Env, origin: string, runId: string): Promise<unknown | null> {

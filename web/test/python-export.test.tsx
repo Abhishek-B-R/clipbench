@@ -12,7 +12,15 @@ import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 import type { Run, RunIndex } from "@/lib/types";
 import { calibrationPasses, fallsApartAt, historyFor, inSlice, latticeFor, reliabilityFor, settingsFor, speedFactor, v3 } from "@/lib/v3";
-import { isPublished } from "@/lib/analysis";
+import { aggregatesFor, eligibleProviders, excludedProviders, isPublished, languageProgress, overall, pair, rankOf, rankedRun, runLanguageStatus } from "@/lib/analysis";
+import { Gated, GateBars, NotRanked } from "@/components/ui/Gate";
+import { Board } from "@/pages/Leaderboard";
+import { MiniLeaderboard } from "@/landing/MiniLeaderboard";
+import { ClusterBadge, publishedFindings } from "@/pages/Findings";
+import { badgeMessage } from "../worker/src/gate";
+import { execFileSync } from "node:child_process";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { pick } from "@/lib/picker";
 import { TooltipProvider } from "@/components/ui/Tooltip";
 import LeaderViewPanel from "@/components/v3/LeaderViews";
@@ -185,5 +193,159 @@ describe("python export: each view renders its section, not the empty state", ()
       expect(out).not.toMatch(EMPTY);
       expect(out).not.toMatch(/NaN|undefined/);
     }
+  });
+});
+
+// ---------------------------------------------------------------- publication gate (docs/V3.md, "Publication gate fields")
+
+const LOW = "synth-g"; // below the coverage minimum, with the lowest error rate: a client-side sort would rank it first
+const status = raw.languages.find((l: any) => l.lang === raw.language);
+/** The markup outside every "Not ranked" group (where an excluded provider may be named with its reason). */
+const ranked = (out: string) => out.replace(/<section[^>]*data-testid="not-ranked"[\s\S]*?<\/section>/g, "");
+
+describe("python export: the publication gate", () => {
+  it("is a published language under the new gate, with one provider below the coverage minimum", () => {
+    expect(status.gate).toEqual({ verified_clips_ok: true, providers_ok: true, diversity_ok: true });
+    expect(status.published).toBe(true);
+    expect(status.verified_clips).toBeGreaterThanOrEqual(100);
+    expect(status.providers_eligible.length).toBeGreaterThanOrEqual(6);
+    expect(status.verified_diversity.passes).toBe(true);
+    expect(status.verified_diversity.channels).toBeGreaterThanOrEqual(30);
+    expect(status.verified_diversity.largest_channel_share).toBeLessThanOrEqual(0.05);
+    expect(status.verified_diversity.categories.length).toBeGreaterThanOrEqual(6);
+    const ex = status.providers_excluded.find((e: any) => e.provider === LOW);
+    expect(ex.coverage).toBeLessThan(status.min_coverage);
+    const all = raw.aggregates.filter((a: any) => a.tier === "verified" && a.metric === "wer" && a.slice_kind === "all");
+    const lowest = [...all].sort((a: any, b: any) => a.error_rate - b.error_rate)[0];
+    expect(lowest.provider, "the excluded provider has the lowest raw error rate").toBe(LOW);
+  });
+
+  it("ranks in exactly the export's ranking order, for every tier and metric", () => {
+    for (const [tier, byMetric] of Object.entries(raw.ranking as Record<string, Record<string, any[]>>))
+      for (const [metric, rows] of Object.entries(byMetric)) {
+        const got = overall(run, tier as "verified", metric);
+        expect(got.map((a) => a.provider), `${tier}/${metric}`).toEqual(rows.map((r) => r.provider));
+        for (const r of rows) expect(rankOf(run, r.provider, tier as "verified", metric)).toBe(r.rank);
+      }
+    expect(Object.keys(raw.ranking.verified ?? {}).length).toBeGreaterThan(0);
+  });
+
+  it("never ranks or compares the low-coverage provider", () => {
+    expect(eligibleProviders(run).has(LOW)).toBe(false);
+    expect(rankOf(run, LOW, "verified", "wer")).toBeNull();
+    for (const a of run.aggregates) {
+      const rows = aggregatesFor(run, { tier: a.tier, metric: a.metric, kind: a.slice_kind, slice: a.slice });
+      expect(rows.some((r) => r.provider === LOW), `${a.slice_kind}/${a.slice}`).toBe(false);
+    }
+    expect(raw.paired.some((p: any) => p.provider_a === LOW || p.provider_b === LOW)).toBe(false);
+    expect(pair(run, { tier: "verified", metric: "wer", kind: "all", slice: "all" }, LOW, "synth-a")).toBeNull();
+    // Picker, batch and streaming.
+    const base = { audio: "any" as const, budget: null, timing: false, latency: "any" as const, local: false };
+    expect(pick(run, base).rows.map((r) => r.provider)).not.toContain(LOW);
+    expect(pick(run, base).rows.map((r) => r.provider)).toEqual(raw.ranking.verified.wer.map((r: any) => r.provider));
+    expect(pick(run, { ...base, mode: "streaming" }).rows.map((r) => r.provider)).not.toContain(LOW);
+    // Views beyond accuracy see no row of it.
+    expect(JSON.stringify(v3(rankedRun(run)))).not.toContain(LOW);
+  });
+
+  it("leaderboard, landing board and leaderboard views list it only under Not ranked, with the export's reason", () => {
+    const reason = status.providers_excluded.find((e: any) => e.provider === LOW).reason as string;
+    const boards = [
+      html(<Board run={run} tier="verified" metric="wer" kind="all" slice="all" history={[]} highlight={null} lattice={false} />),
+      html(<MiniLeaderboard run={run} />),
+      html(<LeaderViewPanel view="speed" run={run} tier="verified" metric="wer" kind="all" slice="all" n={1} />),
+      html(<LeaderViewPanel view="formatting" run={run} tier="verified" metric="wer" kind="all" slice="all" n={1} />),
+    ];
+    for (const out of boards) {
+      expect(ranked(out)).not.toContain(LOW);
+      expect(out).toContain("Not ranked");
+      expect(out).toContain(reason);
+      expect(out).not.toMatch(/NaN|undefined/);
+    }
+    const board = boards[0]!;
+    // Ranked rows in ranking order, with coverage and the channel-clustered interval.
+    const order = raw.ranking.verified.wer.map((r: any) => r.provider) as string[];
+    const at = order.map((p) => board.indexOf(`/providers/${p}"`));
+    expect(at.every((i) => i >= 0)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    expect(board).toContain("Coverage");
+    expect(board).toContain("by channel");
+    expect(html(<NotRanked run={run} />)).toContain(reason);
+  });
+
+  it("the badge text, OG descriptions and the command menu never rank it", () => {
+    const low = badgeMessage(run as any, LOW, run.language, "wer");
+    expect(low.message).toBe(`not ranked ${run.language}`);
+    expect(low.message).not.toMatch(/\d/);
+    const top = raw.ranking.verified.wer[0];
+    expect(badgeMessage(run as any, top.provider, run.language, "wer").message).toBe(`${(top.error_rate * 100).toFixed(1)}% WER ${run.language}`);
+    expect(excludedProviders(run).map((e) => e.provider)).toEqual([LOW]);
+
+    const dist = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), "og-py-"));
+    writeFileSync(join(dist, "index.html"), `<!doctype html><html><head><title>x</title></head><body></body></html>`);
+    mkdirSync(join(dist, "data"), { recursive: true });
+    cpSync(join(DIR, "index.json"), join(dist, "data", "index.json"));
+    cpSync(join(DIR, "runs"), join(dist, "data", "runs"), { recursive: true });
+    cpSync(join(DIR, "findings"), join(dist, "data", "findings"), { recursive: true });
+    execFileSync("bun", ["run", join(__dirname, "..", "scripts", "og-routes.ts")], { env: { ...process.env, OG_DIST: dist, SITE_URL: "https://bench.test" } });
+    const files = (d: string): string[] => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? files(join(d, f)) : f.endsWith(".html") ? [join(d, f)] : []));
+    const pages = files(dist);
+    expect(pages.length).toBeGreaterThan(10);
+    for (const f of pages) {
+      const page = readFileSync(f, "utf8");
+      if (f.endsWith(join("providers", `${LOW}.html`))) {
+        expect(page).not.toMatch(/\d+(\.\d+)?%|rank/i);
+        continue;
+      }
+      expect(page, f).not.toContain(LOW);
+    }
+    expect(readFileSync(join(dist, "lang", "en.html"), "utf8")).toContain(`${status.providers_ok} eligible providers`);
+  });
+
+  it("findings never name it, and cluster-sensitive findings get a badge", () => {
+    const file = read<any>("findings/en.json");
+    expect(JSON.stringify(file)).not.toContain(LOW);
+    expect(file.findings.every((f: any) => typeof f.cluster_sensitive === "boolean")).toBe(true);
+    expect(publishedFindings(file.findings, eligibleProviders(run)).length).toBe(file.findings.length);
+    const forged = { ...file.findings[0], source: { table: "paired", filters: { provider_a: LOW, provider_b: "synth-a" } } };
+    expect(publishedFindings([forged], eligibleProviders(run))).toEqual([]);
+    expect(html(<ClusterBadge f={{ cluster_sensitive: true }} />)).toContain("Channel sensitive");
+    expect(html(<ClusterBadge f={{ cluster_sensitive: false }} />)).toBe("");
+  });
+
+  it("the gate panel shows all three conditions", () => {
+    const out = html(<GateBars status={runLanguageStatus(run)} />);
+    expect(out).toContain("Verified clips");
+    expect(out).toContain("Eligible providers");
+    expect(out).toContain("Verified set diversity");
+    const failing = { ...status, published: false, gate: { ...status.gate, diversity_ok: false }, verified_diversity: { ...status.verified_diversity, passes: false, problems: ["only 12 channels; at least 30 needed"] } };
+    const bad = html(<GateBars status={failing} />);
+    expect(bad).toContain("only 12 channels; at least 30 needed");
+    expect(bad).toContain("not yet");
+  });
+
+  it("an export with the gate fields missing renders as unpublished", () => {
+    const strip = (l: any) => {
+      const { gate: _g, providers_eligible: _e, providers_excluded: _x, min_coverage: _m, verified_diversity: _d, ...rest } = l;
+      return rest;
+    };
+    const old = { ...run, ranking: undefined, languages: raw.languages.map(strip), aggregates: run.aggregates.map(({ eligible: _e, coverage: _c, ...a }) => a), paired: run.paired.map(({ p_adjusted: _p, verdict_raw: _v, ...p }) => p) } as Run;
+    expect(old.languages![0]!.published).toBe(true); // the old flag alone does not publish
+    expect(isPublished(old)).toBe(false);
+    expect(overall(old, "verified", "wer")).toEqual([]);
+    expect(aggregatesFor(old, { tier: "verified", metric: "wer", kind: "audio_condition", slice: "music" })).toEqual([]);
+    expect(pair(old, { tier: "verified", metric: "wer", kind: "all", slice: "all" }, "synth-a", "synth-b")).toBeNull();
+    expect(eligibleProviders(old).size).toBe(0);
+    expect(badgeMessage(old as any, "synth-a", old.language, "wer").message).toBe(`not published ${old.language}`);
+    const idx = { ...index, languages: (index.languages ?? []).map(strip) } as RunIndex;
+    expect(languageProgress(idx).every((l) => !l.published)).toBe(true);
+    const out = html(<Gated run={old}>RANKING</Gated>);
+    expect(out).not.toContain("RANKING");
+    expect(out).toContain("Not published yet");
+    expect(out).toContain("no publication gate fields");
+    // A published flag with a failing gate flag is not published either.
+    const half = { ...run, languages: raw.languages.map((l: any) => ({ ...l, gate: { ...l.gate, diversity_ok: false } })) } as Run;
+    expect(isPublished(half)).toBe(false);
+    expect(overall(half, "verified", "wer")).toEqual([]);
   });
 });

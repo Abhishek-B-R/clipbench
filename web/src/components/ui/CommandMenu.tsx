@@ -26,7 +26,8 @@ import {
 } from "lucide-react";
 import { setDemo, useRun, useSource } from "@/lib/data";
 import { setTheme, useTheme } from "@/lib/theme";
-import { LANGUAGE_NAME, providerColor } from "@/lib/analysis";
+import { LANGUAGE_NAME, excludedProviders, isEligible, providerColor, providerLabel } from "@/lib/analysis";
+import { pct } from "@/lib/format";
 import { LANGUAGES, REPO_SLUG } from "@/lib/config";
 import { ACCOUNTS } from "@/lib/flags";
 import { SeriesDot } from "./Badge";
@@ -112,11 +113,24 @@ export default function CommandMenu() {
         </Command.Group>
         {run.data && (
           <Command.Group heading="Models">
-            {run.data.run.providers.map((p) => (
-              <Command.Item key={p.id} value={`${p.label} ${p.model_id}`} onSelect={() => go(`/providers/${p.id}`)} className={item}>
-                <SeriesDot color={providerColor(run.data.run, p.id)} />
-                <span className="text-ink">{p.label}</span>
-                <span className="font-mono text-[12px] text-ink-3">{p.model_id}</span>
+            {run.data.run.providers
+              .filter((p) => isEligible(run.data.run, p.id))
+              .map((p) => (
+                <Command.Item key={p.id} value={`${p.label} ${p.model_id}`} onSelect={() => go(`/providers/${p.id}`)} className={item}>
+                  <SeriesDot color={providerColor(run.data.run, p.id)} />
+                  <span className="text-ink">{p.label}</span>
+                  <span className="font-mono text-[12px] text-ink-3">{p.model_id}</span>
+                </Command.Item>
+              ))}
+          </Command.Group>
+        )}
+        {run.data && excludedProviders(run.data.run).length > 0 && (
+          <Command.Group heading="Not ranked">
+            {excludedProviders(run.data.run).map((e) => (
+              <Command.Item key={e.provider} value={`${providerLabel(run.data.run, e.provider)} not ranked`} onSelect={() => go(`/providers/${e.provider}`)} className={item}>
+                <SeriesDot color="var(--ink-3)" />
+                <span className="text-ink">{providerLabel(run.data.run, e.provider)}</span>
+                <span className="num text-[12px] text-ink-3">coverage {pct(e.coverage)}</span>
               </Command.Item>
             ))}
           </Command.Group>

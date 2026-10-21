@@ -1,4 +1,5 @@
 import { button, escapeHtml, layout, type Email } from "../email";
+import { primaryMetric, ranking, type Run } from "../gate";
 
 export type RunSummary = {
   run_id: string;
@@ -6,32 +7,25 @@ export type RunSummary = {
   created_at: string | null;
   tier: string | null;
   metric: string | null;
-  /** provider id -> {rank (1 = lowest error), error_rate} on the headline tier and primary metric */
+  /** provider id -> {rank, error_rate} from the export's ranking (headline tier, primary metric), eligible providers only */
   ranks: Map<string, { rank: number; error_rate: number | null; label: string }>;
   n_providers: number;
 };
 
-type RunJson = {
-  run_id?: string;
-  language?: string;
-  created_at?: string;
-  metrics?: { name: string; primary: boolean }[];
-  providers?: { id: string; label?: string }[];
-  aggregates?: { provider: string; tier: string; metric: string; slice_kind: string; error_rate: number | null }[];
-};
+type RunJson = Partial<Run>;
 
 const LANGUAGES: Record<string, string> = { en: "English", ja: "Japanese", ko: "Korean", es: "Spanish", hi: "Hindi" };
 
+/** Ranks from the export's `ranking` (eligible providers of a published language only, docs/V3.md). */
 export function summarize(runId: string, run: RunJson): RunSummary {
-  const metric = run.metrics?.find((m) => m.primary)?.name ?? null;
+  const r = { run_id: runId, language: "", ...run } as Run;
+  const metric = primaryMetric(r) ?? null;
   const tiers = new Set((run.aggregates ?? []).map((a) => a.tier));
   const tier = tiers.has("verified") ? "verified" : ([...tiers][0] ?? null);
   const labels = new Map((run.providers ?? []).map((p) => [p.id, p.label ?? p.id]));
-  const rows = (run.aggregates ?? [])
-    .filter((a) => a.tier === tier && a.metric === metric && a.slice_kind === "all")
-    .sort((a, b) => (a.error_rate ?? Infinity) - (b.error_rate ?? Infinity));
+  const rows = tier && metric ? ranking(r, r.language, tier, metric) : [];
   const ranks = new Map<string, { rank: number; error_rate: number | null; label: string }>();
-  rows.forEach((r, i) => ranks.set(r.provider, { rank: i + 1, error_rate: r.error_rate, label: labels.get(r.provider) ?? r.provider }));
+  for (const x of rows) ranks.set(x.provider, { rank: x.rank, error_rate: x.error_rate, label: labels.get(x.provider) ?? x.provider });
   return {
     run_id: run.run_id ?? runId,
     language: run.language ?? "",
@@ -39,7 +33,7 @@ export function summarize(runId: string, run: RunJson): RunSummary {
     tier,
     metric,
     ranks,
-    n_providers: labels.size || rows.length,
+    n_providers: rows.length,
   };
 }
 
@@ -56,7 +50,7 @@ export function newRunEmail(s: RunSummary, watched: string[], siteUrl: string): 
     .filter((x): x is { pid: string; r: NonNullable<typeof x.r> } => x.r !== undefined)
     .sort((a, b) => a.r.rank - b.r.rank);
 
-  const intro = `A new benchmark run is published: ${s.n_providers} speech-to-text models on ${lang} short-form video.`;
+  const intro = `A new benchmark run is published: ${s.n_providers} ranked speech-to-text models on ${lang} short-form video.`;
   const scope = s.tier && s.metric ? `Ranks below are on the ${s.tier} tier, ${s.metric}, lower is better.` : "";
   const textLines = [intro, ""];
   if (mine.length) {

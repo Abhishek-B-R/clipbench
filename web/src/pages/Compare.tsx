@@ -4,7 +4,7 @@ import { Link2 } from "lucide-react";
 import type { Run, SliceKind, Tier } from "@/lib/types";
 import { CAPTION_METRICS, SLICE_KIND_LABEL, metricValue, sliceKindsIn, sliceLabel, slicesOf } from "@/lib/metrics";
 import { useRun } from "@/lib/data";
-import { isPublished, pickMetric, pickTier, aggregatesFor, overall, pair, providerColor, providerLabel, providerOrder, type SliceQuery } from "@/lib/analysis";
+import { eligibleProviders, isPublished, pickMetric, pickTier, aggregatesFor, overall, pair, providerColor, providerLabel, providerOrder, rankOf, type SliceQuery } from "@/lib/analysis";
 import { ms, pct, pValue, pts, usdPerHour, words } from "@/lib/format";
 import { api, type SavedComparison } from "@/lib/api";
 import { ACCOUNTS } from "@/lib/flags";
@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { EmptyState, ErrorState } from "@/components/ui/State";
 import { TierControl, TierNote } from "@/components/ui/TierControl";
-import { Gated } from "@/components/ui/Gate";
+import { Gated, NotRanked } from "@/components/ui/Gate";
 import { toast } from "@/components/ui/Toast";
 
 // Save needs an account; it carries the Better Auth client, so it loads only when ACCOUNTS is on.
@@ -57,7 +57,8 @@ export default function Compare() {
   const mParam = params.get("m");
   const models = useMemo(() => {
     if (!run) return [];
-    const valid = new Set(run.providers.map((p) => p.id));
+    // Only eligible (ranked) providers can be compared; a link naming an excluded one drops it.
+    const valid = isPublished(run) ? eligibleProviders(run) : new Set<string>();
     // Known ids, each once, at most MAX; topped up from the ranking so a link always compares at least MIN models.
     const fromUrl = [...new Set((mParam ?? "").split(",").filter((x) => valid.has(x)))].slice(0, MAX);
     const fill = overall(run, tier, metric)
@@ -148,6 +149,7 @@ export default function Compare() {
                   )}
                 </div>
               </fieldset>
+              <NotRanked run={run} className="lg:col-span-2" title="Not ranked, not compared" />
             </div>
             <TierNote tier={tier} className="-mt-3" />
             <SideBySide run={run} models={models} tier={tier} metric={metric} tags={tags} focus={focus} by={by} groups={groupValues} />
@@ -208,7 +210,6 @@ type GroupKind = Exclude<SliceKind, "all" | "duration">;
 type GroupProps = { by: GroupKind; groups: string[] };
 
 function SideBySide({ run, models, tier, metric, tags, focus, by, groups }: { run: Run; models: string[]; tier: Tier; metric: string; tags: string[]; focus: Focus } & GroupProps) {
-  const all = overall(run, tier, metric);
   const get = (kind: SliceKind, slice: string) => aggregatesFor(run, { tier, metric, kind, slice });
   const allRows = get("all", "all");
   const max = Math.max(0.01, ...allRows.filter((a) => models.includes(a.provider)).map((a) => a.ci_high)) * 1.1;
@@ -286,7 +287,7 @@ function SideBySide({ run, models, tier, metric, tags, focus, by, groups }: { ru
                 <span className="label">Measure</span>
               </th>
               {models.map((m) => {
-                const rank = all.findIndex((a) => a.provider === m) + 1;
+                const rank = rankOf(run, m, tier, metric);
                 return (
                   <th key={m} scope="col" className="border-b border-line bg-surface px-3 py-3 text-right align-bottom font-normal last:pr-4 sm:last:pr-5">
                     <Link to={`/providers/${m}`} className="inline-flex items-center gap-2 hover:underline">
@@ -294,7 +295,8 @@ function SideBySide({ run, models, tier, metric, tags, focus, by, groups }: { ru
                       <span className="text-[14px] font-medium text-ink">{providerLabel(run, m)}</span>
                     </Link>
                     <span className="mt-0.5 block font-mono text-[11px] text-ink-3">
-                      {run.providers.find((p) => p.id === m)?.model_id} / #{rank}
+                      {run.providers.find((p) => p.id === m)?.model_id}
+                      {rank != null ? ` / #${rank}` : ""}
                     </span>
                   </th>
                 );
@@ -355,7 +357,10 @@ function Verdicts({ run, models, tier, metric, tags, focus, by, groups }: { run:
     <Figure
       n={2}
       title="Paired verdicts"
-      caption={tags.length || !groups.length ? "Each cell is a paired bootstrap on the clips both models scored in that slice." : "Each cell is a paired bootstrap on the clips both models scored. Pick slices above to change the columns."}
+      caption={
+        (tags.length || !groups.length ? "Each cell is a paired bootstrap on the clips both models scored in that slice." : "Each cell is a paired bootstrap on the clips both models scored. Pick slices above to change the columns.") +
+        " Verdicts and p values are corrected for multiple comparisons (Benjamini-Hochberg)."
+      }
       source={`source: paired, tier=${tier}, metric=${metric}, 1000 resamples`}
       bodyClassName="p-0 sm:p-0"
     >
@@ -398,7 +403,7 @@ function Verdicts({ run, models, tier, metric, tags, focus, by, groups }: { run:
                             {providerLabel(run, t.better)} by <span className="num">{pts(t.diff)}</span>
                           </span>
                           <span className="num text-[11px] text-ink-3">
-                            {pValue(t.p)}, n={t.n}
+                            adjusted {pValue(t.p)}, n={t.n}
                             {small ? ", small" : ""}
                           </span>
                         </span>
@@ -406,7 +411,7 @@ function Verdicts({ run, models, tier, metric, tags, focus, by, groups }: { run:
                         <span className="grid gap-0.5">
                           <span className="text-[13px] text-ink-2">No detectable difference</span>
                           <span className="num text-[11px] text-ink-3">
-                            {pValue(t.p)}, n={t.n}
+                            adjusted {pValue(t.p)}, n={t.n}
                           </span>
                         </span>
                       )}

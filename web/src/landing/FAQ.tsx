@@ -7,7 +7,7 @@ import { ACCOUNTS } from "@/lib/flags";
 const QA: { q: string; a: React.ReactNode }[] = [
   {
     q: "Which languages, and when?",
-    a: "English first, then Japanese, Korean, Spanish, and Hindi with Hinglish. Each language gets a ranking only when it passes the publication gate: enough clips verified by ear and enough providers run on them. Until then this site shows progress, not a ranking.",
+    a: "English, Japanese, Korean, Spanish, and Hindi with Hinglish. The progress board on this page shows where each one stands. A language gets a ranking only when it passes the publication gate: enough clips verified by ear, enough providers with results on nearly all of them, and clips spread across channels and content types. Until then this site shows progress, not a ranking.",
   },
   {
     q: "How is this different from other speech-to-text leaderboards?",

@@ -38,7 +38,7 @@ export function ByClipType({ run }: { run: Run }) {
     const a = providerLabel(run, cur.first.provider);
     const b = providerLabel(run, cur.second.provider);
     if (cur.tooSmall) sentence = `Only ${cur.first.n_clips} clips have ${TAG_PHRASE[tag]}. Too few to conclude anything.`;
-    else if (cur.clear && t) sentence = `${a} leads on ${TAG_PHRASE[tag]}: ${pct(cur.first.error_rate)} against ${pct(cur.second.error_rate)} for ${b}, the runner-up (${pValue(t.p)}).`;
+    else if (cur.clear && t) sentence = `${a} leads on ${TAG_PHRASE[tag]}: ${pct(cur.first.error_rate)} against ${pct(cur.second.error_rate)} for ${b}, the runner-up (adjusted ${pValue(t.p)}).`;
     else sentence = `${a} and ${b} are within each other's noise on ${TAG_PHRASE[tag]}. The paired test finds no clear leader.`;
   }
 

@@ -1,1 +1,51 @@
-{"latest": "r1", "runs": [{"run_id": "r1", "created_at": "2026-10-19T10:00:00Z", "language": "ja", "tiers": ["verified"], "n_clips": {"verified": 3}, "providers": ["model-a", "model-b"]}, {"run_id": "r3-en", "created_at": "2026-10-18T10:00:00Z", "language": "en", "tiers": ["verified"], "n_clips": {"verified": 12}, "providers": ["model-a", "model-b"]}]}
+{
+ "latest": "r1",
+ "runs": [
+  {
+   "run_id": "r1",
+   "created_at": "2026-10-19T10:00:00Z",
+   "language": "ja",
+   "tiers": [
+    "verified"
+   ],
+   "n_clips": {
+    "verified": 3
+   },
+   "providers": [
+    "model-a",
+    "model-b",
+    "model-c"
+   ]
+  },
+  {
+   "run_id": "r3-en",
+   "created_at": "2026-10-18T10:00:00Z",
+   "language": "en",
+   "tiers": [
+    "verified"
+   ],
+   "n_clips": {
+    "verified": 12
+   },
+   "providers": [
+    "model-a",
+    "model-b"
+   ]
+  },
+  {
+   "run_id": "r4-es-old",
+   "created_at": "2026-10-17T10:00:00Z",
+   "language": "es",
+   "tiers": [
+    "verified"
+   ],
+   "n_clips": {
+    "verified": 3
+   },
+   "providers": [
+    "model-a",
+    "model-b"
+   ]
+  }
+ ]
+}

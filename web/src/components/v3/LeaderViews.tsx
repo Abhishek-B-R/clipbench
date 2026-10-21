@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import type { Run, SliceKind, Tier } from "@/lib/types";
-import { LANGUAGE_NAME, overall, providerColor, providerLabel } from "@/lib/analysis";
+import { LANGUAGE_NAME, isEligible, overall, providerColor, providerLabel, rankedRun } from "@/lib/analysis";
+import { NotRanked } from "@/components/ui/Gate";
 import { ms, pct, signedPts, usdPerHour, int } from "@/lib/format";
 import { maxOf } from "@/lib/scale";
 import { cn } from "@/lib/cn";
@@ -40,7 +41,17 @@ export interface ViewProps {
 }
 
 /** One leaderboard view (everything but Accuracy). Lazy-loaded with its charts. */
-export default function LeaderViewPanel({ view, ...p }: ViewProps & { view: LeaderView }) {
+export default function LeaderViewPanel({ view, run, ...rest }: ViewProps & { view: LeaderView }) {
+  // Excluded providers (below the coverage minimum) are dropped from every view and listed as not ranked.
+  return (
+    <>
+      <Panel view={view} run={rankedRun(run)} {...rest} />
+      <NotRanked run={run} />
+    </>
+  );
+}
+
+function Panel({ view, ...p }: ViewProps & { view: LeaderView }) {
   switch (view) {
     case "formatting":
       return <FormattingView {...p} />;
@@ -218,7 +229,7 @@ function SpeakersView({ run, tier, kind, slice, n }: ViewProps) {
     <Figure n={n} title="Who spoke when" caption="Speaker labels on clips with more than one speaker, against turns a person tagged by ear. Lower diarization error is better." source={src(run, "diarization", tier, s.kind, s.slice)} bodyClassName="p-0 sm:p-0">
       {s.fellBack && <FellBack kind={kind} slice={slice} />}
       {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.provider} caption="Diarization" /> : <div className="p-4 sm:p-5"><Empty /></div>}
-      <NotOffered run={run} ids={d?.unsupported.length ? d.unsupported : run.providers.map((p) => p.id).filter((id) => !rows.some((r) => r.provider === id))} what="The run asked every provider for speaker labels." />
+      <NotOffered run={run} ids={(d?.unsupported.length ? d.unsupported : run.providers.map((p) => p.id).filter((id) => !rows.some((r) => r.provider === id))).filter((id) => isEligible(run, id))} what="The run asked every provider for speaker labels." />
     </Figure>
   );
 }
@@ -264,7 +275,7 @@ function LidView({ run, tier, kind, slice, n }: ViewProps) {
     <Figure n={n} title="Language identification" caption={`With language auto-detect on and no hint: how often each model recognises ${LANGUAGE_NAME[run.language] ?? run.language}, and how much accuracy that costs.`} source={src(run, "lid", tier, s.kind, s.slice)} bodyClassName="p-0 sm:p-0">
       {s.fellBack && <FellBack kind={kind} slice={slice} />}
       {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.provider} caption="Language identification" /> : <div className="p-4 sm:p-5"><Empty /></div>}
-      <NotOffered run={run} ids={l?.unsupported ?? []} what="" />
+      <NotOffered run={run} ids={(l?.unsupported ?? []).filter((id) => isEligible(run, id))} what="" />
     </Figure>
   );
 }
@@ -573,7 +584,7 @@ function LongformView({ run, n }: ViewProps) {
 function SpeedView({ run, tier, metric, n }: ViewProps) {
   const comp = v3(run).compute;
   const all = overall(run, tier, metric);
-  const rows = run.providers.map((p) => {
+  const rows = run.providers.filter((p) => isEligible(run, p.id)).map((p) => {
     const sf = speedFactor(run, p.id, tier, metric);
     const c = comp?.rows.find((r) => r.provider === p.id);
     return { p, sf, c, agg: all.find((a) => a.provider === p.id), per1k: pricePer1000Min(p.usd_per_hour) };

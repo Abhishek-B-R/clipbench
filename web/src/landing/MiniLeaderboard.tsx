@@ -13,6 +13,7 @@ import { CIBar } from "@/components/ui/CIBar";
 import { Badge, SeriesDot } from "@/components/ui/Badge";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { Aggregate } from "@/lib/types";
+import { NotRanked } from "@/components/ui/Gate";
 
 /** Compact board. `kind`/`slice` narrow it to one condition or category (A4); default all clips. */
 export function MiniLeaderboard({ run, kind = "all", slice = "all" }: { run: Run; kind?: SliceKind; slice?: string }) {
@@ -60,7 +61,7 @@ export function MiniLeaderboard({ run, kind = "all", slice = "all" }: { run: Run
         if (!t) return <span className="text-[12.5px] text-ink-3">not tested</span>;
         if (t.better === leader.provider)
           return (
-            <Tooltip content={`Paired test on ${t.n} clips: ${pct(Math.abs(t.diff))} more errors, 95% interval ${pct(Math.abs(t.ci_high))} to ${pct(Math.abs(t.ci_low))}.`}>
+            <Tooltip content={`Paired test on ${t.n} clips, corrected for multiple comparisons: ${pct(Math.abs(t.diff))} more errors, 95% interval ${pct(Math.abs(t.ci_high))} to ${pct(Math.abs(t.ci_low))}.`}>
               <button type="button" className="text-[12.5px] text-ink-2 underline decoration-line-strong decoration-dotted underline-offset-4">
                 +{(t.diff * 100).toFixed(1)} pts
               </button>
@@ -109,6 +110,7 @@ export function MiniLeaderboard({ run, kind = "all", slice = "all" }: { run: Run
         </p>
       )}
       <DataTable columns={columns} rows={rows} rowKey={(r) => r.provider} caption="Overall leaderboard" />
+      <NotRanked run={run} className="m-4 sm:m-5" />
     </Figure>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useRun, useSource } from "@/lib/data";
 import { isPublished, languageProgress } from "@/lib/analysis";
 import { ACCOUNTS } from "@/lib/flags";
@@ -10,15 +10,14 @@ import { ErrorState } from "@/components/ui/State";
 import { Hero } from "@/landing/Hero";
 import { Measures } from "@/landing/Measures";
 import { Dataset } from "@/landing/Dataset";
-import { MiniLeaderboard } from "@/landing/MiniLeaderboard";
-import { ByClipType } from "@/landing/ByClipType";
-import { Heatmap } from "@/landing/Heatmap";
-import { CostSection } from "@/landing/CostSection";
-import { Breaks } from "@/landing/Breaks";
 import { Reproduce } from "@/landing/Reproduce";
 import { Method } from "@/landing/Method";
 import { RequestCTA } from "@/landing/RequestCTA";
 import { FAQ } from "@/landing/FAQ";
+
+// The ranking sections (board, clip types, matrix, cost chart, failure modes) only render for a published language,
+// so their code loads as its own chunk instead of weighing on every first visit while nothing is published.
+const PublishedSections = lazy(() => import("@/landing/PublishedSections"));
 
 /**
  * The homepage. Leads with the positioning question. Rankings appear only for a published language
@@ -43,21 +42,9 @@ export default function Landing() {
 
       {published && run ? (
         <>
-          <Section id="leaderboard" index={idx()} kicker="Leaderboard" title="One clip set. Every model. Intervals on every number." intro="Ranked by error rate on clips whose references a person checked by ear. A lead counts only when the paired test backs it.">
-            <MiniLeaderboard run={run} />
-          </Section>
-          <Section id="clip-types" index={idx()} kicker="By clip type" title="The best model overall is not the best on every clip." intro="Short-form video is not one kind of audio. Pick a kind of clip to see who handles it, and whether the lead survives a paired test.">
-            <ByClipType run={run} />
-          </Section>
-          <Section id="matrix" index={idx()} kicker="Matrix" title="Where each model struggles, at a glance." intro="The same numbers as a table you can scan. Hatched cells have too few clips to say anything.">
-            <Heatmap run={run} />
-          </Section>
-          <Section id="cost" index={idx()} kicker="Cost" title="What accuracy costs per hour of audio." intro="List prices, checked on the run date, against measured error.">
-            <CostSection run={run} />
-          </Section>
-          <Section id="breaks" index={idx()} kicker="Failure modes" title="What breaks each model." intro="Each model's error rate on its worst kind of clip, against its own average, and the slips it makes most often.">
-            <Breaks run={run} />
-          </Section>
+          <Suspense fallback={<div className="frame py-20"><Skeleton className="h-96 w-full" /></div>}>
+            <PublishedSections run={run} index={[idx(), idx(), idx(), idx(), idx()]} />
+          </Suspense>
         </>
       ) : (
         <>

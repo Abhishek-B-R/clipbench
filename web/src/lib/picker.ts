@@ -1,5 +1,5 @@
 import type { Aggregate, Run, SliceKind, Tier } from "./types";
-import { aggregatesFor, defaultTier, overall, pair, primaryMetric, providerById } from "./analysis";
+import { aggregatesFor, defaultTier, eligibleProviders, isPublished, overall, pair, primaryMetric, providerById } from "./analysis";
 import { metricValue, CAPTION_METRICS } from "./metrics";
 import { inSlice, streamPair, supports, v3 } from "./v3";
 
@@ -106,7 +106,7 @@ export function pick(run: Run, input: PickInput) {
     if (input.diarization && canDiarize(run, agg.provider) !== true) excluded.push("No speaker labels");
     return { provider: agg.provider, agg, price: p?.usd_per_hour ?? 0, p50, uploads: Boolean(p?.uploads_audio), timing, halluc, der: derOf(run, agg.provider, tier), ttfs: null, excluded };
   });
-  out.sort((a, b) => a.agg.error_rate - b.agg.error_rate);
+  // `rows` is already in ranking order (the export's `ranking` for all clips), eligible providers only.
   const eligible = out.filter((r) => !r.excluded.length);
   const best = eligible[0];
   if (best) {
@@ -141,8 +141,10 @@ function pickStreaming(run: Run, input: PickInput) {
     src = inSlice(st!.rows, tier);
   }
   const all = overall(run, tier, metric);
+  // Providers below the coverage minimum are never ranked, on the streaming board either.
+  const ok = isPublished(run) ? eligibleProviders(run) : new Set<string>();
   const out: PickRow[] = src
-    .filter((r) => r.error_rate != null)
+    .filter((r) => r.error_rate != null && ok.has(r.provider))
     .map((r) => {
       const p = providerById(run, r.provider);
       const allRow = all.find((a) => a.provider === r.provider);
@@ -156,7 +158,7 @@ function pickStreaming(run: Run, input: PickInput) {
       if (input.diarization && canDiarize(run, r.provider) !== true) excluded.push("No speaker labels");
       return { provider: r.provider, agg, price: p?.usd_per_hour ?? 0, p50: r.ttfs_p50_ms, uploads: true, timing, halluc: null, der: derOf(run, r.provider, tier), ttfs: r.ttfs_p50_ms, excluded };
     });
-  out.sort((a, b) => a.agg.error_rate - b.agg.error_rate);
+  out.sort((a, b) => a.agg.error_rate - b.agg.error_rate || (a.provider < b.provider ? -1 : a.provider > b.provider ? 1 : 0));
   const eligible = out.filter((r) => !r.excluded.length);
   const best = eligible[0];
   const paired = Boolean(st?.paired.length);

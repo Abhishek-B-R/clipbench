@@ -11,8 +11,13 @@ export const RULES = {
   minSliceClips: 15,
   /** A language is published only with at least this many verified clips (docs/V2.md). */
   publishMinVerified: 100,
-  /** ... and at least this many providers with ok rows in its latest run. */
+  /** ... and at least this many ELIGIBLE providers in its latest run (docs/V3.md, "Publication gate fields") ... */
   publishMinProviders: 6,
+  /**
+   * ... where a provider is eligible with ok rows on at least this share of the verified clips (clipbench.toml
+   * min_provider_coverage, default). Display only: the export's `min_coverage` wins when present.
+   */
+  minProviderCoverage: 0.9,
   /** Bootstrap resamples for every interval and paired test. */
   bootstrapResamples: 1000,
   /** Dataset diversity (docs/V2.md): at least this many channels per language ... */

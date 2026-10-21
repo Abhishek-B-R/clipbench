@@ -21,7 +21,7 @@ import { Button, buttonClass } from "@/components/ui/Button";
 import { EmptyState, ErrorState } from "@/components/ui/State";
 import { v3 } from "@/lib/v3";
 import { TierNote } from "@/components/ui/TierControl";
-import { Gated } from "@/components/ui/Gate";
+import { Gated, NotRanked } from "@/components/ui/Gate";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
@@ -190,6 +190,7 @@ export default function Picker() {
                     )}
                     <Recommendation run={run} result={result} input={input} lang={lang} onRelax={set} />
                     <Ranked run={run} result={result} input={input} lang={lang} />
+                    <NotRanked run={run} />
                     </>
                     )}
                   </>

@@ -21,6 +21,53 @@
         "model-d",
         "model-e",
         "model-f"
+      ],
+      "languages": [
+        {
+          "lang": "ja",
+          "verified_clips": 150,
+          "providers_ok": 6,
+          "published": true,
+          "channels": 40,
+          "categories": [
+            "comedy_skit",
+            "cooking_tutorial",
+            "gaming",
+            "news_explainer",
+            "talking_head",
+            "vlog_music"
+          ],
+          "largest_channel_share": 0.0267,
+          "providers_eligible": [
+            "model-a",
+            "model-b",
+            "model-c",
+            "model-d",
+            "model-e",
+            "model-f"
+          ],
+          "providers_excluded": [],
+          "min_coverage": 0.9,
+          "verified_diversity": {
+            "channels": 40,
+            "largest_channel_share": 0.0267,
+            "categories": [
+              "comedy_skit",
+              "cooking_tutorial",
+              "gaming",
+              "news_explainer",
+              "talking_head",
+              "vlog_music"
+            ],
+            "passes": true,
+            "problems": []
+          },
+          "gate": {
+            "verified_clips_ok": true,
+            "providers_ok": true,
+            "diversity_ok": true
+          }
+        }
       ]
     },
     {
@@ -42,6 +89,53 @@
         "model-d",
         "model-e",
         "model-f"
+      ],
+      "languages": [
+        {
+          "lang": "ja",
+          "verified_clips": 150,
+          "providers_ok": 6,
+          "published": true,
+          "channels": 40,
+          "categories": [
+            "comedy_skit",
+            "cooking_tutorial",
+            "gaming",
+            "news_explainer",
+            "talking_head",
+            "vlog_music"
+          ],
+          "largest_channel_share": 0.0267,
+          "providers_eligible": [
+            "model-a",
+            "model-b",
+            "model-c",
+            "model-d",
+            "model-e",
+            "model-f"
+          ],
+          "providers_excluded": [],
+          "min_coverage": 0.9,
+          "verified_diversity": {
+            "channels": 40,
+            "largest_channel_share": 0.0267,
+            "categories": [
+              "comedy_skit",
+              "cooking_tutorial",
+              "gaming",
+              "news_explainer",
+              "talking_head",
+              "vlog_music"
+            ],
+            "passes": true,
+            "problems": []
+          },
+          "gate": {
+            "verified_clips_ok": true,
+            "providers_ok": true,
+            "diversity_ok": true
+          }
+        }
       ]
     },
     {
@@ -62,6 +156,52 @@
         "model-c",
         "model-d",
         "model-e"
+      ],
+      "languages": [
+        {
+          "lang": "ja",
+          "verified_clips": 150,
+          "providers_ok": 5,
+          "published": false,
+          "channels": 40,
+          "categories": [
+            "comedy_skit",
+            "cooking_tutorial",
+            "gaming",
+            "news_explainer",
+            "talking_head",
+            "vlog_music"
+          ],
+          "largest_channel_share": 0.0267,
+          "providers_eligible": [
+            "model-a",
+            "model-b",
+            "model-c",
+            "model-d",
+            "model-e"
+          ],
+          "providers_excluded": [],
+          "min_coverage": 0.9,
+          "verified_diversity": {
+            "channels": 40,
+            "largest_channel_share": 0.0267,
+            "categories": [
+              "comedy_skit",
+              "cooking_tutorial",
+              "gaming",
+              "news_explainer",
+              "talking_head",
+              "vlog_music"
+            ],
+            "passes": true,
+            "problems": []
+          },
+          "gate": {
+            "verified_clips_ok": true,
+            "providers_ok": false,
+            "diversity_ok": true
+          }
+        }
       ]
     }
   ],
@@ -71,15 +211,45 @@
       "verified_clips": 150,
       "providers_ok": 6,
       "published": true,
-      "channels": 8,
+      "channels": 40,
       "categories": [
         "comedy_skit",
-        "gaming",
         "cooking_tutorial",
+        "gaming",
+        "news_explainer",
         "talking_head",
-        "vlog_music",
-        "news_explainer"
-      ]
+        "vlog_music"
+      ],
+      "largest_channel_share": 0.0267,
+      "providers_eligible": [
+        "model-a",
+        "model-b",
+        "model-c",
+        "model-d",
+        "model-e",
+        "model-f"
+      ],
+      "providers_excluded": [],
+      "min_coverage": 0.9,
+      "verified_diversity": {
+        "channels": 40,
+        "largest_channel_share": 0.0267,
+        "categories": [
+          "comedy_skit",
+          "cooking_tutorial",
+          "gaming",
+          "news_explainer",
+          "talking_head",
+          "vlog_music"
+        ],
+        "passes": true,
+        "problems": []
+      },
+      "gate": {
+        "verified_clips_ok": true,
+        "providers_ok": true,
+        "diversity_ok": true
+      }
     }
   ]
 }

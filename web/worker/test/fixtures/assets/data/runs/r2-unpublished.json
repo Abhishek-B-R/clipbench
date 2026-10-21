@@ -69,7 +69,25 @@
    "published": false,
    "channels": 2,
    "categories": [],
-   "largest_channel_share": 0.5
+   "largest_channel_share": 0.5,
+   "providers_eligible": [],
+   "providers_excluded": [],
+   "min_coverage": 0.9,
+   "verified_diversity": {
+    "channels": 2,
+    "largest_channel_share": 0.5,
+    "categories": [],
+    "passes": false,
+    "problems": [
+     "only 2 channels; at least 30 needed"
+    ]
+   },
+   "gate": {
+    "verified_clips_ok": false,
+    "providers_ok": false,
+    "diversity_ok": false
+   }
   }
- ]
+ ],
+ "ranking": {}
 }

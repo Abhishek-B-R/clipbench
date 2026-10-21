@@ -131,7 +131,9 @@ function label(run: Run | undefined, p: FeatureProvider) {
 function show(k: FeatureKey, v: unknown): { text: string; sub?: string } {
   if (k === "languages" && Array.isArray(v)) {
     const ours = LANGUAGES.filter((l) => v.includes(l));
-    return { text: `${int(v.length)} ${v.length === 1 ? "language" : "languages"}`, sub: ours.length ? `benchmarked: ${ours.join(" ")}` : undefined };
+    // Documented support, not what clipbench has run: a run covers one language at a time, so never say "benchmarked".
+    if (!ours.length) return { text: `${int(v.length)} ${v.length === 1 ? "language" : "languages"}`, sub: "none of the benchmark's languages" };
+    return { text: ours.join(" "), sub: v.length > ours.length ? `of the benchmark's languages; ${int(v.length)} documented in all` : "of the benchmark's languages" };
   }
   if (k === "max_file_minutes" && typeof v === "number") return { text: v >= 120 ? `${+(v / 60).toFixed(1)} h` : `${int(v)} min` };
   if (k === "retention" && typeof v === "number") return { text: v === 0 ? "Not stored" : `${int(v)} days` };

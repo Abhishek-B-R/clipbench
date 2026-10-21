@@ -106,7 +106,7 @@ function ProgressCard({ progress, published }: { progress: LanguageProgress[] | 
         </div>
       )}
       <p className="border-t border-line px-5 py-3 text-[12px] text-ink-3">
-        A language is ranked at {int(RULES.publishMinVerified)} verified clips and {int(RULES.publishMinProviders)} providers.
+        A language is ranked at {int(RULES.publishMinVerified)} verified clips, {int(RULES.publishMinProviders)} providers with results on at least {pct(RULES.minProviderCoverage, 0)} of them, and a verified set spread across channels and categories.
       </p>
     </div>
   );

@@ -6,11 +6,11 @@ import type { Run } from "@/lib/types";
 import { defaultTier, primaryMetric, totalClips } from "@/lib/analysis";
 import { toast } from "@/components/ui/Toast";
 
-const STEPS = [
+const steps = (tier: string) => [
   { cmd: `git clone https://github.com/${REPO_SLUG} && cd clipbench`, what: "Get the code. Python 3.12, managed with uv." },
   { cmd: "make setup", what: "Install pinned dependencies, including local Whisper." },
   { cmd: "make build-data sample fetch-audio", what: "Build the manifest, draw the seeded sample, fetch audio." },
-  { cmd: "make run PROVIDERS=all TIER=verified", what: "Transcribe with every model. Cached, and stops at the budget cap." },
+  { cmd: `make run PROVIDERS=all TIER=${tier}`, what: "Transcribe with every model. Cached, and stops at the budget cap." },
   { cmd: "make report", what: "Score, analyse errors, write the report and this site's JSON." },
 ];
 
@@ -23,6 +23,9 @@ export function Reproduce({ run }: { run?: Run }) {
   const inView = useInView(ref, { once: true, amount: 0.4 });
   const reduce = useReducedMotion();
   const [copied, setCopied] = useState(false);
+  // The commands reproduce the latest run: its tier and language, so the "ok" line below matches them.
+  const tier = run ? defaultTier(run) : "verified";
+  const STEPS = steps(tier);
   const spent = run
     ? // One tier only: the same clip can be scored under both tiers, and summing them would double count its cost.
       run.aggregates
@@ -80,7 +83,7 @@ export function Reproduce({ run }: { run?: Run }) {
             className="mt-3 grid gap-0.5 text-[oklch(0.64_0.006_85)]"
           >
             <span>
-              <span className="text-[oklch(0.74_0.15_150)]">ok</span> scored {run?.providers.length ?? "all"} models on {run ? totalClips(run) : "the"} clips{spent != null ? `, list cost $${spent.toFixed(2)} of the $${RULES.budgetCapUsd.toFixed(2)} cap` : ""}
+              <span className="text-[oklch(0.74_0.15_150)]">ok</span> scored {run?.providers.length ?? "all"} models on {run ? totalClips(run) : "the"} {run ? `${tier}-tier ` : ""}clips{spent != null ? `, list cost $${spent.toFixed(2)} of the $${RULES.budgetCapUsd.toFixed(2)} cap` : ""}
             </span>
             <span>
               <span className="text-[oklch(0.74_0.15_150)]">ok</span> wrote results/ and web/public/data/

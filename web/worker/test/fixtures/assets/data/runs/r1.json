@@ -34,6 +34,15 @@
    "usd_per_hour": 0.0,
    "paid": false,
    "uploads_audio": false
+  },
+  {
+   "id": "model-c",
+   "model_id": "c-1",
+   "label": "Model C",
+   "pricing_checked_on": "2026-10-19",
+   "usd_per_hour": 0.1,
+   "paid": true,
+   "uploads_audio": true
   }
  ],
  "aggregates": [
@@ -48,7 +57,12 @@
    "model_id": "a-1",
    "ci_low": 0.08,
    "ci_high": 0.12000000000000001,
-   "too_small": true
+   "too_small": true,
+   "eligible": true,
+   "coverage": 1.0,
+   "ci_low_cluster": 0.07,
+   "ci_high_cluster": 0.13,
+   "n_channels": 31
   },
   {
    "provider": "model-b",
@@ -61,7 +75,12 @@
    "model_id": "b-1",
    "ci_low": 0.18000000000000002,
    "ci_high": 0.22,
-   "too_small": true
+   "too_small": true,
+   "eligible": true,
+   "coverage": 1.0,
+   "ci_low_cluster": 0.17,
+   "ci_high_cluster": 0.23,
+   "n_channels": 31
   },
   {
    "provider": "model-a",
@@ -74,7 +93,9 @@
    "error_rate": 0.3,
    "ci_low": 0.2,
    "ci_high": 0.4,
-   "too_small": true
+   "too_small": true,
+   "eligible": true,
+   "coverage": 1.0
   },
   {
    "provider": "model-b",
@@ -87,7 +108,9 @@
    "error_rate": 0.25,
    "ci_low": 0.2,
    "ci_high": 0.3,
-   "too_small": true
+   "too_small": true,
+   "eligible": true,
+   "coverage": 1.0
   },
   {
    "provider": "model-a",
@@ -100,7 +123,54 @@
    "error_rate": 0.0623,
    "ci_low": 0.05,
    "ci_high": 0.07,
-   "too_small": true
+   "too_small": true,
+   "eligible": true,
+   "coverage": 1.0
+  },
+  {
+   "provider": "model-c",
+   "model_id": "c-1",
+   "tier": "verified",
+   "metric": "cer",
+   "slice_kind": "all",
+   "slice": "all",
+   "n_clips": 2,
+   "error_rate": 0.05,
+   "ci_low": 0.04,
+   "ci_high": 0.060000000000000005,
+   "too_small": true,
+   "eligible": false,
+   "coverage": 0.5
+  },
+  {
+   "provider": "model-c",
+   "model_id": "c-1",
+   "tier": "verified",
+   "metric": "cer_reading",
+   "slice_kind": "all",
+   "slice": "all",
+   "n_clips": 2,
+   "error_rate": 0.03,
+   "ci_low": 0.019999999999999997,
+   "ci_high": 0.04,
+   "too_small": true,
+   "eligible": false,
+   "coverage": 0.5
+  },
+  {
+   "provider": "model-c",
+   "model_id": "c-1",
+   "tier": "verified",
+   "metric": "cer",
+   "slice_kind": "audio_condition",
+   "slice": "music",
+   "n_clips": 1,
+   "error_rate": 0.01,
+   "ci_low": 0.0,
+   "ci_high": 0.02,
+   "too_small": true,
+   "eligible": false,
+   "coverage": 0.5
   }
  ],
  "paired": [],
@@ -117,11 +187,45 @@
   {
    "lang": "ja",
    "verified_clips": 120,
-   "providers_ok": 6,
+   "providers_ok": 2,
    "published": true,
    "channels": 31,
    "categories": [],
-   "largest_channel_share": 0.04
+   "largest_channel_share": 0.04,
+   "providers_eligible": [
+    "model-a",
+    "model-b"
+   ],
+   "providers_excluded": [
+    {
+     "provider": "model-c",
+     "coverage": 0.5,
+     "n_scored": 60,
+     "n_skipped": 0,
+     "n_error": 60,
+     "reason": "coverage 50.0% (60 of 120 verified clips scored; 0 skipped, 60 errored) is below the 90.0% minimum"
+    }
+   ],
+   "min_coverage": 0.9,
+   "verified_diversity": {
+    "channels": 31,
+    "largest_channel_share": 0.04,
+    "categories": [
+     "comedy_skit",
+     "cooking_tutorial",
+     "gaming",
+     "news_explainer",
+     "talking_head",
+     "vlog_music"
+    ],
+    "passes": true,
+    "problems": []
+   },
+   "gate": {
+    "verified_clips_ok": true,
+    "providers_ok": true,
+    "diversity_ok": true
+   }
   }
  ],
  "history": {
@@ -268,5 +372,37 @@
     "rate_limited_share": 0.025
    }
   ]
+ },
+ "ranking": {
+  "verified": {
+   "cer": [
+    {
+     "provider": "model-a",
+     "rank": 1,
+     "error_rate": 0.1,
+     "ci_low": 0.08,
+     "ci_high": 0.12000000000000001,
+     "n_clips": 3
+    },
+    {
+     "provider": "model-b",
+     "rank": 2,
+     "error_rate": 0.2,
+     "ci_low": 0.18000000000000002,
+     "ci_high": 0.22,
+     "n_clips": 3
+    }
+   ],
+   "cer_reading": [
+    {
+     "provider": "model-a",
+     "rank": 1,
+     "error_rate": 0.0623,
+     "ci_low": 0.05,
+     "ci_high": 0.07,
+     "n_clips": 3
+    }
+   ]
+  }
  }
 }

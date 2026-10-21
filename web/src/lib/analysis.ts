@@ -1,5 +1,5 @@
-import type { Aggregate, Clip, LanguageStatus, Paired, Provider, Run, RunIndex, SliceKind, Tier } from "./types";
-import { CONDITION_ORDER, LANGUAGES, RULES } from "./config";
+import type { Aggregate, Clip, LanguageStatus, Paired, Provider, ProviderExclusion, RankEntry, Run, RunIndex, SliceKind, Tier } from "./types";
+import { CONDITION_ORDER, LANGUAGES } from "./config";
 
 /** Plain names for clip tags (clipbench/models.py TAGS). */
 export const TAG_LABEL: Record<string, string> = {
@@ -84,18 +84,53 @@ export interface SliceQuery {
   slice: string;
 }
 
+function sliceRows(run: Run, q: SliceQuery): Aggregate[] {
+  return run.aggregates.filter((a) => a.tier === q.tier && a.metric === q.metric && a.slice_kind === q.kind && a.slice === q.slice);
+}
+
+/**
+ * Ranked rows of a slice: eligible providers of a published language only (docs/V3.md, "Publication gate fields").
+ * Slice all follows the exporter's `ranking` exactly. Other slices have no exported order, so they use the same rule
+ * as clipbench.report.rules.rank_order (error rate ascending, ties by provider id). Empty when unpublished.
+ */
 export function aggregatesFor(run: Run, q: SliceQuery): Aggregate[] {
-  return run.aggregates
-    .filter((a) => a.tier === q.tier && a.metric === q.metric && a.slice_kind === q.kind && a.slice === q.slice)
-    .sort((a, b) => a.error_rate - b.error_rate);
+  if (!isPublished(run)) return [];
+  if (q.kind === "all" && q.slice === "all") return overall(run, q.tier, q.metric);
+  const ok = eligibleProviders(run);
+  return sliceRows(run, q)
+    .filter((a) => ok.has(a.provider) && Number.isFinite(a.error_rate))
+    .sort((a, b) => a.error_rate - b.error_rate || (a.provider < b.provider ? -1 : a.provider > b.provider ? 1 : 0));
 }
 
-export function overall(run: Run, tier: Tier = defaultTier(run), metric = primaryMetric(run).name) {
-  return aggregatesFor(run, { tier, metric, kind: "all", slice: "all" });
+/** The exporter's ranking for a tier and metric (slice all). Empty when unpublished or missing (older exports). */
+export function ranking(run: Run, tier: Tier, metric: string): RankEntry[] {
+  if (!isPublished(run)) return [];
+  const rows = run.ranking?.[tier]?.[metric];
+  if (!Array.isArray(rows)) return [];
+  const ok = eligibleProviders(run);
+  return rows.filter((r) => ok.has(r.provider)).sort((a, b) => a.rank - b.rank);
 }
 
-/** Paired result between x and y in a slice, oriented so diff = x minus y. */
+/** Overall rows (slice all) in the exporter's ranking order, eligible providers only. */
+export function overall(run: Run, tier: Tier = defaultTier(run), metric = primaryMetric(run).name): Aggregate[] {
+  const rows = sliceRows(run, { tier, metric, kind: "all", slice: "all" });
+  return ranking(run, tier, metric).flatMap((r) => rows.filter((a) => a.provider === r.provider).slice(0, 1));
+}
+
+/** The exporter's 1-based rank of a provider (slice all), or null when it is not ranked. */
+export function rankOf(run: Run, provider: string, tier: Tier = defaultTier(run), metric = primaryMetric(run).name): number | null {
+  return ranking(run, tier, metric).find((r) => r.provider === provider)?.rank ?? null;
+}
+
+/**
+ * Paired result between x and y in a slice, oriented so diff = x minus y. Only tests between two eligible providers
+ * of a published language. `better` comes from the Benjamini-Hochberg adjusted verdict; an older export without
+ * `p_adjusted` never yields a winner.
+ */
 export function pair(run: Run, q: SliceQuery, x: string, y: string) {
+  if (!isPublished(run)) return null;
+  const ok = eligibleProviders(run);
+  if (!ok.has(x) || !ok.has(y)) return null;
   const row: Paired | undefined = run.paired.find(
     (p) =>
       p.tier === q.tier && p.metric === q.metric && p.slice_kind === q.kind && p.slice === q.slice &&
@@ -103,15 +138,23 @@ export function pair(run: Run, q: SliceQuery, x: string, y: string) {
   );
   if (!row) return null;
   const flip = row.provider_a !== x;
-  const xBetter = flip ? row.verdict === "b_better" : row.verdict === "a_better";
-  const yBetter = flip ? row.verdict === "a_better" : row.verdict === "b_better";
+  const adjusted = typeof row.p_adjusted === "number";
+  const verdict = adjusted ? row.verdict : "no_difference";
+  const xBetter = flip ? verdict === "b_better" : verdict === "a_better";
+  const yBetter = flip ? verdict === "a_better" : verdict === "b_better";
+  const cl = row.ci_low_cluster;
+  const ch = row.ci_high_cluster;
   return {
     diff: flip ? -row.diff : row.diff,
     ci_low: flip ? -row.ci_high : row.ci_low,
     ci_high: flip ? -row.ci_low : row.ci_high,
-    p: row.p_value,
+    /** Benjamini-Hochberg adjusted p value (the one behind the verdict). */
+    p: adjusted ? (row.p_adjusted as number) : row.p_value,
+    p_raw: row.p_value,
     n: row.n_clips,
     better: xBetter ? x : yBetter ? y : null,
+    /** Channel-clustered interval of the difference, same orientation, when the export has channels. */
+    cluster: cl != null && ch != null ? { ci_low: flip ? -ch : cl, ci_high: flip ? -cl : ch, n_channels: row.n_channels ?? null } : null,
   };
 }
 
@@ -218,9 +261,19 @@ export function audioHours(run: Run, tier: Tier = defaultTier(run)) {
 // ---------------------------------------------------------------- links
 
 /** YouTube link for a clip. Windows cut from a longer video open at their start time. */
-export function youtubeUrl(clip: Pick<Clip, "video_id" | "kind" | "start_s">) {
-  if (clip.kind === "window" && clip.start_s != null) return `https://www.youtube.com/watch?v=${encodeURIComponent(clip.video_id)}&t=${Math.floor(clip.start_s)}s`;
-  return `https://www.youtube.com/shorts/${encodeURIComponent(clip.video_id)}`;
+/**
+ * Link to the source video. A window's clip id is `<video_id>@<start_ms>-<end_ms>` (docs/V2.md), so the platform id
+ * is the part before "@" and the window opens at its start (from `start_s`, else from the id).
+ */
+export function youtubeUrl(clip: Pick<Clip, "video_id"> & Partial<Pick<Clip, "kind" | "start_s">>) {
+  const m = /^(.+?)@(\d+)-(\d+)$/.exec(clip.video_id);
+  const id = m?.[1] ?? clip.video_id;
+  const start = clip.start_s ?? (m ? Number(m[2]) / 1000 : null);
+  if (m || clip.kind === "window") {
+    const t = start != null && Number.isFinite(start) ? `&t=${Math.floor(start)}s` : "";
+    return `https://www.youtube.com/watch?v=${encodeURIComponent(id)}${t}`;
+  }
+  return `https://www.youtube.com/shorts/${encodeURIComponent(id)}`;
 }
 
 export function clipById(run: Run, id: string) {
@@ -401,7 +454,9 @@ export function recommend(run: Run, input: PickerInput) {
   const ids = clips.map((c) => c.video_id);
   const m = perClipMatrix(run, tier, metric);
   const all = overall(run, tier, metric);
-  const providers = run.providers.filter((p) => ids.every((id) => m.get(id)?.has(p.id)));
+  // Only eligible providers of a published language are scored and ranked here; the rest are listed as not ranked.
+  const ok = isPublished(run) ? eligibleProviders(run) : new Set<string>();
+  const providers = run.providers.filter((p) => ok.has(p.id) && ids.every((id) => m.get(id)?.has(p.id)));
   const vec = (p: string) => ids.map((id) => m.get(id)!.get(p)!);
   const rows: PickerRow[] = providers.map((p, i) => {
     const xs = vec(p.id);
@@ -477,35 +532,123 @@ export function runChanges(runs: Run[], wanted?: Tier): RunChange[] {
 }
 
 
-// ---------------------------------------------------------------- publication gate (docs/V2.md, "Languages")
-
-function gate(verified: number, providers: number) {
-  return verified >= RULES.publishMinVerified && providers >= RULES.publishMinProviders;
-}
+// ---------------------------------------------------------------- publication gate (docs/V3.md, "Publication gate fields")
 
 /**
- * Status of a run's language. Uses `run.languages` from the exporter when present; otherwise computes it from
- * the run defensively: verified clips, and providers with at least one scored row on them.
+ * The exporter's status, read as is. Fails closed: a status without the three `gate` flags (an older export) is not
+ * published, and `published` must agree with every flag. Nothing here re-derives eligibility or the gate.
  */
+export function normalizeStatus(st: LanguageStatus): LanguageStatus {
+  const g = st.gate;
+  const flags = Boolean(g && g.verified_clips_ok === true && g.providers_ok === true && g.diversity_ok === true);
+  return {
+    ...st,
+    verified_clips: Number.isFinite(st.verified_clips) ? st.verified_clips : 0,
+    providers_ok: Number.isFinite(st.providers_ok) ? st.providers_ok : 0,
+    published: st.published === true && flags,
+  };
+}
+
+/** True when the status carries the v3 gate fields (so the gate panel can show all three conditions). */
+export function hasGate(st: LanguageStatus | undefined): st is LanguageStatus & Required<Pick<LanguageStatus, "gate">> {
+  return Boolean(st?.gate && typeof st.gate === "object");
+}
+
+/** Status of a run's language from `run.languages` (the exporter). Missing: not published, nothing eligible. */
 export function runLanguageStatus(run: Run): LanguageStatus {
   const given = run.languages?.find((l) => l.lang === run.language);
-  if (given) return given;
-  const verified = run.clips.filter((c) => c.tier === "verified").length;
-  // "Providers with ok rows in its latest run" (docs/V2.md): any scored row counts.
-  const providersOk = new Set(run.per_clip.map((r) => r.provider)).size;
-  const clips = run.clips.filter((c) => c.tier === "verified");
-  return {
-    lang: run.language,
-    verified_clips: verified,
-    providers_ok: providersOk,
-    published: gate(verified, providersOk),
-    channels: new Set(clips.map((c) => c.channel)).size,
-    categories: [...new Set(clips.map((c) => c.category).filter((c): c is string => Boolean(c)))],
-  };
+  if (given) return normalizeStatus(given);
+  return { lang: run.language, verified_clips: run.clips.filter((c) => c.tier === "verified").length, providers_ok: 0, published: false };
 }
 
 export function isPublished(run: Run) {
   return runLanguageStatus(run).published;
+}
+
+const eligibleCache = new WeakMap<Run, Set<string>>();
+
+/**
+ * Providers that may be ranked or compared: listed in the status's `providers_eligible` and marked `eligible: true` on
+ * their aggregates rows. Empty for an older export without these fields.
+ */
+export function eligibleProviders(run: Run): Set<string> {
+  let out = eligibleCache.get(run);
+  if (out) return out;
+  const st = run.languages?.find((l) => l.lang === run.language);
+  const listed = new Set(Array.isArray(st?.providers_eligible) ? st.providers_eligible : []);
+  const flagged = new Set(run.aggregates.filter((a) => a.eligible === true).map((a) => a.provider));
+  const denied = new Set(run.aggregates.filter((a) => a.eligible !== true).map((a) => a.provider));
+  out = new Set([...listed].filter((p) => flagged.has(p) && !denied.has(p)));
+  eligibleCache.set(run, out);
+  return out;
+}
+
+export function isEligible(run: Run, provider: string) {
+  return eligibleProviders(run).has(provider);
+}
+
+/** A provider's coverage of the verified evaluation clips (0..1), from the export, or null. */
+export function coverageOf(run: Run, provider: string): number | null {
+  const st = run.languages?.find((l) => l.lang === run.language);
+  const ex = st?.providers_excluded?.find((e) => e.provider === provider);
+  if (ex && typeof ex.coverage === "number") return ex.coverage;
+  const row = run.aggregates.find((a) => a.provider === provider && typeof a.coverage === "number");
+  return row ? (row.coverage as number) : null;
+}
+
+const NO_GATE_REASON = "This export has no eligibility data, so the provider is not ranked.";
+
+/**
+ * Every provider in the run that is not eligible, with its coverage and the exporter's reason, sorted by id. Providers
+ * the export lists in `providers_excluded` come first as written; any other provider seen in the run (an older export)
+ * is listed with a generic reason. These are shown in a "Not ranked" group, never in a ranking.
+ */
+export function excludedProviders(run: Run): ProviderExclusion[] {
+  const st = run.languages?.find((l) => l.lang === run.language);
+  const ok = eligibleProviders(run);
+  const listed = (Array.isArray(st?.providers_excluded) ? st.providers_excluded : []).filter((e) => e && typeof e.provider === "string" && !ok.has(e.provider));
+  const seen = new Set(listed.map((e) => e.provider));
+  const others = [...new Set([...run.providers.map((p) => p.id), ...run.aggregates.map((a) => a.provider)])]
+    .filter((p) => !ok.has(p) && !seen.has(p))
+    .map((p): ProviderExclusion => ({ provider: p, coverage: coverageOf(run, p), n_scored: null, n_skipped: null, n_error: null, reason: NO_GATE_REASON }));
+  return [...listed, ...others].sort((a, b) => (a.provider < b.provider ? -1 : a.provider > b.provider ? 1 : 0));
+}
+
+/** The exclusion entry of one provider, or null when it is eligible. */
+export function exclusionOf(run: Run, provider: string): ProviderExclusion | null {
+  if (isEligible(run, provider)) return null;
+  return excludedProviders(run).find((e) => e.provider === provider) ?? { provider, coverage: coverageOf(run, provider), n_scored: null, n_skipped: null, n_error: null, reason: NO_GATE_REASON };
+}
+
+const V3_KEYS = ["streaming", "semantic", "drift", "history", "sweeps", "formatting", "lattice", "longform", "compute", "diarization", "lid", "entities", "style", "reliability", "captions"] as const;
+
+/** Drops rows (`provider` not in `ok`) and per-provider keys (a key in `bad`, as in history.series) at any depth. */
+function dropIneligible(value: unknown, ok: Set<string>, bad: Set<string>): unknown {
+  if (Array.isArray(value))
+    return value
+      .filter((v) => !(v && typeof v === "object" && typeof (v as { provider?: unknown }).provider === "string" && !ok.has((v as { provider: string }).provider)))
+      .map((v) => dropIneligible(v, ok, bad));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).filter(([k]) => !bad.has(k)).map(([k, v]) => [k, dropIneligible(v, ok, bad)]));
+  return value;
+}
+
+const rankedCache = new WeakMap<Run, Run>();
+
+/**
+ * The run as a ranked view sees it: every v3 section row (anything with a `provider`) of a provider that is not
+ * eligible is dropped, so the views beyond accuracy can never rank an excluded provider. `providers` stays whole so
+ * colours do not shift; views that list providers filter with isEligible.
+ */
+export function rankedRun(run: Run): Run {
+  let out = rankedCache.get(run);
+  if (out) return out;
+  const ok = isPublished(run) ? eligibleProviders(run) : new Set<string>();
+  const copy: Run = { ...run };
+  const bad = new Set([...run.providers.map((p) => p.id), ...run.aggregates.map((a) => a.provider)].filter((p) => !ok.has(p)));
+  for (const k of V3_KEYS) if (run[k] != null) (copy as unknown as Record<string, unknown>)[k] = dropIneligible(run[k], ok, bad);
+  rankedCache.set(copy, copy);
+  rankedCache.set(run, copy);
+  return copy;
 }
 
 export interface LanguageProgress extends LanguageStatus {
@@ -517,9 +660,8 @@ export interface LanguageProgress extends LanguageStatus {
 }
 
 /**
- * Progress for every v2 language, from index.json only (no run fetch). Prefers `index.languages` or the run
- * summary's `languages`; falls back to n_clips.verified and the provider list (an upper bound on providers with
- * ok rows, so the fallback can only under-publish when combined with the run-level check).
+ * Progress for every v2 language, from index.json only (no run fetch): `index.languages` or the run summary's
+ * `languages`, read through normalizeStatus. Without the exporter's status a language is not published.
  */
 export function languageProgress(index: RunIndex | undefined): LanguageProgress[] {
   const runs = [...(index?.runs ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -527,11 +669,8 @@ export function languageProgress(index: RunIndex | undefined): LanguageProgress[
     const r = runs.find((x) => x.language === lang);
     const given = index?.languages?.find((l) => l.lang === lang) ?? r?.languages?.find((l) => l.lang === lang);
     const scored = r ? Object.values(r.n_clips).reduce<number>((t, n) => t + (n ?? 0), 0) : 0;
-    if (given) return { ...given, latestRun: r?.run_id, latestAt: r?.created_at, scored };
-    const verified = r?.n_clips.verified ?? 0;
-    const providers = r ? r.providers.length : 0;
-    // Without the exporter's flag, never claim publication from the index alone if no verified clips exist.
-    return { lang, verified_clips: verified, providers_ok: providers, published: verified > 0 && gate(verified, providers), latestRun: r?.run_id, latestAt: r?.created_at, scored };
+    if (given) return { ...normalizeStatus(given), latestRun: r?.run_id, latestAt: r?.created_at, scored };
+    return { lang, verified_clips: r?.n_clips.verified ?? 0, providers_ok: 0, published: false, latestRun: r?.run_id, latestAt: r?.created_at, scored };
   });
 }
 

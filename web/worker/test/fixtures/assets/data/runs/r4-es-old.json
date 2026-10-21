@@ -1,0 +1,220 @@
+{
+ "run_id": "r4-es-old",
+ "created_at": "2026-10-17T10:00:00Z",
+ "language": "es",
+ "git_commit": "abc1234",
+ "sample_seed": 7,
+ "metrics": [
+  {
+   "name": "wer",
+   "primary": true,
+   "label": "Word error rate"
+  }
+ ],
+ "providers": [
+  {
+   "id": "model-a",
+   "model_id": "a-1",
+   "label": "Model A",
+   "pricing_checked_on": "2026-10-19",
+   "usd_per_hour": 0.2,
+   "paid": true,
+   "uploads_audio": true
+  },
+  {
+   "id": "model-b",
+   "model_id": "b-1",
+   "label": "Model B",
+   "pricing_checked_on": "2026-10-19",
+   "usd_per_hour": 0.0,
+   "paid": false,
+   "uploads_audio": false
+  }
+ ],
+ "aggregates": [
+  {
+   "provider": "model-a",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "all",
+   "slice": "all",
+   "n_clips": 3,
+   "error_rate": 0.1
+  },
+  {
+   "provider": "model-b",
+   "tier": "verified",
+   "metric": "wer",
+   "slice_kind": "all",
+   "slice": "all",
+   "n_clips": 3,
+   "error_rate": 0.2
+  }
+ ],
+ "paired": [],
+ "stability": [],
+ "findings": [],
+ "errors": {
+  "providers": {},
+  "examples": []
+ },
+ "clips": [],
+ "per_clip": [],
+ "limitations": [],
+ "languages": [
+  {
+   "lang": "es",
+   "verified_clips": 150,
+   "providers_ok": 6,
+   "published": true,
+   "channels": 40,
+   "categories": [],
+   "largest_channel_share": 0.03
+  }
+ ],
+ "history": {
+  "language": "ja",
+  "canary_clips": 30,
+  "canary_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "cadence_days": 7,
+  "series": {
+   "model-a": [
+    {
+     "date": "2026-10-01",
+     "model_id": "a-1",
+     "provider_version": "v1",
+     "metric": "cer",
+     "error_rate": 0.1,
+     "ci_low": 0.08,
+     "ci_high": 0.12,
+     "n": 30,
+     "run_id": "canary-ja-20261001-0317"
+    },
+    {
+     "date": "2026-10-08",
+     "model_id": "a-1",
+     "provider_version": "v2",
+     "metric": "cer",
+     "error_rate": 0.2,
+     "ci_low": 0.18,
+     "ci_high": 0.22,
+     "n": 30,
+     "run_id": "canary-ja-20261008-0317"
+    }
+   ],
+   "model-b": [
+    {
+     "date": "2026-10-01",
+     "model_id": "b-1",
+     "provider_version": null,
+     "metric": "cer",
+     "error_rate": 0.2,
+     "ci_low": 0.18,
+     "ci_high": 0.22,
+     "n": 30,
+     "run_id": "canary-ja-20261001-0317"
+    }
+   ]
+  }
+ },
+ "drift": [
+  {
+   "language": "ja",
+   "provider": "model-a",
+   "metric": "cer",
+   "date": "2026-10-08",
+   "run_id": "canary-ja-20261008-0317",
+   "before": 0.1,
+   "after": 0.2,
+   "model_id_before": "a-1",
+   "model_id_after": "a-1",
+   "provider_version_before": "v1",
+   "provider_version_after": "v2",
+   "ci": [
+    0.08,
+    0.12
+   ],
+   "kind": "provider_version"
+  },
+  {
+   "language": "ja",
+   "provider": "model-a",
+   "metric": "cer",
+   "date": "2026-10-08",
+   "run_id": "canary-ja-20261008-0317",
+   "before": 0.1,
+   "after": 0.2,
+   "model_id_before": "a-1",
+   "model_id_after": "a-1",
+   "provider_version_before": "v1",
+   "provider_version_after": "v2",
+   "ci": [
+    0.08,
+    0.12
+   ],
+   "kind": "score"
+  }
+ ],
+ "reliability": {
+  "run": [
+   {
+    "provider": "model-a",
+    "model_id": "a-1",
+    "n_runs": 2,
+    "n_requests": 40,
+    "n_errors": 2,
+    "failure_rate": 0.05,
+    "timeout_rate": 0.0,
+    "mean_retries": 0.1,
+    "latency_p50": 800.0,
+    "latency_p95": 1500.0,
+    "latency_p99": 2100.0,
+    "rate_limited_share": 0.025
+   },
+   {
+    "provider": "model-b",
+    "model_id": "b-1",
+    "n_runs": 2,
+    "n_requests": 40,
+    "n_errors": 0,
+    "failure_rate": 0.0,
+    "timeout_rate": 0.0,
+    "mean_retries": 0.1,
+    "latency_p50": 800.0,
+    "latency_p95": 1500.0,
+    "latency_p99": 2100.0,
+    "rate_limited_share": 0.025
+   }
+  ],
+  "all_runs": [
+   {
+    "provider": "model-a",
+    "model_id": "a-1",
+    "n_runs": 2,
+    "n_requests": 40,
+    "n_errors": 2,
+    "failure_rate": 0.05,
+    "timeout_rate": 0.0,
+    "mean_retries": 0.1,
+    "latency_p50": 800.0,
+    "latency_p95": 1500.0,
+    "latency_p99": 2100.0,
+    "rate_limited_share": 0.025
+   },
+   {
+    "provider": "model-b",
+    "model_id": "b-1",
+    "n_runs": 2,
+    "n_requests": 40,
+    "n_errors": 0,
+    "failure_rate": 0.0,
+    "timeout_rate": 0.0,
+    "mean_retries": 0.1,
+    "latency_p50": 800.0,
+    "latency_p95": 1500.0,
+    "latency_p99": 2100.0,
+    "rate_limited_share": 0.025
+   }
+  ]
+ }
+}

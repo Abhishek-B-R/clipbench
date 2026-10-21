@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { badgeSvg, percent } from "../badge";
+import { badgeSvg } from "../badge";
+import { badgeMessage, isPublished, leaderboard, notRanked, primaryMetric, standing, status, type Run, type Status } from "../gate";
 import { sha256Hex } from "../crypto";
 import { ApiError, parse, providerId, type AppEnv } from "../http";
 
@@ -8,40 +9,15 @@ import { ApiError, parse, providerId, type AppEnv } from "../http";
  * Derived read-only views over the exported run JSON (A12): leaderboards per language, metric and slice;
  * per-model metrics; canary history, drift and reliability; SVG badges. Every number comes from the files
  * `clipbench export` wrote under /data. A language that is not published (docs/V2.md) gets its status and
- * no numbers: no ranking, no history, no badge value.
+ * no numbers: no ranking, no history, no badge value. Publication, eligibility and the ranking order come from the
+ * export (src/gate.ts, docs/V3.md "Publication gate fields"); a provider below the coverage minimum is never ranked.
  */
+export { leaderboard };
 export const results = new Hono<AppEnv>();
 
 type Ctx = Context<AppEnv>;
 type Obj = Record<string, unknown>;
 
-type Aggregate = {
-  provider: string;
-  model_id?: string | null;
-  tier: string;
-  metric: string;
-  slice_kind: string;
-  slice: string;
-  n_clips?: number | null;
-  error_rate?: number | null;
-  ci_low?: number | null;
-  ci_high?: number | null;
-  too_small?: boolean | null;
-};
-type Provider = { id: string; label?: string; model_id?: string | null };
-type Status = { lang: string; published?: boolean; verified_clips?: number; providers_ok?: number };
-type Run = {
-  run_id: string;
-  created_at?: string;
-  language: string;
-  metrics?: { name: string; primary?: boolean; label?: string }[];
-  providers?: Provider[];
-  aggregates?: Aggregate[];
-  languages?: Status[];
-  history?: { series?: Record<string, Obj[]> } & Obj;
-  drift?: (Obj & { provider?: string })[] | null;
-  reliability?: { run?: Obj[]; all_runs?: Obj[] } | null;
-};
 type IndexRun = { run_id: string; created_at?: string; language: string; tiers?: string[] };
 type Index = { latest?: string; runs?: IndexRun[]; languages?: Status[] };
 
@@ -79,17 +55,6 @@ async function runFor(c: Ctx, language: string): Promise<Run | null> {
   return assetJson<Run>(c, `/data/runs/${pick.run_id}.json`);
 }
 
-function status(run: Run | null, language: string): Status {
-  const st = run?.languages?.find((s) => s.lang === language);
-  return { lang: language, published: false, verified_clips: 0, providers_ok: 0, ...(st ?? {}) };
-}
-
-const isPublished = (run: Run | null, language: string) => status(run, language).published === true;
-
-function primaryMetric(run: Run): string | undefined {
-  return run.metrics?.find((m) => m.primary)?.name ?? run.metrics?.[0]?.name;
-}
-
 /** JSON with a content ETag and a 304 for a matching If-None-Match. */
 async function cached(c: Ctx, body: string, type: string, maxAge: number, status = 200): Promise<Response> {
   const etag = `"${(await sha256Hex(body)).slice(0, 32)}"`;
@@ -116,25 +81,6 @@ function notPublished(run: Run | null, language: string) {
 }
 
 // ---------------------------------------------------------------- leaderboard
-
-export function leaderboard(run: Run, metric: string, tier: string, sliceKind: string, slice: string) {
-  const labels = new Map((run.providers ?? []).map((p) => [p.id, p.label ?? p.id]));
-  const rows = (run.aggregates ?? [])
-    .filter((a) => a.tier === tier && a.metric === metric && a.slice_kind === sliceKind && a.slice === slice)
-    .filter((a) => typeof a.error_rate === "number")
-    .sort((a, b) => (a.error_rate as number) - (b.error_rate as number) || a.provider.localeCompare(b.provider));
-  return rows.map((a, i) => ({
-    rank: i + 1,
-    provider: a.provider,
-    label: labels.get(a.provider) ?? a.provider,
-    model_id: a.model_id ?? null,
-    error_rate: a.error_rate,
-    ci_low: a.ci_low ?? null,
-    ci_high: a.ci_high ?? null,
-    n_clips: a.n_clips ?? null,
-    too_small: a.too_small ?? null,
-  }));
-}
 
 results.get("/leaderboard/:lang", async (c) => {
   const language = parse(lang, c.req.param("lang"));
@@ -166,6 +112,7 @@ results.get("/leaderboard/:lang", async (c) => {
     metrics,
     slices,
     rows: leaderboard(run, metric, tier, sliceKind, slice),
+    not_ranked: notRanked(run, language),
   });
 });
 
@@ -186,12 +133,19 @@ results.get("/models/:provider", async (c) => {
       out.push({ language, run_id: run.run_id, published: false });
       continue;
     }
+    const st = standing(run, language, id);
+    if (!st.eligible) {
+      // Below the coverage minimum: its status and coverage, no numbers and never a rank.
+      out.push({ language, run_id: run.run_id, created_at: run.created_at ?? null, published: true, provider: provider ?? { id }, ...st });
+      continue;
+    }
     out.push({
       language,
       run_id: run.run_id,
       created_at: run.created_at ?? null,
       published: true,
       provider: provider ?? { id },
+      ...st,
       primary_metric: primaryMetric(run) ?? null,
       aggregates: (run.aggregates ?? []).filter((a) => a.provider === id),
       history: run.history?.series?.[id] ?? [],
@@ -255,11 +209,6 @@ results.get("/badge/:provider/:file", async (c) => {
   } catch (err) {
     if (!(err instanceof ApiError) || err.status !== 404) throw err;
   }
-  if (!run || !isPublished(run, language)) return svg(`not published ${language}`, "muted");
-  const m = metric ?? primaryMetric(run);
-  const row = (run.aggregates ?? []).find(
-    (a) => a.provider === id && a.metric === m && a.tier === "verified" && a.slice_kind === "all" && a.slice === "all",
-  );
-  if (!m || !row || typeof row.error_rate !== "number") return svg(`no data ${language}`, "muted", 404);
-  return svg(`${percent(row.error_rate)} ${m.toUpperCase()} ${language}`, "value");
+  const answer = badgeMessage(run, id, language, metric);
+  return svg(answer.message, answer.tone, answer.code);
 });

@@ -10,6 +10,7 @@
  *   /findings/<code>/<slug>    dist/findings/<code>/<slug>.html   (the SPA opens that finding highlighted)
  *   /leaderboard, /compare, /picker, /clips, /methodology, /changelog, /docs/api   dist/<page>.html
  *   /providers/<id>            dist/providers/<id>.html           (every provider in any exported run)
+ *   sitemap.xml and robots.txt (every route above, absolute with SITE_URL)
  * Without its own file a route falls back to index.html, whose canonical and og:url point at "/": a shared link
  * would preview as the homepage and crawlers would fold the page into it.
  * Files are "<route>.html" rather than "<route>/index.html" because Workers static assets
@@ -96,10 +97,18 @@ const metas: Meta[] = [{ route: "/", title: `clipbench: ${POSITIONING.question}`
 for (const lang of LANGUAGES) {
   const name = LANGUAGE_NAME[lang] ?? lang;
   const st = progress.find((p) => p.lang === lang)!;
+  // providers_ok is the exporter's count of ELIGIBLE providers (docs/V3.md, "Publication gate fields"), never every
+  // provider that was run, so the description says "eligible" and an unpublished language never reads as ranked.
+  const eligible = (n: number) => `${n} eligible ${n === 1 ? "provider" : "providers"}`;
   const status = st.published
-    ? `Published: ${st.verified_clips} verified clips, ${st.providers_ok} providers.`
-    : `First results in progress: ${st.verified_clips} of ${RULES.publishMinVerified} verified clips, ${st.providers_ok} of ${RULES.publishMinProviders} providers.`;
-  metas.push({ route: `/lang/${lang}`, title: `${name} speech-to-text results | clipbench`, description: `${status} ${LINE}`, image: image(`og/${lang}.png`) });
+    ? `Published: ${st.verified_clips} verified clips, ${eligible(st.providers_ok)}.`
+    : `First results in progress, no ranking yet: ${st.verified_clips} of ${RULES.publishMinVerified} verified clips, ${st.providers_ok} of ${RULES.publishMinProviders} eligible providers.`;
+  metas.push({
+    route: `/lang/${lang}`,
+    title: st.published ? `${name} speech-to-text results | clipbench` : `${name} speech-to-text progress | clipbench`,
+    description: `${status} ${LINE}`,
+    image: image(`og/${lang}.png`),
+  });
 
   const file = readJSON<FindingsFile | FindingsFile["findings"]>(join(DIST, "data", "findings", `${lang}.json`));
   const findings = st.published && file ? (Array.isArray(file) ? file : file.findings ?? []) : [];
@@ -142,4 +151,18 @@ for (const [id, label] of labels) {
 }
 
 for (const m of metas) write(m.route, render(base, m));
-console.log(`og-routes: wrote ${metas.length} routes for ${SITE}`);
+
+// robots.txt and sitemap.xml from the same route list, so they never drift from the pages that exist.
+// The API is for programs, not search results; /data stays crawlable (it is the published JSON).
+const xmlEsc = (x: string) => x.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const today = new Date().toISOString().slice(0, 10);
+const lastmod = index?.runs?.map((r) => r.created_at).sort().at(-1)?.slice(0, 10) ?? today;
+writeFileSync(
+  join(DIST, "sitemap.xml"),
+  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${metas
+    .map((m) => `  <url><loc>${xmlEsc(`${SITE}${m.route}`)}</loc><lastmod>${lastmod}</lastmod></url>`)
+    .join("\n")}\n</urlset>\n`,
+);
+writeFileSync(join(DIST, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${SITE}/sitemap.xml\n`);
+if (!process.env.SITE_URL && !process.env.OG_DIST) console.warn("og-routes: SITE_URL is not set; canonical, og:image and sitemap URLs use the placeholder origin.");
+console.log(`og-routes: wrote ${metas.length} routes, sitemap.xml and robots.txt for ${SITE}`);

@@ -211,7 +211,7 @@ describe("public data API", () => {
     expect(index.headers.get("access-control-allow-origin")).toBe("*");
     expect((await json(index)).latest).toBe("r1");
     const run = await json(await anon("/api/v1/runs/r1"));
-    expect(run.providers.map((p: { id: string }) => p.id)).toEqual(["model-a", "model-b"]);
+    expect(run.providers.map((p: { id: string }) => p.id)).toEqual(["model-a", "model-b", "model-c"]);
     // Missing run: a JSON 404, not the SPA index.html fallback.
     const missing = await anon("/api/v1/runs/nope");
     expect(missing.status).toBe(404);

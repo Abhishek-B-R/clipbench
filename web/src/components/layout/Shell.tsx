@@ -51,7 +51,7 @@ export function DemoBanner() {
   if (!s.demo && !early) return null;
   const btn = "ml-1 shrink-0 rounded-xs px-1.5 py-0.5 font-medium text-ink underline decoration-line-strong underline-offset-[3px] hover:decoration-ink";
   return (
-    <div role="note" className="border-b border-line bg-sunken">
+    <aside aria-label="Data status" className="border-b border-line bg-sunken">
       <div className="frame flex min-h-8 items-center justify-center gap-2 py-1 text-[12px] text-ink-2">
         <FlaskConical size={13} className="shrink-0 text-signal" aria-hidden />
         {import.meta.env.DEV && s.demo ? (
@@ -81,6 +81,6 @@ export function DemoBanner() {
           </button>
         ) : null}
       </div>
-    </div>
+    </aside>
   );
 }

@@ -1,6 +1,8 @@
+import { useEffect } from "react";
+import { useNoIndex } from "@/lib/useNoIndex";
 import { Link, useParams, useSearchParams } from "react-router";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
-import type { Run } from "@/lib/types";
+import type { LanguageStatus } from "@/lib/types";
 import { useRunFor, useSource } from "@/lib/data";
 import { CATEGORY_KEYS, LANGUAGE_NAME, aggregatesFor, defaultTier, isPublished, languageProgress, primaryMetric, runLanguageStatus } from "@/lib/analysis";
 import { hasCaptionMetrics, sliceKindsIn, sliceLabel, slicesOf } from "@/lib/metrics";
@@ -15,7 +17,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { buttonClass } from "@/components/ui/Button";
 import { EmptyState, ErrorState } from "@/components/ui/State";
-import { GateBars } from "@/components/ui/Gate";
+import { GateBars, NotRanked, NotRankedList, minCoverage } from "@/components/ui/Gate";
 import { MiniLeaderboard } from "@/landing/MiniLeaderboard";
 
 /**
@@ -37,6 +39,11 @@ export default function Lang() {
   const kinds = run && published ? sliceKindsIn(run, tier) : [];
   const sl = readSlice(params, kinds, (k) => (run ? slicesOf(run, tier, k) : []));
 
+  useNoIndex(!known);
+  // Same title as the crawler page scripts/og-routes.ts writes (PageHeader's effect runs first; this one wins).
+  useEffect(() => {
+    if (known) document.title = `${name} speech-to-text ${published ? "results" : "progress"} | clipbench`;
+  }, [known, name, published]);
   if (!known)
     return (
       <>
@@ -67,7 +74,7 @@ export default function Lang() {
         description={
           published
             ? `Ranked on clips whose captions a person corrected by ear, from the run of ${run ? date(run.created_at) : ""}.`
-            : `No ranking yet. ${name} is published once it has ${int(RULES.publishMinVerified)} verified clips and results from ${int(RULES.publishMinProviders)} providers.`
+            : `No ranking yet. ${name} is published once it has ${int(RULES.publishMinVerified)} verified clips, ${int(RULES.publishMinProviders)} providers with results on at least ${pct(minCoverage(status), 0)} of them, and a verified set that passes the diversity rules.`
         }
         actions={
           published && (
@@ -101,6 +108,7 @@ export default function Lang() {
           <div className="grid items-start gap-8 lg:grid-cols-2">
             <Figure n={1} title="Publication gate" caption="Counts from the latest export for this language." source={run ? `source: run ${run.run_id}` : "source: index.json"}>
               {status ? <GateBars status={status} /> : <Skeleton className="h-20 w-full" />}
+              {run ? <NotRanked run={run} className="mt-5" /> : status?.providers_excluded?.length ? <NotRankedList items={status.providers_excluded} min={minCoverage(status)} className="mt-5" /> : null}
             </Figure>
             <Figure n={2} title="Latest run" source={run ? `source: run ${run.run_id}` : "source: index.json"} bodyClassName="p-0 sm:p-0">
               {run ? (
@@ -123,7 +131,7 @@ export default function Lang() {
             </Figure>
           </div>
         )}
-        {state.status === "ready" && <DatasetStatus code={code} run={run} />}
+        {state.status === "ready" && <DatasetStatus code={code} status={status} hasRun={Boolean(run)} />}
         {state.status === "ready" && run && !published && (
           <p className="text-[13.5px] text-ink-2">
             Per-clip scores from this run are in the{" "}
@@ -138,17 +146,20 @@ export default function Lang() {
   );
 }
 
-function DatasetStatus({ code, run }: { code: string; run: Run | null }) {
-  const clips = run?.clips ?? [];
-  const channels = new Map<string, number>();
-  for (const c of clips) channels.set(c.channel, (channels.get(c.channel) ?? 0) + 1);
-  const top = Math.max(0, ...channels.values());
-  const share = clips.length ? top / clips.length : 0;
-  const cats = new Set(clips.map((c) => c.category).filter((c): c is string => Boolean(c) && c !== "other"));
+function DatasetStatus({ code, status, hasRun }: { code: string; status: LanguageStatus | undefined; hasRun: boolean }) {
+  // Legacy descriptive counts over every scored clip (any tier). Not used by the gate, but without them a run of
+  // creator-captioned clips from many channels would read as "0 channels".
+  const scoredChannels = status?.channels ?? 0;
+  const scoredCats = Array.isArray(status?.categories) ? status.categories.filter((c) => c !== "other").length : typeof status?.categories === "number" ? status.categories : 0;
+  // The exporter's diversity check over the verified evaluation clips (docs/V3.md). Nothing is recomputed here:
+  // without it (an older export) every row reads unknown.
+  const div = status?.verified_diversity;
+  const cats = new Set(div?.categories ?? []);
   const rows: { k: string; v: string; ok: boolean | null }[] = [
-    { k: "Channels", v: `${int(channels.size)} of at least ${int(RULES.minChannels)}`, ok: channels.size >= RULES.minChannels },
-    { k: "Largest channel share", v: clips.length ? `${pct(share, 0)}, limit ${pct(RULES.maxChannelShare, 0)}` : "no clips yet", ok: clips.length ? share <= RULES.maxChannelShare : null },
-    { k: "Content categories", v: `${int(cats.size)} of at least ${int(RULES.minCategories)}`, ok: cats.size >= RULES.minCategories },
+    { k: "Channels (verified clips)", v: div ? `${int(div.channels)} of at least ${int(RULES.minChannels)}` : "unknown", ok: div ? div.channels >= RULES.minChannels : null },
+    { k: "Largest channel share", v: div?.largest_channel_share != null ? `${pct(div.largest_channel_share, 0)}, limit ${pct(RULES.maxChannelShare, 0)}` : "no verified clips yet", ok: div?.largest_channel_share != null ? div.largest_channel_share <= RULES.maxChannelShare : null },
+    { k: "Content categories (verified clips)", v: div ? `${int(cats.size)} of at least ${int(RULES.minCategories)}` : "unknown", ok: div ? cats.size >= RULES.minCategories : null },
+    { k: "Diversity check", v: div ? (div.passes ? "passes" : "does not pass yet") : "not in this export", ok: div ? div.passes : null },
   ];
   return (
     <Figure
@@ -159,7 +170,7 @@ function DatasetStatus({ code, run }: { code: string; run: Run | null }) {
           The clip list lives in <code className="font-mono text-[12px]">datasets/{code}/clips.csv</code>. Diversity is checked in code before a run.
         </>
       }
-      source={`source: clips of the latest ${code} run; rules from docs/V2.md`}
+      source={hasRun ? `source: verified_diversity of the latest ${code} run; rules from docs/V2.md` : "source: index.json; rules from docs/V2.md"}
       bodyClassName="p-0 sm:p-0"
     >
       <dl>
@@ -173,6 +184,18 @@ function DatasetStatus({ code, run }: { code: string; run: Run | null }) {
           </div>
         ))}
       </dl>
+      {scoredChannels > 0 && (
+        <p className="border-b border-line px-4 py-3 text-[12.5px] text-ink-3 sm:px-5">
+          The clips scored so far, any tier, come from {int(scoredChannels)} {scoredChannels === 1 ? "channel" : "channels"} across {int(scoredCats)} {scoredCats === 1 ? "category" : "categories"}. The gate counts verified clips only.
+        </p>
+      )}
+      {div && div.problems.length > 0 && (
+        <ul className="grid gap-1 border-b border-line px-4 py-3 text-[12.5px] text-ink-3 sm:px-5">
+          {div.problems.map((p) => (
+            <li key={p}>{p}</li>
+          ))}
+        </ul>
+      )}
       <div className="flex flex-wrap items-center gap-1.5 px-4 py-3 sm:px-5">
         {CATEGORY_KEYS.map((k) => (
           <span key={k} className={cn("inline-flex h-7 items-center rounded-full border px-2.5 text-[12.5px]", cats.has(k) ? "border-ink text-ink" : "border-line-strong text-ink-3")}>

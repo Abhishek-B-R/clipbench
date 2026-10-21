@@ -61,7 +61,7 @@ export function CodeBlock({ samples, title, className }: { samples: CodeSample[]
           {copied ? <Check size={13} /> : <Copy size={13} />}
         </button>
       </div>
-      <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-[1.7]">
+      <pre tabIndex={0} className="overflow-x-auto p-4 font-mono text-[12.5px] leading-[1.7]">
         <code>{highlight(cur.code, cur.lang ?? "shell")}</code>
       </pre>
     </div>
@@ -70,7 +70,7 @@ export function CodeBlock({ samples, title, className }: { samples: CodeSample[]
 
 const C = {
   str: "text-[oklch(0.8_0.11_150)]",
-  com: "text-[oklch(0.55_0.006_85)]",
+  com: "text-[oklch(0.64_0.006_85)]",
   key: "text-[oklch(0.8_0.09_255)]",
   num: "text-[oklch(0.8_0.12_75)]",
   kw: "text-[oklch(0.76_0.15_36)]",

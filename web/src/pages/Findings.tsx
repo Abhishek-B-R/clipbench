@@ -1,8 +1,9 @@
+import { useNoIndex } from "@/lib/useNoIndex";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { ArrowRight, Check, Link2 } from "lucide-react";
 import { useFindings, useRunFor, useSource } from "@/lib/data";
-import { LANGUAGE_NAME, languageProgress, runLanguageStatus } from "@/lib/analysis";
+import { LANGUAGE_NAME, eligibleProviders, languageProgress, runLanguageStatus } from "@/lib/analysis";
 import { LANGUAGES } from "@/lib/config";
 import { findingHref, findingSource } from "@/lib/metrics";
 import { date } from "@/lib/format";
@@ -29,8 +30,11 @@ export default function Findings() {
   const run = runState.data?.run ?? null;
   const status = run ? runLanguageStatus(run) : src.data ? languageProgress(src.data.index).find((l) => l.lang === lang) : undefined;
   const file = fState.data;
-  const published = Boolean(status?.published) && file?.published !== false;
-  const findings = published ? (file?.findings ?? []) : [];
+  // Both the run's status and the findings file must say published; a file without the flag is not.
+  const published = Boolean(status?.published) && file?.published === true;
+  const findings = published ? publishedFindings(file?.findings ?? [], run ? eligibleProviders(run) : null) : [];
+  // Unknown language, or a finding slug that this language does not (or not yet) publish.
+  useNoIndex(!known || Boolean(slug && !findings.some((f) => f.slug === slug)));
   const target = slug ? findings.find((f) => f.slug === slug) : undefined;
 
   useEffect(() => {
@@ -80,7 +84,7 @@ export default function Findings() {
             ))}
           </div>
         )}
-        {known && !loading && status && !published && <NotPublished status={status} scored={run?.clips.length} models={run?.providers.length} what="findings" />}
+        {known && !loading && status && !published && <NotPublished status={status} scored={run?.clips.length} models={run?.providers.length} what="findings" run={run ?? undefined} />}
         {known && !loading && published && findings.length === 0 && (
           <EmptyState title={`No findings written for ${name} yet.`} body="Findings appear once the exporter writes them for this run. The leaderboard already has the numbers." action={<Link to={`/leaderboard?lang=${lang}`} className="text-[13.5px] text-ink underline underline-offset-4">Open the leaderboard</Link>} />
         )}
@@ -98,6 +102,28 @@ export default function Findings() {
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * Findings as the exporter wrote them, minus any that names a provider outside `eligible` (the exporter never writes
+ * one; this keeps an inconsistent pair of files from showing an excluded provider in a "beats" sentence).
+ */
+export function publishedFindings(items: FindingV2[], eligible: Set<string> | null): FindingV2[] {
+  if (!eligible) return items;
+  return items.filter((f) => {
+    const filters = f.source?.filters ?? {};
+    return ["provider", "provider_a", "provider_b"].every((k) => filters[k] == null || eligible.has(String(filters[k])));
+  });
+}
+
+/** Badge for a comparison whose channel-clustered interval crosses zero (docs/V3.md). */
+export function ClusterBadge({ f }: { f: Pick<FindingV2, "cluster_sensitive"> }) {
+  if (f.cluster_sensitive !== true) return null;
+  return (
+    <span title="Resampling whole channels instead of clips, the interval crosses zero: the lead may come from a few channels." data-testid="cluster-sensitive">
+      <Badge tone="warn">Channel sensitive</Badge>
+    </span>
   );
 }
 
@@ -127,7 +153,10 @@ function FindingRow({ f, i, lang, active }: { f: FindingV2; i: number; lang: str
           <p className="max-w-[68ch] text-[18px] leading-snug text-ink sm:text-[20px]" style={{ fontStretch: "96%" }}>
             {f.text}
           </p>
-          {f.status === "verified" ? <Badge tone="good">Checked</Badge> : <Badge tone="warn">Draft</Badge>}
+          <span className="flex flex-wrap items-center gap-1.5">
+            <ClusterBadge f={f} />
+            {f.status === "verified" ? <Badge tone="good">Checked</Badge> : <Badge tone="warn">Draft</Badge>}
+          </span>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
           <Link to={findingHref(f, lang)} className="group inline-flex items-center gap-1.5 text-[13.5px] font-medium text-ink">

@@ -9,11 +9,15 @@ import {
   TIER_LABEL,
   breaksOn,
   clipById,
+  exclusionOf,
   overall,
+  isEligible,
   isPublished,
+  rankOf,
   pairsFor,
   pickMetric,
   pickTier,
+  primaryMetric,
   providerById,
   providerColor,
   providerLabel,
@@ -27,6 +31,7 @@ import { date, int, ms, pct, pValue, signedPts, usdPerHour } from "@/lib/format"
 import { CAPTION_METRICS, SLICE_KIND_LABEL, hasCaptionMetrics, metricN, metricValue, sliceLabel } from "@/lib/metrics";
 import { ACCOUNTS } from "@/lib/flags";
 import { useWidth } from "@/lib/useWidth";
+import { useNoIndex } from "@/lib/useNoIndex";
 import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Figure } from "@/components/ui/Card";
@@ -38,7 +43,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { buttonClass } from "@/components/ui/Button";
 import { EmptyState, ErrorState } from "@/components/ui/State";
 import { TierControl, TierNote } from "@/components/ui/TierControl";
-import { Gated } from "@/components/ui/Gate";
+import { Gated, NotRankedList, minCoverage } from "@/components/ui/Gate";
 import { BadgeEmbed, CanaryHistory, ComputeSpec, EveryMeasure, FeatureRow, ReliabilitySpec, SettingsSpec, StrengthsFailures, priceSpeed, providerSections } from "@/components/v3/ProviderSections";
 
 // Only with accounts on; it carries the Better Auth client, so the public build never loads it.
@@ -63,6 +68,7 @@ export default function Provider() {
     setParams(q, { replace: true });
   };
 
+  useNoIndex(Boolean(run && !p));
   if (state.status === "error")
     return (
       <>
@@ -104,8 +110,8 @@ export default function Provider() {
           )
         }
         title={p?.label ?? "Model"}
-        description={run && p ? (isPublished(run) ? <Summary run={run} id={id} tier={tier} metric={metric} /> : `Scored in the pipeline. ${LANGUAGE_NAME[run.language] ?? run.language} results are not published yet.`) : "Loading results."}
-        actions={run && p && isPublished(run) && <Actions run={run} id={id} />}
+        description={run && p ? (isPublished(run) ? <Summary run={run} id={id} tier={tier} metric={metric} /> : pipelineLine(run, id, tier)) : "Loading results."}
+        actions={run && p && isPublished(run) && isEligible(run, id) && <Actions run={run} id={id} />}
       >
         {(!run || isPublished(run)) && <TierControl run={run} value={tier} onChange={(v) => set("tier", v)} />}
         {run && isPublished(run) && <Segmented label="Metric" value={metric} onChange={(v) => set("metric", v)} options={run.metrics.map((m) => ({ value: m.name, label: m.label }))} />}
@@ -115,6 +121,10 @@ export default function Provider() {
           <Gated run={run} what="model results">
             {null}
           </Gated>
+        </div>
+      ) : run && p && !isEligible(run, id) ? (
+        <div className="frame py-8">
+          <NotRankedList items={[exclusionOf(run, id)!]} label={(x) => providerLabel(run, x)} min={minCoverage(run.languages?.find((l) => l.lang === run.language))} />
         </div>
       ) : run && p ? (
         <Body run={run} id={id} tier={tier} metric={metric} history={runs.data?.runs} />
@@ -130,13 +140,15 @@ export default function Provider() {
 }
 
 function Summary({ run, id, tier, metric }: { run: Run; id: string; tier: Tier; metric: string }) {
+  const ex = exclusionOf(run, id);
+  if (ex) return <>Not ranked in the run of {date(run.created_at)}: {ex.reason ?? "not eligible in this run."}</>;
   const rows = overall(run, tier, metric);
-  const i = rows.findIndex((r) => r.provider === id);
+  const rank = rankOf(run, id, tier, metric);
   const b = breaksOn(run, id, tier);
-  if (i < 0) return <>No results on this tier.</>;
+  if (rank == null) return <>No results on this tier.</>;
   return (
     <>
-      Ranked {i + 1} of {rows.length} on {TIER_LABEL[tier].toLowerCase()} clips in the run of {date(run.created_at)}.
+      Ranked {rank} of {rows.length} on {TIER_LABEL[tier].toLowerCase()} clips in the run of {date(run.created_at)}.
       {b ? ` Struggles most with ${TAG_LABEL[b.tag]?.toLowerCase()}.` : ""}
     </>
   );
@@ -171,7 +183,7 @@ function Body({ run, id, tier, metric, history }: { run: Run; id: string; tier: 
     );
   const p = providerById(run, id)!;
   const color = providerColor(run, id);
-  const rank = rows.indexOf(me) + 1;
+  const rank = rankOf(run, id, tier, metric) ?? rows.indexOf(me) + 1;
   const ps = priceSpeed(run, id, tier, metric);
   const has = providerSections(run, id, tier, metric);
   let n = 0;
@@ -181,7 +193,7 @@ function Body({ run, id, tier, metric, history }: { run: Run; id: string; tier: 
       <TierNote tier={tier} />
       <Stats
         items={[
-          { label: "Error rate", value: pct(me.error_rate), note: `95% interval ${pct(me.ci_low)} to ${pct(me.ci_high)}, ${me.n_clips} clips.` },
+          { label: "Error rate", value: pct(me.error_rate), note: `95% interval ${pct(me.ci_low)} to ${pct(me.ci_high)}, ${me.n_clips} clips, coverage ${pct(me.coverage)}.` },
           {
             label: "Rank",
             value: (
@@ -477,14 +489,14 @@ function Paired({ n, run, id, tier, metric }: { n: number; run: Run; id: string;
         </span>
       ),
     },
-    { key: "p", header: "p", align: "right", sort: (r) => r.t.p, cell: (r) => <span className="num text-[12.5px] text-ink-2">{pValue(r.t.p).replace("p = ", "").replace("p ", "")}</span> },
+    { key: "p", header: "Adjusted p", align: "right", sort: (r) => r.t.p, cell: (r) => <span className="num text-[12.5px] text-ink-2">{pValue(r.t.p).replace("p = ", "").replace("p ", "")}</span> },
     { key: "n", header: "Clips", align: "right", cell: (r) => <span className="num text-[12.5px] text-ink-3">{r.t.n}</span>, headerClassName: "hidden md:table-cell", className: "hidden md:table-cell" },
   ];
   return (
     <Figure
       n={n}
       title="Paired results against every other model"
-      caption={`${pairSummary(label, beats, loses, rows.length - beats - loses)} Difference is ${label} minus the other model on the same clips; negative means fewer errors.`}
+      caption={`${pairSummary(label, beats, loses, rows.length - beats - loses)} Difference is ${label} minus the other model on the same clips; negative means fewer errors. Verdicts and p values are corrected for multiple comparisons (Benjamini-Hochberg).`}
       source={`source: paired, tier=${tier}, metric=${metric}, slice=all, paired bootstrap 1000 resamples`}
       bodyClassName="p-0 sm:p-0"
     >
@@ -646,4 +658,17 @@ function Spec({ n, title, rows, source, footer }: { n: number; title: string; ro
       {footer && <div className="border-t border-line px-4 py-3 sm:px-5">{footer}</div>}
     </Figure>
   );
+}
+
+/**
+ * Unpublished language: how much of the run this model actually covered, from the per-clip rows. Quota stops and
+ * errors leave clips unscored, so "11 models on 150 clips" would overstate a model that answered only a few.
+ */
+function pipelineLine(run: Run, id: string, tier: Tier) {
+  const metric = primaryMetric(run).name;
+  const total = run.clips.filter((c) => c.tier === tier).length;
+  const scored = new Set(run.per_clip.filter((r) => r.provider === id && r.tier === tier && r.metric === metric && Number.isFinite(r.error_rate)).map((r) => r.video_id)).size;
+  const lang = LANGUAGE_NAME[run.language] ?? run.language;
+  const tierWord = tier === "verified" ? "verified" : "creator-captioned";
+  return `Pipeline check only: scored on ${int(scored)} of ${int(total)} ${tierWord} clips in this run. ${lang} results are not published yet.`;
 }

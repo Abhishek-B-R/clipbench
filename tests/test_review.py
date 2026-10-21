@@ -678,4 +678,4 @@ def test_index_has_detail_tag_tools(data):
     for needle in ('id="detail"', 'id="lane"', 'id="picker"', 'id="conds"', "/api/suggest",
                    "speaker_turns", "entity_spans", "alternatives", "itn_spans", "conditions"):  # fmt: skip
         assert needle in html
-    assert "–" not in html and "—" not in html  # no en or em dashes
+    assert "\u2013" not in html and "\u2014" not in html  # no en or em dashes

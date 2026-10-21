@@ -153,7 +153,9 @@ def _manifest_categories(settings: Settings) -> dict[str, str]:
 
 def _dataset_categories(settings: Settings, language: str) -> dict[str, str]:
     """clip id (and plain video id) -> category from datasets/<lang>/clips.csv (docs/V2.md)."""
-    path = settings.root / "datasets" / language / "clips.csv"
+    from clipbench.data.datasets import clips_path  # honours CLIPBENCH_DATASETS_DIR like every other reader
+
+    path = clips_path(language, settings)
     if not path.exists():
         return {}
     out: dict[str, str] = {}

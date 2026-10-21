@@ -1,7 +1,7 @@
 """Build a REAL v3 export from the Python pipeline, for the web tests (web/test/fixtures/python-export/).
 
-Everything is synthetic: clip ids `synth00001`..., made-up English sentences, tone or constant audio, and six
-fake providers (`synth-a`..`synth-f`). No real caption, audio or result is read or written. The script runs the
+Everything is synthetic: clip ids `synth00001`..., made-up English sentences, tone or constant audio, and seven
+fake providers (`synth-a`..`synth-g`). No real caption, audio or result is read or written. The script runs the
 real code paths in a temp data/results/web tree:
 
     runner.run (a hinted run, then a run with diarize + detect_language + keyterms), score_run, the v3 scorers
@@ -12,6 +12,13 @@ real code paths in a temp data/results/web tree:
 
 Run from the repo root:  .venv/bin/python tests/fixtures/make_v3_export.py
 It copies index.json, runs/<id>.json and findings/en.json into web/test/fixtures/python-export/.
+
+Publication gate (docs/V3.md, "Publication gate fields"): the main run must come out PUBLISHED. N_CLIPS verified
+clips (>= 100) are spread over 40 channels (largest share 2.5%) and the six categories, each saved in a synthetic
+verified file (data/verified/<clip_id>.json) because the diversity check reads categories from those files only.
+`synth-a`..`synth-f` score (almost) every clip, so six providers are eligible. `synth-g` fails one clip in six
+(coverage about 83%, below the 90% minimum) and has the lowest error rate, so a site that ranked it by error rate
+instead of reading `ranking` would put it first: the web tests check that it is never ranked.
 """
 
 from __future__ import annotations
@@ -112,9 +119,12 @@ def _write_wav(path: Path, seconds: float, value: int | None = None, hz: float =
 
 
 def make_clips(audio_dir: Path) -> list:
+    from clipbench.config import get_settings
     from clipbench.models import Clip, Reference, Word
 
     audio_dir.mkdir(parents=True, exist_ok=True)
+    verified_dir = get_settings().verified_dir
+    verified_dir.mkdir(parents=True, exist_ok=True)
     rng = random.Random(7)
     clips = []
     for i in range(N_CLIPS):
@@ -141,6 +151,8 @@ def make_clips(audio_dir: Path) -> list:
             timing_source="creator", conditions=conds, speaker_turns=turns, entity_spans=entities,
             alternatives=alts, itn_spans=itn,
         )  # fmt: skip
+        # The reviewer's verified file (synthetic): the publication gate's diversity check reads its category.
+        (verified_dir / f"{vid}.json").write_text(json.dumps(ref.model_dump(mode="json")), encoding="utf-8")
         clips.append(Clip(video_id=vid, language=LANG, duration_s=duration, channel=f"synth-channel-{i % 40:02d}",
                           audio_path=str(path), audio_sha256=sha, reference=ref))  # fmt: skip
     return clips
@@ -238,6 +250,8 @@ def _providers():
         make("synth-d", err=0.05, music_mult=1.6, offset_ms=140, punct=False, itn=False, kt=False, cpm=0.002, lid_acc=0.85),
         make("synth-e", err=0.07, music_mult=2.2, offset_ms=70, fillers=False, diar=False, cpm=0.00185, latency=600),
         make("synth-f", err=0.09, music_mult=2.4, offset_ms=230, paid=False, uploads_audio=False, diar=False, kt=False, lid_acc=0.8, latency=4800, cpm=0.0),
+        # Below the coverage minimum (fails 1 clip in 6) but the lowest error rate: must never be ranked.
+        make("synth-g", err=0.03, music_mult=1.2, offset_ms=80, fail_every=6, cpm=0.003, latency=700),
     ]
 
 
@@ -550,7 +564,16 @@ def main() -> None:
         missing = [k for k in ("streaming", "semantic", "drift", "history", "sweeps", "formatting", "lattice", "longform",
                                "compute", "diarization", "lid", "entities", "style", "reliability", "captions", "features",
                                "run_meta") if run.get(k) is None]  # fmt: skip
-        print("wrote", OUT, "| null sections:", missing or "none")
+        st = next(x for x in run["languages"] if x["lang"] == LANG)
+        excluded = [e["provider"] for e in st["providers_excluded"]]
+        problems = []
+        if not st["published"]:
+            problems.append(f"main run not published: gate={st['gate']} diversity={st['verified_diversity']}")
+        if "synth-g" not in excluded:
+            problems.append(f"synth-g is not excluded: eligible={st['providers_eligible']}")
+        if problems:
+            raise SystemExit("; ".join(problems))
+        print("wrote", OUT, "| null sections:", missing or "none", "| eligible:", st["providers_eligible"], "| excluded:", excluded)
 
 
 if __name__ == "__main__":

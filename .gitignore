@@ -26,3 +26,7 @@ web/public/og/
 
 # Local editor and tool settings
 .claude/
+
+# Internal design notes and process screenshots (kept local, not published)
+/docs/design/
+/docs/site_design.md

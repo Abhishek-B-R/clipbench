@@ -4,7 +4,7 @@
 @import "@fontsource-variable/jetbrains-mono/index.css";
 
 /*
-  clipbench design tokens. docs/design/system.md explains every one.
+  clipbench design tokens.
   Raw values live on :root (light) and are re-stepped for dark, never auto-inverted.
   Tailwind reads them through @theme inline, so `bg-paper`, `text-ink-2`, `border-line` etc. follow the theme.
 */

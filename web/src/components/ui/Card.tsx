@@ -9,7 +9,6 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
 /**
  * A numbered figure: the core unit of every chart and table on the site.
  * Header: mono `FIG. 02` + title, optional controls on the right. Footer: source line in mono.
- * Pattern from Intercom (Fin) figure captions; see docs/design/research.md.
  */
 export function Figure({
   n,

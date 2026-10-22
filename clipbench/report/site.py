@@ -1,6 +1,6 @@
 """Render the report to one static page: site/index.html.
 
-Design notes and design references: docs/site_design.md. In short: a hero with the one-line answer and
+Layout: a hero with the one-line answer and
 KPI tiles, a sortable leaderboard with inline CI bars, a provider x clip-type heatmap, chart cards,
 numbered DRAFT findings, error chips, limitations and run meta. One segmented control switches the
 tier (verified headline, creator labelled "unverified reference"); tiers are never shown mixed.

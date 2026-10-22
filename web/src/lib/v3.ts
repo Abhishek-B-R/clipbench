@@ -8,7 +8,7 @@ import type { Run, Tier } from "./types";
  * trusts the input: each section accepts a bare array of rows or an object holding them (`aggregates`, `rows`,
  * `points`, ...), reads each field under a few likely names, and turns anything that is not a finite number into
  * null (n/a), never 0. A section that cannot be read becomes null and its view is hidden. Expected shapes, with
- * the aliases accepted, are listed in docs/design/system.md ("v3 data").
+ * the aliases accepted, are listed in docs/V3.md.
  */
 
 // ---------------------------------------------------------------- primitives

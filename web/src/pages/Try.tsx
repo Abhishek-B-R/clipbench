@@ -19,8 +19,8 @@ import { downmix, encodeWav, MAX_CLIP_SECONDS, MIN_CLIP_SECONDS, TARGET_RATE, to
 /** Where the honest note sends people for real numbers. */
 const EARLY_LOOK_PATH = "/early";
 
-const LANG_LABEL: Record<TryLanguage, string> = { auto: "Auto", en: "EN", ja: "JA", ko: "KO", es: "ES", hi: "HI" };
-const LANG_ARIA: Record<TryLanguage, string> = { auto: "Detect the language", en: "English", ja: "Japanese", ko: "Korean", es: "Spanish", hi: "Hindi" };
+const LANG_LABEL: Record<TryLanguage, string> = { auto: "Auto", en: "EN", fr: "FR", ja: "JA", ko: "KO", es: "ES", hi: "HI" };
+const LANG_ARIA: Record<TryLanguage, string> = { auto: "Detect the language", en: "English", fr: "French", ja: "Japanese", ko: "Korean", es: "Spanish", hi: "Hindi" };
 
 type Phase = "idle" | "preparing" | "running" | "done";
 

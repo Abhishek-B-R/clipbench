@@ -16,7 +16,7 @@ export type Cue = {
 };
 
 export const MAX_LINES = 2;
-export const MAX_CHARS: Record<string, number> = { en: 42, es: 42, hi: 42, ja: 16, ko: 16 };
+export const MAX_CHARS: Record<string, number> = { en: 42, fr: 42, es: 42, hi: 42, ja: 16, ko: 16 };
 export const DEFAULT_MAX_CHARS = 42;
 export const MAX_CUE_MS = 7000;
 export const PAUSE_MS = 700;

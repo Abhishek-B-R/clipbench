@@ -40,8 +40,8 @@ type Run = (input: ProviderInput, env: Env, signal: AbortSignal) => Promise<{ te
 
 // ---------------------------------------------------------------- helpers
 
-const ISO3: Record<string, string> = { eng: "en", jpn: "ja", kor: "ko", spa: "es", hin: "hi" };
-const NAMES: Record<string, string> = { english: "en", japanese: "ja", korean: "ko", spanish: "es", hindi: "hi" };
+const ISO3: Record<string, string> = { eng: "en", fra: "fr", fre: "fr", jpn: "ja", kor: "ko", spa: "es", hin: "hi" };
+const NAMES: Record<string, string> = { english: "en", french: "fr", japanese: "ja", korean: "ko", spanish: "es", hindi: "hi" };
 
 /** "japanese", "jpn", "ja-JP" and "ja" all become "ja" (clipbench.providers.base.normalize_language_code). */
 export function normalizeLanguage(code: unknown): string | null {

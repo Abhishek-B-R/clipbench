@@ -65,7 +65,7 @@ export const TRY_MODELS: readonly TryModel[] = [
   },
 ];
 
-export const TRY_LANGUAGES = ["auto", "en", "ja", "ko", "es", "hi"] as const;
+export const TRY_LANGUAGES = ["auto", "en", "fr", "es", "ja", "ko", "hi"] as const;
 export type TryLanguage = (typeof TRY_LANGUAGES)[number];
 
 /** List price of one model for a clip of `seconds`. */

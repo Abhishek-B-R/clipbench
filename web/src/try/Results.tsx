@@ -18,7 +18,7 @@ export function usd(x: number | null | undefined) {
   return x < 0.01 ? `$${x.toFixed(4)}` : `$${x.toFixed(3)}`;
 }
 
-const LANG_NAMES: Record<string, string> = { en: "English", ja: "Japanese", ko: "Korean", es: "Spanish", hi: "Hindi" };
+const LANG_NAMES: Record<string, string> = { en: "English", fr: "French", ja: "Japanese", ko: "Korean", es: "Spanish", hi: "Hindi" };
 export const langName = (c: string | null | undefined) => (c ? (LANG_NAMES[c] ?? c) : "n/a");
 
 /** Words for spaced languages, characters for ja/ko (the unit the comparison view uses). */

@@ -140,7 +140,7 @@ describe("POST /api/try validation", () => {
   });
 
   it("refuses a language outside the list", async () => {
-    const { res, body } = await post({ lang: "fr" });
+    const { res, body } = await post({ lang: "de" });
     expect(res.status).toBe(400);
     expect(body.error.code).toBe("invalid_language");
   });

@@ -2,6 +2,7 @@ import type { Context, MiddlewareHandler } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
 import type { Auth, SessionData } from "./auth";
+import { timingSafeEqualStr } from "./crypto";
 
 export type AppEnv = {
   Bindings: Env;
@@ -117,3 +118,25 @@ export const providerId = z
   .regex(/^[a-z0-9][a-z0-9._-]{0,63}$/, "must be a provider id like 'deepgram'");
 export const runId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/, "must be a run id");
 export const uuid = z.uuid();
+
+/**
+ * True when the request came through the clipbench.abhishekbr.com forwarding Worker (web/proxy/): it carries
+ * `x-clipbench-proxy-key` equal to the PROXY_KEY secret (constant-time compare). Without PROXY_KEY set, never.
+ */
+export async function viaProxy(req: Request, env: Env): Promise<boolean> {
+  const key = env.PROXY_KEY;
+  const given = req.headers.get("x-clipbench-proxy-key");
+  if (!key || !given) return false;
+  return timingSafeEqualStr(given, key);
+}
+
+/**
+ * The visitor's IP for per-IP limits. Behind the forwarding Worker every request arrives from the proxy's
+ * address, so a request with the right proxy key uses `x-clipbench-client-ip`; anything else (including a
+ * spoofed `x-clipbench-client-ip` without the key) uses `cf-connecting-ip`.
+ */
+export async function clientIp(req: Request, env: Env): Promise<string> {
+  const forwarded = req.headers.get("x-clipbench-client-ip")?.trim();
+  if (forwarded && (await viaProxy(req, env))) return forwarded;
+  return req.headers.get("cf-connecting-ip") ?? "unknown";
+}

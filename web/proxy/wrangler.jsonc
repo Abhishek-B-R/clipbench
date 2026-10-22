@@ -1,0 +1,12 @@
+// Front door for clipbench.abhishekbr.com, deployed to the account that owns abhishekbr.com (not the site's
+// account). Deploy: `wrangler deploy --config web/proxy/wrangler.jsonc` with that account logged in, and
+// `wrangler secret put PROXY_KEY` with the same value as the site Worker's PROXY_KEY.
+{
+  "$schema": "../worker/node_modules/wrangler/config-schema.json",
+  "name": "clipbench-proxy",
+  "main": "./index.ts",
+  "compatibility_date": "2026-10-12",
+  "routes": [{ "pattern": "clipbench.abhishekbr.com", "custom_domain": true }],
+  "workers_dev": false,
+  "vars": { "UPSTREAM": "https://clipbench.abhishekbr.workers.dev" }
+}

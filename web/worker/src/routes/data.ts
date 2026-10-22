@@ -1,7 +1,7 @@
 import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { sha256Hex } from "../crypto";
-import { ApiError, now, parse, runId, type AppEnv } from "../http";
+import { ApiError, clientIp, now, parse, runId, type AppEnv } from "../http";
 import { allow, LIMITS } from "../ratelimit";
 import { results } from "./results";
 
@@ -35,7 +35,7 @@ const limit: MiddlewareHandler<AppEnv> = async (c, next) => {
     ok = await allow(c.env, "key", key.id);
   } else {
     tier = "anon";
-    const ip = c.req.header("cf-connecting-ip") ?? "unknown";
+    const ip = await clientIp(c.req.raw, c.env);
     ok = await allow(c.env, "anon", ip);
   }
   c.header("X-RateLimit-Limit", String(LIMITS[tier]));

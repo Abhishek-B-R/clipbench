@@ -29,6 +29,9 @@
     }
   ],
 
+  // Workers AI for the /try playground (@cf/openai/whisper-large-v3-turbo, @cf/deepgram/nova-3). Billed per neuron.
+  "ai": { "binding": "AI" },
+
   // Public data API limits, per minute. Anonymous: keyed by client IP. API key: keyed by key id.
   // namespace_id must be unique per rate limiter within the account.
   "ratelimits": [
@@ -43,14 +46,20 @@
     // Comma separated extra origins allowed to call mutating routes (the BETTER_AUTH_URL origin is always allowed).
     "TRUSTED_ORIGINS": "",
     // "true" lets the hourly cron email watchers about a new latest run. Off until a human checks the run.
-    "AUTO_NOTIFY": "false"
+    "AUTO_NOTIFY": "false",
+    // /api/try (the /try playground): global spend cap per UTC day in USD across all providers. Each run reserves
+    // the estimated cost of every provider before calling them; a spent day answers 429 until 00:00 UTC.
+    "TRY_DAILY_BUDGET_USD": "1.00"
   },
 
   // Secrets: set with `wrangler secret put NAME` in production and in .dev.vars locally (see .dev.vars.example).
   // None is needed while ACCOUNTS is "false". With accounts on: BETTER_AUTH_SECRET and BETTER_AUTH_URL are required;
   // GITHUB_*, GOOGLE_*, RESEND_API_KEY, EMAIL_FROM and ADMIN_TOKEN are optional (empty switches that feature off).
   // There is deliberately no "secrets.required" block: it makes the first `wrangler deploy` fail until every listed
-  // secret exists, and it limits which .dev.vars keys load locally. Types for them live in worker/src/env.d.ts.
+  // secret exists, and it limits which .dev.vars keys load locally.
+  // /api/try needs TURNSTILE_SECRET and GROQ_API_KEY, DEEPGRAM_API_KEY, ELEVENLABS_API_KEY (a provider without
+  // its key reports an error card; the others still run). PROXY_KEY is shared with web/proxy/.
+  // Types for them live in worker/src/env.d.ts.
 
   "triggers": { "crons": ["17 * * * *"] },
 

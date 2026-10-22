@@ -10,6 +10,8 @@ export default defineConfig(async () => {
     plugins: [
       cloudflareTest({
         wrangler: { configPath: path.join(here, "../wrangler.jsonc") },
+        // Tests never reach Cloudflare: the AI binding is simulated (try tests pass a fake one), no login needed.
+        remoteBindings: false,
         miniflare: {
           // Test-only values. Not secrets.
           bindings: {

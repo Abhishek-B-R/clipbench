@@ -11,6 +11,8 @@ import { account } from "./routes/account";
 import { data } from "./routes/data";
 import { keys } from "./routes/keys";
 import { requests } from "./routes/requests";
+import { tryRoute } from "./routes/try";
+import { pruneTryLimits } from "./try/limits";
 
 const app = new Hono<AppEnv>();
 
@@ -45,6 +47,8 @@ export const accountsOn = (env: Env) => env.ACCOUNTS === "true" || env.ACCOUNTS 
 app.use("/api/*", async (c, next) => {
   // The public data API never touches Better Auth, so it works without auth secrets and with accounts off.
   if (c.req.path === "/api/v1" || c.req.path.startsWith("/api/v1/")) return next();
+  // The /try playground (routes/try.ts) needs no account either: Turnstile, per-visitor limits and a daily budget guard it.
+  if (c.req.path === "/api/try") return next();
   // With accounts off every other API route is absent: no auth instance is built and no secret is needed.
   if (!accountsOn(c.env)) throw new ApiError(404, "not_found", "No such API route.");
   const auth = getAuth(c.env);
@@ -86,6 +90,7 @@ app.route("/api", account);
 app.route("/api/requests", requests);
 app.route("/api/keys", keys);
 app.route("/api/v1", data);
+app.route("/api/try", tryRoute);
 
 // ---------------------------------------------------------------- admin
 
@@ -124,6 +129,6 @@ export { app };
 export default {
   fetch: app.fetch,
   async scheduled(_controller, env, ctx) {
-    ctx.waitUntil(Promise.all([pruneRateLimits(env.DB), scheduledNotify(env)]));
+    ctx.waitUntil(Promise.all([pruneRateLimits(env.DB), pruneTryLimits(env.DB), scheduledNotify(env)]));
   },
 } satisfies ExportedHandler<Env>;

@@ -33,3 +33,20 @@ ACCOUNTS=false
 TRUSTED_ORIGINS=http://localhost:5173
 # "true" lets the hourly cron email watchers about a new latest run once.
 AUTO_NOTIFY=false
+
+# /api/try (the /try playground). Cloudflare Turnstile secret for the widget whose site key the SPA is built with
+# (VITE_TURNSTILE_SITE_KEY). Locally use Cloudflare's documented always-pass test secret below; in production
+# `wrangler secret put TURNSTILE_SECRET` with the real one.
+TURNSTILE_SECRET=1x0000000000000000000000000000000AA
+# Provider keys for /api/try. Leave empty locally: those providers report "not configured" and nothing is billed.
+GROQ_API_KEY=
+DEEPGRAM_API_KEY=
+ELEVENLABS_API_KEY=
+# Global /api/try spend cap per UTC day in USD (wrangler.jsonc default "1.00").
+TRY_DAILY_BUDGET_USD=1.00
+# "1" replaces every /api/try provider with a synthetic one (no network, no cost). Honoured only when the request
+# host is localhost or 127.0.0.1, so it can never switch production off.
+TRY_FAKE_PROVIDERS=
+# Shared secret with the clipbench.abhishekbr.com forwarding Worker (web/proxy/). With the right key, per-IP limits
+# use its x-clipbench-client-ip header. Generate: openssl rand -hex 32. Empty locally.
+PROXY_KEY=

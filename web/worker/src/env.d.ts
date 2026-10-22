@@ -12,6 +12,15 @@ interface Env {
   RESEND_API_KEY: string;
   EMAIL_FROM: string;
   ADMIN_TOKEN: string;
+  /** Shared with the clipbench.abhishekbr.com forwarding Worker (web/proxy/); see clientIp() in http.ts. */
+  PROXY_KEY: string;
+  /** /api/try (routes/try.ts). Turnstile secret; provider keys; daily budget in USD; local fake providers. */
+  TURNSTILE_SECRET: string;
+  GROQ_API_KEY: string;
+  DEEPGRAM_API_KEY: string;
+  ELEVENLABS_API_KEY: string;
+  TRY_DAILY_BUDGET_USD: string;
+  TRY_FAKE_PROVIDERS: string;
 }
 declare namespace Cloudflare {
   interface Env {
@@ -25,5 +34,12 @@ declare namespace Cloudflare {
     RESEND_API_KEY: string;
     EMAIL_FROM: string;
     ADMIN_TOKEN: string;
+    PROXY_KEY: string;
+    TURNSTILE_SECRET: string;
+    GROQ_API_KEY: string;
+    DEEPGRAM_API_KEY: string;
+    ELEVENLABS_API_KEY: string;
+    TRY_DAILY_BUDGET_USD: string;
+    TRY_FAKE_PROVIDERS: string;
   }
 }

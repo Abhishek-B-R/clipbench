@@ -253,7 +253,7 @@ async def test_whisper_request_and_result(wav):
 async def test_tiny_en_skips_other_languages(wav):
     seen: list[httpx.Request] = []
     p, _ = make(CfWhisperTinyEn, recorder(seen, WHISPER))
-    for lang in ("ja", "ko", "es", "hi"):
+    for lang in ("ja", "ko", "es", "hi", "fr"):
         with pytest.raises(ProviderSkip, match="does not support"):
             await p.transcribe(wav, lang)
     assert seen == []
@@ -265,7 +265,7 @@ async def test_tiny_en_skips_other_languages(wav):
 async def test_unknown_language_skipped(wav):
     p, _ = make(CfWhisperLargeV3Turbo, recorder([], TURBO))
     with pytest.raises(ProviderSkip):
-        await p.transcribe(wav, "fr")
+        await p.transcribe(wav, "de")
 
 
 # ------------------------------------------------------------------ deepgram nova-3

@@ -14,7 +14,7 @@ export type RunSummary = {
 
 type RunJson = Partial<Run>;
 
-const LANGUAGES: Record<string, string> = { en: "English", ja: "Japanese", ko: "Korean", es: "Spanish", hi: "Hindi" };
+const LANGUAGES: Record<string, string> = { en: "English", ja: "Japanese", ko: "Korean", es: "Spanish", hi: "Hindi", fr: "French" };
 
 /** Ranks from the export's `ranking` (eligible providers of a published language only, docs/V3.md). */
 export function summarize(runId: string, run: RunJson): RunSummary {

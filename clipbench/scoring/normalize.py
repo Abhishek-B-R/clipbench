@@ -169,6 +169,190 @@ def normalize_es_no_accents(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# French
+# ---------------------------------------------------------------------------
+
+_FR_UNITS = [
+    "zéro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf",
+    "dix", "onze", "douze", "treize", "quatorze", "quinze", "seize",
+]  # fmt: skip
+_FR_TENS = {2: "vingt", 3: "trente", 4: "quarante", 5: "cinquante", 6: "soixante"}
+
+
+def _fr_below_100(n: int) -> str:
+    if n < 17:
+        return _FR_UNITS[n]
+    if n < 20:
+        return f"dix {_FR_UNITS[n - 10]}"
+    tens, unit = divmod(n, 10)
+    if tens <= 6:
+        if unit == 0:
+            return _FR_TENS[tens]
+        return f"{_FR_TENS[tens]} et un" if unit == 1 else f"{_FR_TENS[tens]} {_FR_UNITS[unit]}"
+    if tens == 7:  # soixante dix, soixante et onze, soixante douze
+        return "soixante et onze" if unit == 1 else f"soixante {_fr_below_100(10 + unit)}"
+    if tens == 8:  # quatre vingts, quatre vingt un (no "et")
+        return "quatre vingts" if unit == 0 else f"quatre vingt {_FR_UNITS[unit]}"
+    return f"quatre vingt {_fr_below_100(10 + unit)}"  # quatre vingt dix, quatre vingt onze
+
+
+def _fr_below_1000(n: int, final: bool = True) -> str:
+    """`final=False` drops the plural s of vingts and cents, as before mille (deux cent mille)."""
+    hundreds, rest = divmod(n, 100)
+    if hundreds == 0:
+        words = _fr_below_100(rest)
+    else:
+        head = "cent" if hundreds == 1 else f"{_FR_UNITS[hundreds]} cent"
+        if rest:
+            words = f"{head} {_fr_below_100(rest)}"
+        else:
+            words = head + ("s" if hundreds > 1 else "")
+    if not final and words.endswith(("vingts", "cents")):
+        words = words[:-1]
+    return words
+
+
+def french_number_words(n: int) -> str:
+    """Spell a non-negative integer in French (France), words separated by spaces, not hyphens.
+
+    71 is 'soixante et onze', 80 'quatre vingts', 200 'deux cents', 200000 'deux cent mille'.
+    0..999,999,999,999; larger numbers digit by digit.
+    """
+    if n < 0:
+        return "moins " + french_number_words(-n)
+    if n >= 10**12:
+        return " ".join(_FR_UNITS[int(d)] for d in str(n))
+    if n < 1000:
+        return _fr_below_1000(n)
+    if n < 10**6:
+        thousands, rest = divmod(n, 1000)
+        head = "mille" if thousands == 1 else f"{_fr_below_1000(thousands, final=False)} mille"
+        return head + (f" {_fr_below_1000(rest)}" if rest else "")
+    for value, name in ((10**9, "milliard"), (10**6, "million")):
+        if n >= value:
+            count, rest = divmod(n, value)
+            head = f"un {name}" if count == 1 else f"{_fr_below_1000(count)} {name}s"
+            return head + (f" {french_number_words(rest)}" if rest else "")
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+def french_ordinal_words(n: int, feminine: bool = False) -> str:
+    """1 is 'premier' ('première'), 2 'deuxième', 5 'cinquième', 21 'vingt et unième', 80 'quatre vingtième'."""
+    if n == 1:
+        return "première" if feminine else "premier"
+    words = french_number_words(n).split()
+    last = words[-1]
+    if last in ("vingts", "cents", "millions", "milliards"):
+        last = last[:-1]
+    if last == "cinq":
+        last = "cinqu"
+    elif last == "neuf":
+        last = "neuv"
+    elif last.endswith("e"):
+        last = last[:-1]
+    return " ".join([*words[:-1], last + "ième"])
+
+
+# Thousands groups: '1 000' (a normal, no-break or narrow no-break space, all spaces after NFKC) or '1.000'.
+# A comma is always the decimal separator in French.
+_FR_GROUPED_RE = re.compile(r"(?<![\d.,])\d{1,3}(?:[ .]\d{3})+(?![\d]|[.,]\d)")
+_FR_ORDINAL_RE = re.compile(r"\b(\d+)(ères?|eres?|res?|ers?|nde?s?|èmes?|emes?|e|è)\b")
+_FR_DECIMAL_RE = re.compile(r"(\d+)([.,])(\d+)")
+_FR_INT_RE = re.compile(r"\d+")
+
+
+def _fr_ordinal(m: re.Match[str]) -> str:
+    n, suffix = int(m.group(1)), m.group(2)
+    if suffix.startswith("nd"):
+        words = "seconde" if suffix.startswith("nde") else "second"
+    else:
+        words = french_ordinal_words(n, feminine=n == 1 and suffix.rstrip("s") in ("re", "ère", "ere"))
+    return f" {words}{'s' if suffix.endswith('s') else ''} "
+
+
+def french_numbers_to_words(text: str) -> str:
+    """Replace digits with French words. '%' becomes 'pour cent'.
+
+    '1 000' and '1.000' are thousands (groups of exactly three digits); '3,5' is 'trois virgule cinq'
+    and '3.5' is 'trois point cinq'. Ordinals: '1er' 'premier', '1re' 'première', '2e' / '2ème'
+    'deuxième', '2nd' 'second'. A lone '1' is read 'un' (the gender is not known).
+    """
+    text = re.sub(r"(\d)\s*%", r"\1 pour cent", text)
+    text = _FR_GROUPED_RE.sub(lambda m: french_number_words(int(re.sub(r"[ .]", "", m.group(0)))), text)
+    text = _FR_ORDINAL_RE.sub(_fr_ordinal, text)
+
+    def decimal(m: re.Match[str]) -> str:
+        sep = "virgule" if m.group(2) == "," else "point"
+        return f"{french_number_words(int(m.group(1)))} {sep} {french_number_words(int(m.group(3)))}"
+
+    text = _FR_DECIMAL_RE.sub(decimal, text)
+    return _FR_INT_RE.sub(lambda m: f" {french_number_words(int(m.group(0)))} ", text)
+
+
+_FR_APOSTROPHES = str.maketrans({"’": "'", "‘": "'", "ʼ": "'", "`": "'"})
+# Elided words: l' d' j' m' t' s' n' c' qu' and the qu' compounds. Only at the start of a word, so
+# aujourd'hui, quelqu'un and presqu'île stay one word.
+_FR_ELISION = r"(?:jusqu|lorsqu|puisqu|quoiqu|qu|[cdjlmnst])"
+_FR_ELISION_RE = re.compile(rf"(?<![\w'])({_FR_ELISION})'\s*(?=\w)")
+_FR_CLITIC_TOKEN_RE = re.compile(rf"{_FR_ELISION}'")
+_FR_STRAY_APOSTROPHE_RE = re.compile(r"(?<![^\W\d_])'|'(?![^\W\d_])")
+_FR_LIGATURES = str.maketrans({"œ": "oe", "æ": "ae"})
+
+
+def unify_apostrophes(text: str) -> str:
+    """Typographic apostrophes (’ ‘ ʼ) and the backtick become the ASCII apostrophe."""
+    return text.translate(_FR_APOSTROPHES)
+
+
+def french_ligatures(text: str) -> str:
+    """œ to oe and æ to ae: cœur and coeur are the same word written two ways."""
+    return text.translate(_FR_LIGATURES)
+
+
+def strip_punctuation_keep_apostrophe(text: str) -> str:
+    """Every punctuation or symbol except the ASCII apostrophe becomes a space.
+
+    Hyphens become spaces too, so peut-être is 'peut être' and vingt-deux is 'vingt deux'. Guillemets,
+    and the space French puts before ; : ! ? and inside « », disappear with the marks.
+    """
+    return "".join(" " if ch != "'" and _is_punct_or_symbol(ch) else ch for ch in text)
+
+
+def split_elisions(text: str) -> str:
+    """l'homme, l' homme and l'  homme all become "l' homme": the elided word is its own token."""
+    return _FR_ELISION_RE.sub(r"\1' ", text)
+
+
+def drop_stray_apostrophes(text: str) -> str:
+    """Keep an apostrophe inside a word (aujourd'hui) or ending an elided word (l'); drop the rest."""
+    out = []
+    for token in text.split():
+        if not _FR_CLITIC_TOKEN_RE.fullmatch(token):
+            token = _FR_STRAY_APOSTROPHE_RE.sub(" ", token)
+        out.append(token)
+    return collapse_whitespace(" ".join(out))
+
+
+def normalize_fr(text: str) -> str:
+    """French base normalisation used by `wer`."""
+    text = nfkc(text)  # no-break and narrow no-break spaces become plain spaces
+    text = lowercase(text)
+    text = strip_bracket_tags(text)
+    text = unify_apostrophes(text)
+    text = french_ligatures(text)
+    text = french_numbers_to_words(text)
+    text = strip_punctuation_keep_apostrophe(text)
+    text = split_elisions(text)
+    text = drop_stray_apostrophes(text)
+    return collapse_whitespace(text)
+
+
+def normalize_fr_no_accents(text: str) -> str:
+    """`wer_no_accents`: also drops every accent and the cedilla (é to e, à to a, ç to c)."""
+    return strip_accents(normalize_fr(text))
+
+
+# ---------------------------------------------------------------------------
 # Japanese
 # ---------------------------------------------------------------------------
 
@@ -515,6 +699,10 @@ _METRICS: dict[str, list[MetricSpec]] = {
     "es": [
         MetricSpec("wer", True, normalize_es, whitespace_tokens),
         MetricSpec("wer_no_accents", False, normalize_es_no_accents, whitespace_tokens),
+    ],
+    "fr": [
+        MetricSpec("wer", True, normalize_fr, whitespace_tokens),
+        MetricSpec("wer_no_accents", False, normalize_fr_no_accents, whitespace_tokens),
     ],
     "ko": [
         MetricSpec("cer_nospace", True, normalize_ko_nospace, char_tokens),

@@ -9,7 +9,7 @@ Run options (checked 2026-10-19):
 - diarize: Settings.ShowSpeakerLabels with MaxSpeakerLabels (2 to 30); per item `speaker_label`
   ("spk_0"), or results.speaker_labels.segments[].items[] in older output.
   https://docs.aws.amazon.com/transcribe/latest/dg/diarization.html
-- detect_language: IdentifyLanguage=true with LanguageOptions (our five languages) instead of
+- detect_language: IdentifyLanguage=true with LanguageOptions (our six languages) instead of
   LanguageCode; the result is the job's LanguageCode / results.language_code.
   https://docs.aws.amazon.com/transcribe/latest/dg/lang-id-batch.html
 - keyterms: not supported. Custom vocabularies are account resources (CreateVocabulary, then
@@ -38,7 +38,7 @@ from clipbench.providers.http import (
     wav_seconds,
 )
 
-LANGUAGE_CODES = {"ja": "ja-JP", "es": "es-US", "ko": "ko-KR", "en": "en-US", "hi": "hi-IN"}
+LANGUAGE_CODES = {"ja": "ja-JP", "es": "es-US", "ko": "ko-KR", "en": "en-US", "hi": "hi-IN", "fr": "fr-FR"}
 MAX_SPEAKER_LABELS = 10
 
 RETRYABLE_CODES = {

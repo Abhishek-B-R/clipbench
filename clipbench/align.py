@@ -36,7 +36,7 @@ MODEL_REVISION = "49402e9577b1158620820667c218cd494cc44486"  # pinned Hugging Fa
 ALIGNER_NAME = "mms-300m-1130-forced-aligner"
 SAMPLE_RATE = 16000
 CHUNK_SECONDS = 30
-ISO3 = {"en": "eng", "ja": "jpn", "ko": "kor", "es": "spa", "hi": "hin"}
+ISO3 = {"en": "eng", "ja": "jpn", "ko": "kor", "es": "spa", "hi": "hin", "fr": "fra"}
 REQUIRED = ("torch", "transformers", "uroman")
 
 
@@ -80,6 +80,8 @@ def _speakable(word: str, language: str) -> str:
         return norm.english_numbers_to_words(word)
     if language == "es":
         return norm.spanish_numbers_to_words(word)
+    if language == "fr":
+        return norm.french_numbers_to_words(word)
     if language == "hi":
         return norm.devanagari_digits_to_ascii(word)
     return word

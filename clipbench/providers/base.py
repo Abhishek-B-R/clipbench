@@ -111,6 +111,7 @@ _LANGUAGE_ALIASES = {
     "kor": "ko", "korean": "ko",
     "spa": "es", "spanish": "es",
     "hin": "hi", "hindi": "hi",
+    "fra": "fr", "fre": "fr", "french": "fr",
 }
 
 

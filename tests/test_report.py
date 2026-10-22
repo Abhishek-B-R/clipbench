@@ -279,7 +279,7 @@ def test_rules_language_status(tmp_settings):
                           tmp_settings)  # fmt: skip
     assert (st.verified_clips, st.providers_ok, st.published) == (60, 3, False)
     langs = rules.all_languages({"ja": st})
-    assert [entry["lang"] for entry in langs] == ["en", "ja", "ko", "es", "hi"]
+    assert [entry["lang"] for entry in langs] == ["en", "ja", "ko", "es", "hi", "fr"]
     assert langs[0] == rules.LanguageStatus(lang="en").as_dict()
     assert rules.is_published(100, 6, True) and not rules.is_published(99, 6, True)
     assert not rules.is_published(100, 5, True) and not rules.is_published(100, 6, False)

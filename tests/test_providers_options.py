@@ -340,7 +340,7 @@ def test_aws_job_args():
     p = AwsTranscribe(s3_client=object(), transcribe_client=object(), **ALL)
     args = p.job_args("ko")
     assert args["IdentifyLanguage"] is True and "LanguageCode" not in args
-    assert set(args["LanguageOptions"]) == {"en-US", "es-US", "hi-IN", "ja-JP", "ko-KR"}
+    assert set(args["LanguageOptions"]) == {"en-US", "es-US", "fr-FR", "hi-IN", "ja-JP", "ko-KR"}
     assert args["Settings"] == {"ShowSpeakerLabels": True, "MaxSpeakerLabels": 10}
     assert AwsTranscribe(s3_client=object(), transcribe_client=object()).job_args("hi") == {
         "LanguageCode": "hi-IN"

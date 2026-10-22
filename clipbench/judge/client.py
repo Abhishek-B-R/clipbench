@@ -44,7 +44,7 @@ MAX_OUTPUT_TOKENS = 200
 PROMPT_OVERHEAD_TOKENS = 450  # the pinned instructions, counted generously
 ATTEMPTS = 3
 JUDGE_PROVIDER_ID = "judge-semantic"
-LANGUAGE_NAMES = {"en": "English", "ja": "Japanese", "ko": "Korean", "es": "Spanish", "hi": "Hindi (Devanagari or romanised)"}
+LANGUAGE_NAMES = {"en": "English", "ja": "Japanese", "ko": "Korean", "es": "Spanish", "hi": "Hindi (Devanagari or romanised)", "fr": "French"}
 
 RESPONSE_SCHEMA = {
     "type": "object",

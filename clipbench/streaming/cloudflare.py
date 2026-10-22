@@ -10,7 +10,7 @@ true})`) and do not document the REST WebSocket URL. This adapter uses
 Deepgram query parameters, and assumes Deepgram shaped messages. Check it on the first live run.
 
 `@cf/deepgram/flux` is not adapted: it is English only (Deepgram lists flux-general-en for Workers AI),
-so it cannot cover the five benchmark languages.
+so it cannot cover the six benchmark languages.
 """
 
 from __future__ import annotations

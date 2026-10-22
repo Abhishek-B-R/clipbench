@@ -36,7 +36,7 @@ REPO = "github.com/Abhishek-B-R/clipbench"
 POSITIONING = "Which speech-to-text should your video app use?"
 POSITIONING_SUB = (
     "The independent benchmark for captions on real short-form video: accuracy, word timing, "
-    "hallucination over music, and cost, in five languages."
+    "hallucination over music, and cost, in six languages."
 )
 SERIF = "Gloock, 'New York', Georgia, serif"
 SANS = "'Mona Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif"

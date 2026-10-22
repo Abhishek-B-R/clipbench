@@ -73,6 +73,18 @@ PHRASE_GROUPS: dict[str, list[list[str]]] = {
         ["wifi", "wi-fi"],
         ["email", "e-mail"],
     ],
+    "fr": [
+        ["ok", "okay", "oké", "okey"],
+        ["week-end", "weekend"],
+        ["t-shirt", "tee-shirt", "tshirt"],
+        ["e-mail", "email", "mail"],
+        ["wifi", "wi-fi"],
+        ["clé", "clef"],
+        ["événement", "évènement"],
+        ["oignon", "ognon"],
+        ["paie", "paye"],
+        ["pourcent", "pour cent"],
+    ],
     "ko": [
         # loanword spellings: standard (국립국어원) form first, common variant after
         ["케이크", "케익"],

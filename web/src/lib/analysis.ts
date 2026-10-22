@@ -27,7 +27,7 @@ export const TAG_PHRASE: Record<string, string> = {
 /** Order the clip-type views use. caption_not_verbatim is about the reference, not the audio, so it is left out. */
 export const TAG_ORDER = ["background_music", "fast_speech", "slang_or_dialect", "multiple_speakers", "code_switching", "noisy"];
 
-export const LANGUAGE_NAME: Record<string, string> = { en: "English", ja: "Japanese", ko: "Korean", es: "Spanish", hi: "Hindi and Hinglish" };
+export const LANGUAGE_NAME: Record<string, string> = { en: "English", ja: "Japanese", ko: "Korean", es: "Spanish", hi: "Hindi and Hinglish", fr: "French" };
 
 export const TIER_LABEL: Record<Tier, string> = { verified: "Verified", creator: "Creator captions" };
 

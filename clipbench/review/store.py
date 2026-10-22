@@ -628,6 +628,7 @@ def _number_words(language: str) -> dict[str, str]:
     speller = {
         "en": nz.english_number_words,
         "es": nz.spanish_number_words,
+        "fr": nz.french_number_words,
         "ja": nz.japanese_number_reading,
     }.get(language)
     if speller is None:
@@ -655,6 +656,8 @@ def suggest_alternatives(language: str, text: str) -> list[str]:
             out.append(nz.japanese_number_reading(n))
         elif lang == "es":
             out.append(nz.spanish_number_words(n))
+        elif lang == "fr":
+            out.append(nz.french_number_words(n))
         elif lang in ("en", "hi"):
             out.append(nz.english_number_words(n))
         if n >= 1000 and lang in ("en", "es", "hi"):

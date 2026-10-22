@@ -451,7 +451,7 @@ def _controls(ctx: Ctx, with_metric: bool) -> str:
 
 POSITIONING = (
     "Which speech-to-text should your video app use? The independent benchmark for captions on real short-form "
-    "video: accuracy, word timing, hallucination over music, and cost, in five languages."
+    "video: accuracy, word timing, hallucination over music, and cost, in six languages."
 )
 
 

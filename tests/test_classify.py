@@ -161,3 +161,24 @@ def test_discover_forgets_a_short_when_tracks_are_blocked(tmp_settings, tmp_path
         return True, False, ""
 
     assert discover(settings, "ja", downloader=ok, **common).kept == 1
+
+
+def test_discover_keep_rule_french():
+    from clipbench.data.discover import keep_reason
+
+    a = json.loads((INFO / "AAAAAAAAAAA.info.json").read_text())
+    fr = dict(a, language="fr", subtitles={"fr-FR": [{"ext": "json3"}]}, automatic_captions={"fr-orig": [{}]})
+    assert keep_reason(fr, "fr", set()) is None
+    assert keep_reason(dict(fr, subtitles={"fr-orig": [{}]}), "fr", set()) == "no creator track"
+    assert keep_reason(fr, "ja", set()) == "no creator track"
+
+
+def test_committed_french_channel_list():
+    """datasets/fr/channels.csv (read only): enough channels and every content category for data discover."""
+    from clipbench.data.datasets import read_channels
+    from clipbench.models import CATEGORIES
+
+    rows = read_channels(Path(__file__).parent.parent / "datasets" / "fr" / "channels.csv")
+    assert len({r.handle.lower() for r in rows}) == len(rows) >= 30
+    assert {r.category for r in rows} == set(CATEGORIES) - {"other"}
+    assert all(r.platform == "youtube" and r.handle.startswith("@") and "unverified" in r.note for r in rows)

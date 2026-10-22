@@ -37,7 +37,7 @@ policy_status = "not_applicable"   # documented | unverified | unknown | not_app
 unverified = []
 
 [whisper-local.features]   # B20 feature matrix; a missing value means unknown or not stated
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 languages_url = "https://github.com/openai/whisper"
 languages_checked_on = "2026-10-19"
 languages_note = "99 languages"
@@ -87,7 +87,7 @@ policy_status = "not_applicable"   # documented | unverified | unknown | not_app
 unverified = []
 
 [whisper-local-turbo.features]   # B20 feature matrix; a missing value means unknown or not stated
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 languages_url = "https://github.com/openai/whisper"
 languages_checked_on = "2026-10-19"
 languages_note = "99 languages"
@@ -179,7 +179,7 @@ unverified = [
 "whisper-large-v3-turbo" = 0.000667   # 0.04 USD per hour
 
 [groq-whisper.features]   # B20 feature matrix; a missing value means unknown or not stated
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 languages_url = "https://console.groq.com/docs/model/whisper-large-v3"
 languages_checked_on = "2026-10-19"
 languages_note = "Whisper large-v3, 99+ languages; no per language list"
@@ -240,7 +240,7 @@ unverified = [
 "nova-3-general" = 0.0043
 
 [deepgram.features]   # B20 feature matrix; a missing value means unknown or not stated
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 languages_url = "https://developers.deepgram.com/docs/models-languages-overview"
 languages_checked_on = "2026-10-19"
 languages_note = "Nova-3: 63 language codes"
@@ -299,7 +299,7 @@ unverified = [
 "universal-2" = 0.0025            # 0.15 USD per hour
 
 [assemblyai.features]   # B20 feature matrix; a missing value means unknown or not stated
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 languages_url = "https://www.assemblyai.com/docs/speech-to-text/pre-recorded-audio/supported-languages"
 languages_checked_on = "2026-10-19"
 languages_note = "Universal-3.5 Pro: 18 languages without ko; Universal-2: 99 with ko"
@@ -359,7 +359,7 @@ unverified = [
 "scribe_v2" = 0.003667
 
 [elevenlabs-scribe.features]   # B20 feature matrix; a missing value means unknown or not stated
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 languages_url = "https://elevenlabs.io/docs/overview/capabilities/speech-to-text"
 languages_checked_on = "2026-10-19"
 languages_note = "90+ languages"
@@ -431,7 +431,7 @@ audio_input = 1.00
 output = 2.50
 
 [gemini-flash.features]   # B20 feature matrix; a missing value means unknown or not stated
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 languages_url = "https://ai.google.dev/gemini-api/docs/audio"
 languages_checked_on = "2026-10-19"
 languages_note = "no language list for generateContent audio"
@@ -491,7 +491,7 @@ unverified = [
 ]
 
 [aws-transcribe.features]   # B20 feature matrix; a missing value means unknown or not stated
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 languages_url = "https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html"
 languages_checked_on = "2026-10-19"
 batch = true
@@ -559,7 +559,7 @@ unverified = [
 ]
 
 [cf-whisper-large-v3-turbo.features]   # B20 feature matrix; a missing value means unknown or not stated
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 languages_url = "https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/"
 languages_checked_on = "2026-10-19"
 languages_note = "Whisper language set; Cloudflare lists none"
@@ -620,7 +620,7 @@ unverified = [
 ]
 
 [cf-whisper.features]   # B20 feature matrix; a missing value means unknown or not stated
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 languages_url = "https://developers.cloudflare.com/workers-ai/models/whisper/"
 languages_checked_on = "2026-10-19"
 languages_note = "multilingual, no list; no language parameter"
@@ -738,10 +738,10 @@ unverified = [
 ]
 
 [cf-deepgram-nova-3.features]   # B20 feature matrix; a missing value means unknown or not stated
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 languages_url = "https://developers.cloudflare.com/workers-ai/models/nova-3/"
 languages_checked_on = "2026-10-19"
-languages_note = "Cloudflare lists none; Deepgram Nova-3 covers all five"
+languages_note = "Cloudflare lists none; Deepgram Nova-3 covers all six"
 batch = true
 batch_url = "https://developers.cloudflare.com/workers-ai/models/nova-3/"
 batch_checked_on = "2026-10-19"
@@ -786,7 +786,7 @@ usd_per_minute = 0.0077           # list price; the pricing page shows 0.0048 as
 promo_usd_per_minute = 0.0048
 billing = "audio"
 min_billed_seconds = 0
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 endpoint = "wss://api.deepgram.com/v1/listen"
 checked_url = "https://deepgram.com/pricing"
 docs_url = "https://developers.deepgram.com/reference/speech-to-text/listen-streaming"
@@ -814,7 +814,7 @@ usd_per_minute = 0.0075           # 0.45 USD per hour
 billing = "session"
 session_overhead_s = 3
 min_billed_seconds = 0
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 endpoint = "wss://streaming.assemblyai.com/v3/ws"
 checked_url = "https://www.assemblyai.com/pricing"
 docs_url = "https://www.assemblyai.com/docs/streaming/api-spec/streaming-websocket"
@@ -842,7 +842,7 @@ model_id = "scribe_v2_realtime"
 usd_per_minute = 0.0065           # 0.39 USD per hour, pay as you go
 billing = "audio"
 min_billed_seconds = 0
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 endpoint = "wss://api.elevenlabs.io/v1/speech-to-text/realtime"
 checked_url = "https://elevenlabs.io/pricing/api"
 docs_url = "https://elevenlabs.io/docs/api-reference/speech-to-text/v-1-speech-to-text-realtime"
@@ -868,7 +868,7 @@ model_id = "gemini-3.5-transcribe-live"
 usd_per_minute = 0.009            # pricing page blended estimate: 0.005 audio input + 0.004 text output per minute
 billing = "audio"
 min_billed_seconds = 0
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 endpoint = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
 checked_url = "https://ai.google.dev/gemini-api/docs/pricing"
 docs_url = "https://ai.google.dev/gemini-api/docs/live-api/live-transcribe"
@@ -898,7 +898,7 @@ neurons_per_minute = 836.36
 usd_per_1k_neurons = 0.011
 billing = "audio"
 min_billed_seconds = 0
-languages = ["en", "ja", "ko", "es", "hi"]
+languages = ["en", "ja", "ko", "es", "hi", "fr"]
 endpoint = "wss://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/deepgram/nova-3"
 checked_url = "https://developers.cloudflare.com/workers-ai/models/nova-3/"
 checked_on = "2026-10-19"

@@ -125,7 +125,7 @@ duration_s, channel, tags (json list string), hyp_chars`.
   between repeats), latency_mean, latency_std`.
 
 Metrics per language (primary first): `ja`: `cer`, `cer_reading`; `es`: `wer`, `wer_no_accents`;
-`ko`: `cer_nospace`, `wer_syllable`.
+`ko`: `cer_nospace`, `wer_syllable`; `fr`: `wer`, `wer_no_accents`.
 
 ## Error analysis (`results/<run_id>/errors.json`)
 

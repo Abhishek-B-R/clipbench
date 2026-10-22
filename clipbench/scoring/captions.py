@@ -42,9 +42,9 @@ from clipbench.scoring.stats import bootstrap_ci
 from clipbench.scoring.v3_inputs import TOO_SMALL, load_run, model_ids, records, slices
 
 MAX_LINES = 2
-MAX_CHARS = {"en": 42, "es": 42, "hi": 42, "ja": 16, "ko": 16}
+MAX_CHARS = {"en": 42, "es": 42, "fr": 42, "hi": 42, "ja": 16, "ko": 16}
 DEFAULT_MAX_CHARS = 42
-CPS_LIMIT = {"en": 17.0, "es": 17.0, "hi": 17.0, "ja": 4.0, "ko": 12.0}
+CPS_LIMIT = {"en": 17.0, "es": 17.0, "fr": 17.0, "hi": 17.0, "ja": 4.0, "ko": 12.0}
 DEFAULT_CPS_LIMIT = 17.0
 MAX_CUE_MS = 7000
 PAUSE_MS = 700

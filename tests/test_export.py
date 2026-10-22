@@ -136,7 +136,7 @@ def test_export_writes_contract(web_settings, monkeypatch):
         "run_id": "r1", "created_at": "2026-10-19T10:00:00Z", "language": "ja", "tiers": ["verified", "creator"],
         "n_clips": {"verified": 60, "creator": 60}, "providers": entry["providers"], "languages": run["languages"],
     }  # fmt: skip
-    assert [lang["lang"] for lang in index["languages"]] == ["en", "ja", "ko", "es", "hi"]
+    assert [lang["lang"] for lang in index["languages"]] == ["en", "ja", "ko", "es", "hi", "fr"]
     assert index["languages"][0]["verified_clips"] == 0 and index["languages"][1]["providers_ok"] == 3
     assert set(entry["providers"]) == set(PROVIDERS)
 
@@ -230,13 +230,13 @@ def test_findings_files_and_og_images(web_settings):
         assert set(f["source"]) == {"table", "filters"} and f["source"]["table"] in {"aggregates", "paired"}
         if "beats" in f["text"]:
             assert f["source"]["table"] == "paired"
-    for lang in ("en", "ko", "es", "hi"):
+    for lang in ("en", "ko", "es", "hi", "fr"):
         empty = json.loads((data / "findings" / f"{lang}.json").read_text())
         assert empty == {"lang": lang, "run_id": None, "created_at": None, "published": False, "findings": []}
 
     og = export.web_dir(web_settings) / "public" / "og"
     assert _png_size(og / "home.png") == (1200, 630)
-    for lang in ("en", "ja", "ko", "es", "hi"):
+    for lang in ("en", "ja", "ko", "es", "hi", "fr"):
         assert _png_size(og / f"{lang}.png") == (1200, 630)
     assert {p.stem for p in (og / "ja").glob("*.png")} == {f["slug"] for f in doc["findings"]}
 

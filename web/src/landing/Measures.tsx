@@ -28,7 +28,7 @@ const ITEMS = [
   {
     icon: Languages,
     title: "Non-English and code-switching",
-    body: "Commercial APIs and open models on the same clips in English, Japanese, Korean, Spanish and Hindi, with the English spans inside other languages scored separately.",
+    body: "Commercial APIs and open models on the same clips in English, Japanese, Korean, Spanish, Hindi and French, with the English spans inside other languages scored separately.",
     status: "next" as const,
   },
   {

@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from clipbench.models import Word
 from clipbench.providers.base import ProviderSkip, load_pricing
 
-ALL_LANGUAGES = frozenset({"en", "ja", "ko", "es", "hi"})
+ALL_LANGUAGES = frozenset({"en", "ja", "ko", "es", "hi", "fr"})
 
 EventKind = Literal["partial", "final"]
 

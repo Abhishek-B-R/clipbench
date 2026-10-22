@@ -20,6 +20,21 @@ def test_filler_lists_per_language():
     assert _fillers("えーと、あの、あの人は", "ja") == ["えーと", "あの"]
 
 
+def test_french_fillers():
+    assert _fillers("Euh, ben, je sais pas, bah ouais", "fr") == ["euh", "ben", "bah"]
+    assert _fillers("C'est genre, trop bien. Ce genre de film", "fr") == ["genre"]
+    assert _fillers("Du coup, on y va. Il a pris un coup du coude", "fr") == ["du", "coup"]
+    assert _fillers("du coup on y va", "fr") == []
+    assert _fillers("c'était bien, quoi. Tu fais quoi ce soir", "fr") == ["quoi"]
+
+
+def test_french_profanity_and_bleep():
+    prof = clip_style("c'est de la merde, putain", "c'est de la m***e p****n", "fr", 0.1)
+    assert prof["ref_profanity"] == 2 and prof["prof_masked"] == 2
+    bleep = clip_style("quel [bip] celui-là", "quel celui-là", "fr", 0.1)
+    assert bleep["ref_bleeps"] == 1 and bleep["bleep_dropped"] == 1
+
+
 def test_repetitions_and_stutters():
     toks = style_tokens("I I think b-but it is is fine", "en")
     assert [toks[i].key for i in repetitions(toks, "en")] == ["i", "but", "is"]

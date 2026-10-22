@@ -435,7 +435,7 @@ function fmtMs(ms) {
 
 /* ---------- diff ---------- */
 function tokenize(s, lang) {
-  if (lang === "es" || lang === "en") return s.match(/\s+|[^\s]+/g) || [];
+  if (lang === "es" || lang === "en" || lang === "fr") return s.match(/\s+|[^\s]+/g) || [];
   return Array.from(s); // ja, ko and others diff by character
 }
 
@@ -491,7 +491,7 @@ function diffTokens(a, b) {
 function showWs(s) {
   return esc(s).replace(/ /g, "\u00b7").replace(/\n/g, "\u21b5\n");
 }
-function wordLang() { return state.clip && (state.clip.language === "es" || state.clip.language === "en"); }
+function wordLang() { return state.clip && (state.clip.language === "es" || state.clip.language === "en" || state.clip.language === "fr"); }
 function countWords(s) { return (s.match(/[^\s]+/g) || []).length || 1; }
 
 let renderPending = false;

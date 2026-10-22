@@ -25,7 +25,7 @@ def test_every_batch_provider_has_a_full_features_table():
         for key in FEATURE_KEYS:
             assert f"{key}_url" in table and table[f"{key}_url"].startswith("https://"), (pid, key)
             assert table[f"{key}_checked_on"] == "2026-10-19", (pid, key)
-        assert set(table["languages"]) <= {"en", "ja", "ko", "es", "hi"}
+        assert set(table["languages"]) <= {"en", "ja", "ko", "es", "hi", "fr"}
         for key in ("batch", "streaming", "word_timestamps", "diarization", "language_id", "custom_vocabulary"):
             assert isinstance(table[key], bool), (pid, key)
     assert missing_cells() == []

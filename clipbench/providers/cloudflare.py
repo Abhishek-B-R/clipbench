@@ -43,7 +43,7 @@ from clipbench.providers.deepgram import MAX_KEYTERMS, parse_alternative
 from clipbench.providers.groq import keyterm_prompt
 from clipbench.providers.http import SHAPE_ERRORS, HttpProvider, shape_error, stopwatch, wav_seconds
 
-ALL_LANGUAGES = frozenset({"en", "ja", "ko", "es", "hi"})
+ALL_LANGUAGES = frozenset({"en", "ja", "ko", "es", "hi", "fr"})
 
 
 class WorkersAIProvider(HttpProvider):

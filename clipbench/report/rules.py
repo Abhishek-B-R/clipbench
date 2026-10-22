@@ -25,7 +25,7 @@ import pandas as pd
 
 from clipbench.config import Settings
 
-LANGUAGES = ("en", "ja", "ko", "es", "hi")
+LANGUAGES = ("en", "ja", "ko", "es", "hi", "fr")
 MIN_VERIFIED_CLIPS = 100
 MIN_PROVIDERS_OK = 6
 DEFAULT_MIN_PROVIDER_COVERAGE = 0.9

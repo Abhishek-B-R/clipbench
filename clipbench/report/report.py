@@ -21,8 +21,8 @@ from clipbench.config import Settings, get_settings
 from clipbench.report import charts, findings, rules
 
 TIER_TITLES = {"verified": "Verified references", "creator": "Creator captions (unverified reference)"}
-FALLBACK_PRIMARY = {"ja": "cer", "es": "wer", "ko": "cer_nospace", "en": "wer", "hi": "wer"}
-LANGUAGE_NAMES = {"en": "English", "ja": "Japanese", "es": "Spanish", "ko": "Korean", "hi": "Hindi"}
+FALLBACK_PRIMARY = {"ja": "cer", "es": "wer", "ko": "cer_nospace", "en": "wer", "hi": "wer", "fr": "wer"}
+LANGUAGE_NAMES = {"en": "English", "ja": "Japanese", "es": "Spanish", "ko": "Korean", "hi": "Hindi", "fr": "French"}
 CAPTION_METRICS_DOC = "METHODOLOGY.md, section Caption metrics"
 METHODOLOGY_DOC = "METHODOLOGY.md"
 

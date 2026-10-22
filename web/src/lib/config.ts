@@ -45,7 +45,7 @@ export const README_FIRST_RUN = {
 } as const;
 
 /** v2 languages, in shipping order (docs/V2.md). */
-export const LANGUAGES = ["en", "ja", "ko", "es", "hi"] as const;
+export const LANGUAGES = ["en", "ja", "ko", "es", "hi", "fr"] as const;
 
 /** Content categories, exact strings from docs/V2.md, with plain names. */
 export const CATEGORIES: Record<string, string> = {

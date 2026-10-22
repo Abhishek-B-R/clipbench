@@ -232,3 +232,145 @@ def test_wer_translit_matches_across_scripts():
 def test_metrics_for_new_languages():
     assert [(m.name, m.is_primary) for m in n.metrics_for("en")] == [("wer", True)]
     assert [(m.name, m.is_primary) for m in n.metrics_for("hi")] == [("wer", True), ("wer_translit", False)]
+
+
+# ---------------------------------------------------------------- French
+
+
+def test_metrics_for_french():
+    assert [(m.name, m.is_primary) for m in n.metrics_for("fr")] == [("wer", True), ("wer_no_accents", False)]
+    assert n.metrics_for("fr-FR")[0].name == "wer"
+
+
+@pytest.mark.parametrize(
+    ("value", "words"),
+    [
+        (0, "zéro"),
+        (16, "seize"),
+        (17, "dix sept"),
+        (21, "vingt et un"),
+        (22, "vingt deux"),
+        (61, "soixante et un"),
+        (70, "soixante dix"),
+        (71, "soixante et onze"),
+        (77, "soixante dix sept"),
+        (80, "quatre vingts"),
+        (81, "quatre vingt un"),
+        (91, "quatre vingt onze"),
+        (99, "quatre vingt dix neuf"),
+        (100, "cent"),
+        (101, "cent un"),
+        (200, "deux cents"),
+        (201, "deux cent un"),
+        (1000, "mille"),
+        (2000, "deux mille"),
+        (21000, "vingt et un mille"),
+        (80000, "quatre vingt mille"),
+        (200000, "deux cent mille"),
+        (1000000, "un million"),
+        (2000000, "deux millions"),
+        (200000000, "deux cents millions"),
+        (1000000000, "un milliard"),
+        (10**12, "un zéro zéro zéro zéro zéro zéro zéro zéro zéro zéro zéro zéro"),
+    ],
+)
+def test_french_number_words(value, words):
+    assert n.french_number_words(value) == words
+
+
+@pytest.mark.parametrize(
+    ("value", "feminine", "words"),
+    [
+        (1, False, "premier"),
+        (1, True, "première"),
+        (2, False, "deuxième"),
+        (4, False, "quatrième"),
+        (5, False, "cinquième"),
+        (9, False, "neuvième"),
+        (21, False, "vingt et unième"),
+        (80, False, "quatre vingtième"),
+        (200, False, "deux centième"),
+        (1000, False, "millième"),
+    ],
+)
+def test_french_ordinal_words(value, feminine, words):
+    assert n.french_ordinal_words(value, feminine=feminine) == words
+
+
+def test_french_numbers_to_words_thousands_and_decimals():
+    norm = n.normalize_fr
+    assert norm("1 000 abonnés") == "mille abonnés"
+    assert norm("1 000 abonnés") == "mille abonnés"  # narrow no-break space
+    assert norm("1 000 abonnés") == "mille abonnés"  # no-break space
+    assert norm("1.500 euros") == "mille cinq cents euros"
+    assert norm("3,5 kilos") == "trois virgule cinq kilos"
+    assert norm("3.5 kilos") == "trois point cinq kilos"
+    assert norm("50 %") == "cinquante pour cent"
+    assert norm("50%") == "cinquante pour cent"
+
+
+def test_french_numbers_to_words_ordinals():
+    norm = n.normalize_fr
+    assert norm("le 1er jour") == "le premier jour"
+    assert norm("la 1re fois") == "la première fois"
+    assert norm("la 1ère fois") == "la première fois"
+    assert norm("le 2e et le 3ème") == "le deuxième et le troisième"
+    assert norm("le 2nd et la 2nde") == "le second et la seconde"
+    assert norm("les 1ers") == "les premiers"
+
+
+def test_french_digits_and_words_match():
+    norm = n.normalize_fr
+    assert norm("J'ai 71 ans") == norm("j'ai soixante-et-onze ans")
+    assert norm("vingt-deux") == norm("22") == "vingt deux"
+
+
+def test_french_guillemets_and_spaced_punctuation():
+    norm = n.normalize_fr
+    assert norm("« Bonjour » !") == "bonjour"
+    assert norm("« Quoi ? »") == "quoi"
+    assert norm("Attention : ça part ; vite !") == "attention ça part vite"
+    assert norm("Bon… voilà") == "bon voilà"
+
+
+def test_french_elision_spacing_is_not_an_error():
+    norm = n.normalize_fr
+    assert norm("l'homme") == norm("l' homme") == norm("L’homme") == "l' homme"
+    assert norm("C'est jusqu'à demain, qu'il dit") == "c' est jusqu' à demain qu' il dit"
+    assert norm("d'accord, j'arrive, s'il te plaît, n'importe") == "d' accord j' arrive s' il te plaît n' importe"
+    assert norm("lorsqu'on puisqu'elle") == "lorsqu' on puisqu' elle"
+
+
+def test_french_inner_apostrophes_stay_one_word():
+    norm = n.normalize_fr
+    assert norm("aujourd'hui") == "aujourd'hui"
+    assert norm("quelqu'un") == "quelqu'un"
+    assert norm("presqu'île") == "presqu'île"
+
+
+def test_french_stray_apostrophes_dropped():
+    assert n.normalize_fr("'bonjour'") == "bonjour"
+    assert n.drop_stray_apostrophes("l' ami ' fin'") == "l' ami fin"
+
+
+def test_french_hyphenated_words_split():
+    norm = n.normalize_fr
+    assert norm("peut-être") == norm("peut être") == "peut être"
+    assert norm("c'est-à-dire") == "c' est à dire"
+    assert norm("Est-ce qu'il vient ?") == "est ce qu' il vient"
+
+
+def test_french_ligatures():
+    assert n.normalize_fr("Cœur, sœur, ex æquo") == "coeur soeur ex aequo"
+    assert n.normalize_fr("cœur") == n.normalize_fr("coeur")
+
+
+def test_french_brackets_and_case():
+    assert n.normalize_fr("[Musique] Salut (rires) TOUT le monde") == "salut tout le monde"
+
+
+def test_french_no_accents_metric():
+    assert n.normalize_fr_no_accents("Où est le garçon ? Déjà là") == "ou est le garcon deja la"
+    _, no_acc = n.metrics_for("fr")
+    assert no_acc.tokenizer("été") == no_acc.tokenizer("ete")
+    assert n.metrics_for("fr")[0].tokenizer("été") != n.metrics_for("fr")[0].tokenizer("ete")

@@ -28,7 +28,7 @@ from clipbench.streaming.base import Conn, Parsed, StreamError, StreamingProvide
 READY_TIMEOUT_S = 15.0
 
 # Live transcription takes BCP-47 codes from its own table (a plain `es` is not listed).
-LANGUAGE_CODES = {"en": "en-US", "ja": "ja-JP", "ko": "ko-KR", "es": "es-419", "hi": "hi-IN"}
+LANGUAGE_CODES = {"en": "en-US", "ja": "ja-JP", "ko": "ko-KR", "es": "es-419", "hi": "hi-IN", "fr": "fr-FR"}
 
 
 class GeminiStream(StreamingProvider):

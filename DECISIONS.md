@@ -28,6 +28,9 @@ One line each: what was decided and why. Newest at the bottom of each section.
 - Punctuation becomes a space in es and ko and is deleted in ja, so "hola,amigo" does not merge into one word.
 - Latin letters are lowercased in every language, since ja and ko captions contain English words.
 - es `wer_no_accents` strips every combining mark, including ñ to n, so the variant isolates every diacritic-caused error.
+- French (`fr`) is the sixth benchmark language, scored like Spanish: `wer` primary, `wer_no_accents` secondary (ç to c too). Hyphens split words (peut-être is two tokens) so hyphenated and spaced spellings agree, elided words are their own token (l' homme) so the space after an elision is never an error, inner apostrophes stay (aujourd'hui), œ is oe. Numbers are spelled in France French (soixante et onze, quatre vingts), not Belgian or Swiss.
+- AWS French is fr-FR (France), not fr-CA; Gemini Live streaming also gets fr-FR.
+- datasets/fr/channels.csv holds 36 curated, unverified French channel handles across the six categories; discovery has not been run on it.
 - es "1.500" and "1,500" are read as thousands; "1" is "uno" because gender cannot be known from digits.
 - ja `cer` keeps digits; `cer_reading` converts digits to readings with an in-house converter (pykakasi leaves digits alone).
 - ja reading uses the unidic `kana` field (spelling based, 東京 is トウキョウ), not `pron`, because it is closer to how people write kana.

@@ -291,7 +291,7 @@ def draft_findings(
 # - A null metric (for example no word timings) produces no finding; it is never reported as 0.
 # - The DRAFT marker lives in `status`, not in `text`, so the site can badge it.
 
-LANGUAGE_NAMES = {"en": "English", "ja": "Japanese", "ko": "Korean", "es": "Spanish", "hi": "Hindi"}
+LANGUAGE_NAMES = {"en": "English", "ja": "Japanese", "ko": "Korean", "es": "Spanish", "hi": "Hindi", "fr": "French"}
 SLICE_WORDS = {
     "all": "all clips",
     "music": "clips with music under the speech",

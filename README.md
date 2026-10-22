@@ -3,7 +3,7 @@
 **Live site:** https://clipbench.abhishekbr.com
 
 **Which speech-to-text should your video app use?** clipbench is the independent benchmark for captions
-on real short-form video: accuracy, word timing, hallucination over music, and cost, in five languages.
+on real short-form video: accuracy, word timing, hallucination over music, and cost, in six languages.
 
 Caption, clipping and dubbing apps pick a speech-to-text vendor today from numbers measured on phone
 calls, meetings and read speech, mostly in English. Short-form video is different: music under the
@@ -69,7 +69,7 @@ check rather than a ranking. What it already surfaced:
 | Code-switch accuracy (English inside non-English clips) | real creator speech |
 | Cost per audio hour, latency, real-time factor | the bill and the wait |
 
-Languages: English (`en`), Japanese (`ja`), Korean (`ko`), Spanish (`es`) and Hindi (`hi`). Hinglish is
+Languages: English (`en`), Japanese (`ja`), Korean (`ko`), Spanish (`es`), Hindi (`hi`) and French (`fr`). Hinglish is
 not a separate language: it is Hindi speech mixed with English, scored inside `hi` (mixed Devanagari and
 Latin script) and as code-switching. A language is published only with 100 or more verified clips, 6 or
 more providers that each scored at least 90% of them, and a verified set that passes the diversity rules.

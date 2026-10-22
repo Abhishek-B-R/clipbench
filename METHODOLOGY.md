@@ -10,7 +10,7 @@ sound effects, jump cuts, fast stylised delivery, slang, several speakers and co
 system is scored on what a captioning product ships: text accuracy (CER or WER), word timing,
 hallucination over music and silence, caption readiness (punctuation and casing), accuracy on
 code-switched spans, cost per audio hour and latency. Languages: English, Japanese, Korean, Spanish,
-and Hindi with Hinglish.
+Hindi with Hinglish, and French.
 
 ## Ground truth tiers
 
@@ -139,6 +139,51 @@ Order: NFKC, lowercase, bracket tags, numbers to words, punctuation, whitespace.
   caused by any diacritic. Accents are kept in the primary metric because they carry meaning in
   Spanish (`si` vs `sí`).
 
+#### French (`fr`)
+
+Order: NFKC, lowercase, bracket tags, apostrophes unified, ligatures, numbers to words, punctuation
+(apostrophe kept), elisions split, stray apostrophes dropped, whitespace collapsed
+(`normalize_fr` in clipbench/scoring/normalize.py; each rule is unit tested in tests/test_normalize.py).
+
+- **French spacing.** NFKC turns the no-break space (U+00A0) and the narrow no-break space (U+202F)
+  that French typography puts before `; : ! ?` and inside `« »` into plain spaces, and the marks
+  themselves are removed with the rest of the punctuation, so `« Quoi ? »` and `"Quoi?"` are the same
+  word.
+- **Apostrophes unified.** `’ ‘ ʼ` and the backtick become the ASCII apostrophe.
+- **Ligatures.** `œ` becomes `oe` and `æ` becomes `ae` (`cœur` and `coeur` match). Captions and
+  speech recognisers use both spellings for the same word.
+- **Numbers to words** (France French, written with spaces instead of hyphens). Integers 0 to
+  999,999,999,999 (`17` `dix sept`, `21` `vingt et un`, `71` `soixante et onze`, `80` `quatre vingts`,
+  `81` `quatre vingt un`, `91` `quatre vingt onze`, `200` `deux cents`, `201` `deux cent un`, `200000`
+  `deux cent mille`, `2000000` `deux millions`); larger numbers are read digit by digit. The plural `s`
+  of `vingts` and `cents` follows the spelling rule (kept at the end, dropped before `mille`). A lone
+  `1` is `un`: gender (`une`) cannot be known from digits. Belgian and Swiss `septante` / `nonante`
+  are not modelled. Thousands are groups of exactly three digits separated by a space (any of the
+  three spaces above) or a dot (`1 000`, `1.500`); a comma is always a decimal and is read `virgule`
+  (`3,5` `trois virgule cinq`), a dot between other digits `point`. `50 %` is `cinquante pour cent`.
+  Ordinals: `1er` `premier`, `1re` / `1ère` `première`, `2e` / `2ème` `deuxième`, `21e` `vingt et
+  unième`, `2nd` / `2nde` `second` / `seconde`, plurals keep their `s` (`1ers` `premiers`).
+  Decision: `3 100` is read as `trois mille cent`, so "3 then 100" written with a single space is
+  misread; that spelling is rare in captions and the thousands space is common.
+- **Punctuation.** Every punctuation or symbol except the apostrophe becomes a space. That includes
+  guillemets `« » ‹ ›`, the ellipsis and every dash, so **hyphenated words split**: `peut-être` is
+  `peut être`, `c'est-à-dire` is `c' est à dire`, `vingt-deux` (and the reformed `vingt-et-un`) match
+  the spelled numbers above. Decision: splitting is the only rule that makes the hyphenated and the
+  unhyphenated spellings (both common in captions, and both allowed by the 1990 spelling reform for
+  numbers) agree.
+- **Elisions.** An elided word at the start of a word, `l' d' j' m' t' s' n' c' qu'` and
+  `jusqu' lorsqu' puisqu' quoiqu'`, becomes its own token that keeps the apostrophe: `l'homme`,
+  `l' homme` and `L’homme` all become `l' homme`. Decision: a separate token so that writing the
+  elision with or without a space is never an error, and the apostrophe stays so that `l'` is not
+  confused with a stray letter. Apostrophes inside a word stay (`aujourd'hui`, `quelqu'un`,
+  `presqu'île` are one word each); any other apostrophe (a quote mark, a leading or trailing one) is
+  removed.
+- **Tokens.** Whitespace separated words (`wer`).
+- **No accents variant (`wer_no_accents`).** After the steps above every combining mark is removed:
+  `é è ê` to `e`, `à` to `a`, `ç` to `c`, `ï` to `i`. Accents stay in the primary metric because
+  they carry meaning (`a` / `à`, `ou` / `où`, `du` / `dû`), but recognisers often drop them on
+  capitals and in fast speech, so the variant shows how much of a provider's error is only accents.
+
 #### Japanese (`ja`)
 
 Order for `cer`: NFKC, lowercase, bracket tags, punctuation (deleted), all whitespace removed.
@@ -180,6 +225,7 @@ Order: NFKC, lowercase, bracket tags, punctuation (to spaces), whitespace collap
 |---|---|---|
 | ja | `cer` | `cer_reading` |
 | es | `wer` | `wer_no_accents` |
+| fr | `wer` | `wer_no_accents` |
 | ko | `cer_nospace` | `wer_syllable` |
 
 For each clip the normalised reference and hypothesis token lists are aligned with a minimum edit
@@ -418,7 +464,7 @@ languages, run with PyTorch and transformers (optional extra: `uv sync --extra a
 1. The text is split into words: whitespace words for en, es, ko, hi; fugashi (unidic-lite) tokens for ja.
    Bracket tags and punctuation-only words are dropped.
 2. Each word is romanised with uroman. Japanese words are first replaced by their kana reading (the same
-   reading used by `cer_reading`). English and Spanish digits are spelled out first; Hindi Devanagari digits
+   reading used by `cer_reading`). English, Spanish and French digits are spelled out first; Hindi Devanagari digits
    become ASCII. Only the model's alphabet (a to z and apostrophe) is kept. Words left with no characters
    (for example Korean digits) get no timing and are left out of the file.
 3. The audio is cut into 30 s chunks; each chunk gives per frame log probabilities (20 ms frames).
@@ -561,6 +607,9 @@ paths and the hypothesis is scored against the closest one.
    - `es`: ok / okay / okey / oki, the accent pairs the RAE made optional (solo / sólo, este / éste,
      esta / ésta, ese / ése, esa / ésa, aquel / aquél, guion / guión, truhan / truhán), periodo / período,
      septiembre / setiembre, video / vídeo, wifi / wi-fi, email / e-mail.
+   - `fr`: ok / okay / oké / okey, week-end / weekend, t-shirt / tee-shirt / tshirt, e-mail / email /
+     mail, wifi / wi-fi, clé / clef, événement / évènement, oignon / ognon (1990 spelling reform),
+     paie / paye, pourcent / pour cent. Accent-only differences are left to `wer_no_accents`.
    - `ko`: loanword spellings, standard form and common variant: 케이크 / 케익, 파이팅 / 화이팅,
      카페 / 까페, 주스 / 쥬스, 메시지 / 메세지, 콘텐츠 / 컨텐츠, 액세서리 / 악세사리, 초콜릿 / 초콜렛,
      리더십 / 리더쉽, 로봇 / 로보트, and 오케이 / 오키 / ok / okay.
@@ -661,7 +710,7 @@ provider, never as errors, in `results/<run_id>/style.parquet` (per provider and
 `style_aggregates.parquet`.
 
 **Tokens.** Un-normalised text after NFKC, with bracket annotations removed. Bleep markers (`[ __ ]` as
-YouTube writes masked words, `[bleep]`, `[beep]`, `[censored]`, `[expletive]`, `[pitido]`, `[삐]`, `[ピー]`)
+YouTube writes masked words, `[bleep]`, `[beep]`, `[censored]`, `[expletive]`, `[pitido]`, `[bip]`, `[삐]`, `[ピー]`)
 become a masked token first. en, es, ko, hi: whitespace separated words, lowercased, with edge punctuation
 removed; a word containing `*`, `＊`, `●`, `○`, `■`, `□`, `×` or `#` is masked ("f***", "sh*t"). ja:
 fugashi morphemes, with the filler forms below matched first so えーと stays one token, and runs of the mask
@@ -673,11 +722,13 @@ characters becoming a masked token.
 - es: eh, ehh, em, emm, ehm, mm, mmm, hmm
 - ko: 음, 으음, 어, 어어, 에, 흠, 엄
 - hi: um, umm, uh, hmm, अं, उम्म, हम्म, अ
+- fr: euh, euhh, euuh, heu, hum, hmm, mm, mmm, bah, ben, beh
 - ja: えーっと, えーと, ええと, えっと, えと, えー, えぇ, あのー, あのう, そのー, うーん, んー, まー
 
 Fillers only when followed by a pause (a comma, ellipsis, sentence mark or another filler), because they are
 also ordinary words: en like; es este, pues, bueno; ko 그, 저, 뭐, 막, 아, 저기; hi matlab, मतलब, woh, wo,
-वो, yaani, यानी, basically; ja あの, その, まあ, なんか (also at the end of the text). This undercounts
+वो, yaani, यानी, basically; fr genre, bon, enfin, quoi, voilà, bref, and the two word du coup (both words
+count); ja あの, その, まあ, なんか (also at the end of the text). This undercounts
 unpunctuated hypotheses, which is why keep rates are computed against the reference (below).
 
 **Repetitions and stutters.** A token equal to the previous one ("I I think"), or a hyphen stutter ("b-but",
@@ -689,7 +740,9 @@ lists: en fuck, motherfuck, shit, bullshit, bitch, bastard, asshole, dick, cunt,
 wtf; es mierda, puta, puto, joder, jodid-, coño, carajo, pendej-, cabrón, chingar, chingad-, verga,
 gilipollas, hostia, culero; ko 씨발, 시발, 씨바, 존나, 졸라, 개새끼, 새끼, 병신, 지랄, 젠장, ㅅㅂ, ㅈㄴ;
 hi chutiya, chutiye, bhenchod, behenchod, madarchod, gaandu, gandu, harami, kamina, kamine and their
-Devanagari spellings; ja くそ, クソ, 糞, ちくしょう, チクショウ, 畜生, くたばれ, ふざけんな, ぶっ殺.
+Devanagari spellings; fr putain, merde, connard, connasse, salaud, salope, enculé, bordel, chier, foutre,
+foutu, nique, enfoiré, bâtard, pute, fdp, ntm (con is left out: as a prefix it would match contre, content);
+ja くそ, クソ, 糞, ちくしょう, チクショウ, 畜生, くたばれ, ふざけんな, ぶっ殺.
 
 **Per clip.** Reference and hypothesis tokens are aligned (profane and masked tokens share one alignment key,
 so a masked word lines up with the word it hides). Then:
@@ -827,7 +880,7 @@ Files: `lid.parquet`, `lid_aggregates.parquet`. Language codes and numbers only.
 One `[<id>.features]` table per batch provider in `pricing.toml`, each cell with its doc URL and the
 date it was checked. Values come from the provider's current documentation only; where a doc does not
 state something, the value is left out (unknown) and the cell's note says so. Conflicting docs are
-noted, and the more conservative figure is kept. `languages` lists which of the five benchmark
+noted, and the more conservative figure is kept. `languages` lists which of the six benchmark
 languages the provider serves.
 
 ### Caption export check
@@ -835,7 +888,7 @@ languages the provider serves.
 Each provider's timed words become captions with one fixed rule, and the reference words (creator
 timing or the forced aligner) go through the same rule:
 
-- at most 2 lines per cue, at most 42 characters per line for en, es and hi and 16 for ja and ko;
+- at most 2 lines per cue, at most 42 characters per line for en, es, fr and hi and 16 for ja and ko;
 - a new cue after a pause of 700 ms or more, after sentence final punctuation, before the cue would
   pass 7 seconds, or before its text would no longer fit in two lines;
 - a two line cue splits at the word boundary closest to the middle, preferring one after a comma;
@@ -844,7 +897,7 @@ timing or the forced aligner) go through the same rule:
 Scores per clip: for each reference cue, the provider cue with the most time overlap gives the start
 and end error (median per clip, and median of clip medians in aggregates); the overlap ratio is the
 time intersection over union of all provider cue time and all reference cue time (corpus style, with a
-bootstrap interval). Readability: characters per second per cue against 17 for en, es and hi, 4 for ja
+bootstrap interval). Readability: characters per second per cue against 17 for en, es, fr and hi, 4 for ja
 and 12 for ko (counted without spaces for ja and ko), the share of cues over that limit (with an
 interval, and the same share for the reference cues as a baseline), the share of lines over the line
 limit, and provider cues per reference cue. Providers without word timings are not scored.
@@ -862,7 +915,7 @@ are written only under `data/captions/<run_id>/` (never published).
 - ElevenLabs keyterm surcharge (20%, and a 20 s minimum with more than 100 terms) is in the cost
   estimate, so the budget guard sees it.
 - AWS custom vocabulary is not used: it needs a persistent account resource, and the benchmark creates
-  nothing that outlives a request. Hindi (hi-IN) was added to the AWS language codes.
+  nothing that outlives a request. Hindi (hi-IN) and French (fr-FR) were added to the AWS language codes.
 - Gemini Flash diarization is not scored: it returns no word timings, so there is nothing to align
   speaker turns to. Language detection uses a JSON reply with a schema rather than free text.
 - Workers AI `@cf/openai/whisper` auto detects but reports no language, so it is recorded as not

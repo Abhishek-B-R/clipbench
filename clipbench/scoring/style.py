@@ -38,16 +38,24 @@ FILLERS: dict[str, set[str]] = {
     "es": {"eh", "ehh", "em", "emm", "ehm", "mm", "mmm", "hmm"},
     "ko": {"음", "으음", "어", "어어", "에", "흠", "엄"},
     "hi": {"um", "umm", "uh", "hmm", "अं", "उम्म", "हम्म", "अ"},
+    "fr": {"euh", "euhh", "euuh", "heu", "hum", "hmm", "mm", "mmm", "bah", "ben", "beh"},
     "ja": {"えーっと", "えーと", "ええと", "えっと", "えと", "えー", "えぇ", "あのー", "あのう", "そのー", "うーん", "んー", "まー"},
 }
 # Words that are fillers only when followed by a pause (a comma, ellipsis, another filler or the end),
-# because they are also ordinary words: Spanish este (this), Korean 그 (that), Hindi matlab (meaning).
+# because they are also ordinary words: Spanish este (this), Korean 그 (that), Hindi matlab (meaning),
+# French genre (kind) and quoi (what).
 PAUSE_FILLERS: dict[str, set[str]] = {
     "en": {"like"},
     "es": {"este", "pues", "bueno"},
     "ko": {"그", "저", "뭐", "막", "아", "저기"},
     "hi": {"matlab", "मतलब", "woh", "wo", "वो", "yaani", "यानी", "basically"},
+    "fr": {"genre", "bon", "enfin", "quoi", "voilà", "bref"},
     "ja": {"あの", "その", "まあ", "なんか"},
+}
+# Word sequences that are pause fillers together (French "du coup", so then): every word of the phrase is a
+# filler when the phrase is followed by a pause or a filler.
+PAUSE_FILLER_PHRASES: dict[str, list[tuple[str, ...]]] = {
+    "fr": [("du", "coup")],
 }
 # Profanity stems (prefix match on the lowercased word) per language.
 PROFANITY: dict[str, list[str]] = {
@@ -58,10 +66,13 @@ PROFANITY: dict[str, list[str]] = {
     "ko": ["씨발", "시발", "씨바", "존나", "졸라", "개새끼", "새끼", "병신", "지랄", "젠장", "ㅅㅂ", "ㅈㄴ"],
     "hi": ["chutiya", "chutiye", "bhenchod", "behenchod", "madarchod", "gaandu", "gandu", "harami", "kamina",
            "kamine", "चूतिया", "चुतिया", "भेनचोद", "बहनचोद", "मादरचोद", "गांडू", "हरामी", "कमीना", "कमीने"],
+    "fr": ["putain", "merde", "connard", "connasse", "salaud", "salope", "enculé", "encule", "bordel",
+           "chier", "foutre", "foutu", "nique", "niquer", "enfoiré", "enfoire", "bâtard", "batard", "pute", "fdp",
+           "ntm"],
     "ja": ["くそ", "クソ", "糞", "ちくしょう", "チクショウ", "畜生", "くたばれ", "ふざけんな", "ぶっ殺"],
 }  # fmt: skip
 
-_BLEEP_RE = re.compile(r"\[\s*_+\s*\]|\[\s*(?:bleep|beep|censored|expletive|pitido|삐|ピー)\s*\]", re.IGNORECASE)
+_BLEEP_RE = re.compile(r"\[\s*_+\s*\]|\[\s*(?:bleep|beep|censored|expletive|pitido|bip|삐|ピー)\s*\]", re.IGNORECASE)
 _MASK_CHARS = "*＊●○■□×#"
 _MASK_RUN_RE = re.compile(f"[{re.escape(_MASK_CHARS)}]+")
 _PAUSE_MARKS = (",", "，", "、", "…", "...", "。", ".", "?", "!", "？", "！")
@@ -183,6 +194,14 @@ def is_filler(toks: list[Tok], i: int, language: str) -> bool:
     if t.key in PAUSE_FILLERS.get(lang, set()):
         nxt_filler = i + 1 < len(toks) and toks[i + 1].key in FILLERS.get(lang, set())
         return t.pause_after or nxt_filler
+    for phrase in PAUSE_FILLER_PHRASES.get(lang, []):
+        for start in range(max(0, i - len(phrase) + 1), i + 1):
+            end = start + len(phrase)
+            if end > len(toks) or tuple(x.key for x in toks[start:end]) != phrase:
+                continue
+            nxt_filler = end < len(toks) and toks[end].key in FILLERS.get(lang, set())
+            if toks[end - 1].pause_after or nxt_filler:
+                return True
     return False
 
 

@@ -268,7 +268,7 @@ def test_language_and_length_checks():
     from clipbench.providers.base import ProviderSkip
 
     with pytest.raises(ProviderSkip):
-        DeepgramStream().check_clip("fr", 10)
+        DeepgramStream().check_clip("de", 10)
     with pytest.raises(ProviderSkip):
         GeminiStream().check_clip("ja", 601)
     GeminiStream().check_clip("ja-JP", 30)

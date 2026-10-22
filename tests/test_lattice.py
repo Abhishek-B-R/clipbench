@@ -80,6 +80,13 @@ def test_builtin_hindi_script_and_spanish_korean_variants():
     assert lattice_score("케이크 먹자", None, ko.tokenizer("케익 먹자"), ko, "ko").errors == 0
 
 
+def test_builtin_french_variants():
+    fr = spec("fr")
+    assert lattice_score("ce week-end en t-shirt", None, fr.tokenizer("ce weekend en tee-shirt"), fr, "fr").errors == 0
+    assert lattice_score("la clé de l'événement", None, fr.tokenizer("la clef de l'évènement"), fr, "fr").errors == 0
+    assert lattice_score("OK, on y va", None, fr.tokenizer("okay on y va"), fr, "fr").errors == 0
+
+
 def test_lattice_never_worse_than_strict():
     s = spec("en")
     ref = "okay so the color of the sky is grey"

@@ -41,8 +41,8 @@ Notes:
   `@cf/deepgram/flux` is not added: WebSocket only, English only, no word timings.
   Rate limit: 720 requests per minute for speech recognition; concurrency is 8.
 
-Language codes sent: `ja`, `es`, `ko` everywhere except AWS (`ja-JP`, `es-US`, `ko-KR`; set
-`spanish_variant="es-ES"` for Castilian Spanish).
+Language codes sent: `ja`, `es`, `ko`, `fr` everywhere except AWS (`ja-JP`, `es-US`, `ko-KR`, `fr-FR`; set
+`spanish_variant="es-ES"` for Castilian Spanish) and Gemini Live streaming (`fr-FR`).
 
 ## Verification status
 
@@ -175,7 +175,7 @@ Checked 2026-10-19.
 | `elevenlabs-scribe` | `diarize`, `words[].speaker_id` | omit `language_code`, read `language_code` | `keyterms` (1000, under 50 chars, 5 words; adds 20% to price, priced in) | [convert](https://elevenlabs.io/docs/api-reference/speech-to-text/convert) |
 | `groq-whisper` | not offered | omit `language`, read `verbose_json.language` (needs a live check) | Whisper `prompt` (224 tokens; we cap at 400 chars) | [speech-to-text](https://console.groq.com/docs/speech-to-text), [API](https://console.groq.com/docs/api-reference) |
 | `gemini-flash` | not supported (no word timings) | prompt names no language, JSON reply `{language, transcript}` | listed in the prompt | [audio](https://ai.google.dev/gemini-api/docs/audio) |
-| `aws-transcribe` | `ShowSpeakerLabels`, `MaxSpeakerLabels=10`, `speaker_label` | `IdentifyLanguage` with `LanguageOptions` (our five languages) | not supported: needs a CreateVocabulary account resource | [diarization](https://docs.aws.amazon.com/transcribe/latest/dg/diarization.html), [LID](https://docs.aws.amazon.com/transcribe/latest/dg/lang-id-batch.html), [vocabulary](https://docs.aws.amazon.com/transcribe/latest/dg/custom-vocabulary.html) |
+| `aws-transcribe` | `ShowSpeakerLabels`, `MaxSpeakerLabels=10`, `speaker_label` | `IdentifyLanguage` with `LanguageOptions` (our six languages) | not supported: needs a CreateVocabulary account resource | [diarization](https://docs.aws.amazon.com/transcribe/latest/dg/diarization.html), [LID](https://docs.aws.amazon.com/transcribe/latest/dg/lang-id-batch.html), [vocabulary](https://docs.aws.amazon.com/transcribe/latest/dg/custom-vocabulary.html) |
 | `cf-whisper-large-v3-turbo` | not offered | omit `language`, read `transcription_info.language` | `initial_prompt` | [input](https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/schema-input.json), [output](https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/schema-output.json) |
 | `cf-whisper`, `cf-whisper-tiny-en` | not offered | not supported (always auto detects, reports nothing) | not offered | [whisper](https://developers.cloudflare.com/workers-ai/models/whisper/) |
 | `cf-deepgram-nova-3` | `diarize=true` | `detect_language=true` | repeated `keyterm` | [schema](https://developers.cloudflare.com/workers-ai/models/nova-3/schema-input.json); output fields not in the schema, needs a live check |

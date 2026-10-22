@@ -41,7 +41,7 @@ MAX_SNIPPET_CHARS = 8
 MAX_SPAN_CHARS = 8
 
 UNSPACED_LANGUAGES = {"ja", "ko"}
-FALLBACK_PRIMARY = {"ja": "cer", "es": "wer", "ko": "cer_nospace"}
+FALLBACK_PRIMARY = {"ja": "cer", "es": "wer", "ko": "cer_nospace", "fr": "wer"}
 
 EQ, SUB, DEL, INS = "eq", "sub", "del", "ins"
 _OP_NAMES = {

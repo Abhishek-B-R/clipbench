@@ -33,7 +33,7 @@ from clipbench.providers.http import (
     wav_seconds,
 )
 
-LANGUAGE_NAMES = {"ja": "Japanese", "es": "Spanish", "ko": "Korean", "en": "English"}
+LANGUAGE_NAMES = {"ja": "Japanese", "es": "Spanish", "ko": "Korean", "en": "English", "fr": "French"}
 
 PROMPT = (
     "Transcribe this audio verbatim in the language it is spoken ({language}). "

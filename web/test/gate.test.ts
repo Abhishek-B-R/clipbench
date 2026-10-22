@@ -46,7 +46,7 @@ describe("publication gate", () => {
 
   it("lists every v2 language from the index, unpublished when it has no run", () => {
     const rows = languageProgress({ latest: "x", runs: [{ run_id: "x", created_at: "2026-10-19T00:00:00Z", language: "ja", tiers: ["creator"], n_clips: { creator: 10 }, providers: ["a", "b"] }] });
-    expect(rows.map((r) => r.lang)).toEqual(["en", "ja", "ko", "es", "hi"]);
+    expect(rows.map((r) => r.lang)).toEqual(["en", "ja", "ko", "es", "hi", "fr"]);
     expect(rows.every((r) => !r.published)).toBe(true);
     expect(rows.find((r) => r.lang === "ja")?.scored).toBe(10);
     expect(rows.find((r) => r.lang === "en")?.latestRun).toBeUndefined();

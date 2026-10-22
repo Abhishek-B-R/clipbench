@@ -102,7 +102,7 @@ async def test_resume_skips_done_rows(tmp_settings, tmp_path):
 
 async def test_unsupported_language_is_skipped(tmp_settings, tmp_path):
     clip = make_clip(tmp_path, "a")
-    clip = clip.model_copy(update={"language": "fr", "reference": clip.reference.model_copy(update={"language": "fr"})})
+    clip = clip.model_copy(update={"language": "de", "reference": clip.reference.model_copy(update={"language": "de"})})
     res = await fake_run(tmp_settings, [clip])
     rows = pd.read_parquet(res.rows_path)
     assert rows["status"].tolist() == ["skipped"]

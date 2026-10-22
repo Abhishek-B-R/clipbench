@@ -19,7 +19,7 @@ from rich.table import Table
 from clipbench.config import Settings, get_settings
 from clipbench.models import Clip, Reference
 
-LANGS = ["en", "ja", "ko", "es", "hi"]
+LANGS = ["en", "ja", "ko", "es", "hi", "fr"]
 
 
 @dataclass(frozen=True)

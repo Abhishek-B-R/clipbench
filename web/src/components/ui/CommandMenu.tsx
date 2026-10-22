@@ -11,6 +11,7 @@ import {
   History,
   LayoutList,
   LogIn,
+  Play,
   Moon,
   Search,
   Sparkles,
@@ -36,7 +37,9 @@ import { toast } from "./Toast";
 import { setCommandMenuOpen, useCommandMenuOpen } from "./commandMenuStore";
 
 const PAGES = [
+  { to: "/try", label: "Try it", icon: Play, hint: "Drop a clip, compare systems side by side" },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy, hint: "Every model ranked, with intervals" },
+  { to: "/early", label: "Early look", icon: FlaskConical, hint: "First run on creator captions, not a ranking" },
   { to: "/streaming", label: "Streaming leaderboard", icon: Radio, hint: "Realtime APIs: first partial, final segment, stability" },
   { to: "/features", label: "Feature matrix", icon: Table2, hint: "What each provider offers, with doc links" },
   { to: "/compare", label: "Compare", icon: GitCompareArrows, hint: "Pick models, clip types and a metric" },

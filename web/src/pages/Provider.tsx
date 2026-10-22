@@ -22,6 +22,7 @@ import {
   providerColor,
   providerLabel,
   rankHistory,
+  runLanguageStatus,
   stabilityFor,
   tagProfile,
   youtubeUrl,
@@ -43,7 +44,11 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { buttonClass } from "@/components/ui/Button";
 import { EmptyState, ErrorState } from "@/components/ui/State";
 import { TierControl, TierNote } from "@/components/ui/TierControl";
-import { Gated, NotRankedList, minCoverage } from "@/components/ui/Gate";
+import { GateBars, NotRankedList, minCoverage } from "@/components/ui/Gate";
+import { EarlyLabel, LatencyNote, earlySource } from "@/components/early/EarlyBoard";
+import { HeatStrip } from "@/components/early/EarlyCharts";
+import { earlyLook, earlyRowOf, flaggedClips, partialCause, thumbUrl } from "@/lib/early";
+import { CATEGORIES } from "@/lib/config";
 import { BadgeEmbed, CanaryHistory, ComputeSpec, EveryMeasure, FeatureRow, ReliabilitySpec, SettingsSpec, StrengthsFailures, priceSpeed, providerSections } from "@/components/v3/ProviderSections";
 
 // Only with accounts on; it carries the Better Auth client, so the public build never loads it.
@@ -114,14 +119,10 @@ export default function Provider() {
         actions={run && p && isPublished(run) && isEligible(run, id) && <Actions run={run} id={id} />}
       >
         {(!run || isPublished(run)) && <TierControl run={run} value={tier} onChange={(v) => set("tier", v)} />}
-        {run && isPublished(run) && <Segmented label="Metric" value={metric} onChange={(v) => set("metric", v)} options={run.metrics.map((m) => ({ value: m.name, label: m.label }))} />}
+        {run && <Segmented label="Metric" value={metric} onChange={(v) => set("metric", v)} options={run.metrics.map((m) => ({ value: m.name, label: m.label }))} />}
       </PageHeader>
       {run && p && !isPublished(run) ? (
-        <div className="frame py-8">
-          <Gated run={run} what="model results">
-            {null}
-          </Gated>
-        </div>
+        <EarlyModel run={run} id={id} tier={tier} metric={metric} />
       ) : run && p && !isEligible(run, id) ? (
         <div className="frame py-8">
           <NotRankedList items={[exclusionOf(run, id)!]} label={(x) => providerLabel(run, x)} min={minCoverage(run.languages?.find((l) => l.lang === run.language))} />
@@ -666,9 +667,161 @@ function Spec({ n, title, rows, source, footer }: { n: number; title: string; ro
  */
 function pipelineLine(run: Run, id: string, tier: Tier) {
   const metric = primaryMetric(run).name;
+  const row = earlyRowOf(run, id, tier, metric);
+  if (row) {
+    const lang = LANGUAGE_NAME[run.language] ?? run.language;
+    return `Early look: ${pct(row.error_rate)} ${run.metrics.find((m) => m.name === metric)?.label.toLowerCase() ?? metric} on ${int(row.n_clips)} of ${int(row.total)} ${lang} clips, against creator captions that nobody has verified. Not a ranking.`;
+  }
   const total = run.clips.filter((c) => c.tier === tier).length;
   const scored = new Set(run.per_clip.filter((r) => r.provider === id && r.tier === tier && r.metric === metric && Number.isFinite(r.error_rate)).map((r) => r.video_id)).size;
   const lang = LANGUAGE_NAME[run.language] ?? run.language;
   const tierWord = tier === "verified" ? "verified" : "creator-captioned";
   return `Pipeline check only: scored on ${int(scored)} of ${int(total)} ${tierWord} clips in this run. ${lang} results are not published yet.`;
+}
+
+// ---------------------------------------------------------------- early look (unpublished language)
+
+/**
+ * A model page while its language is below the publication gate: this model's early-look numbers (same label as
+ * /early), its clips by category, where it struggled, its features and price. No rank, no comparison verdicts.
+ */
+function EarlyModel({ run, id, tier, metric }: { run: Run; id: string; tier: Tier; metric: string }) {
+  const look = earlyLook(run, tier, metric);
+  const me = look.rows.find((r) => r.provider === id);
+  const p = providerById(run, id)!;
+  const ps = priceSpeed(run, id, tier, metric);
+  const has = providerSections(run, id, tier, metric);
+  const st = run.languages?.find((l) => l.lang === run.language);
+  const flagged = flaggedClips(run, tier).ids;
+  let n = 0;
+  const fig = () => ++n;
+  if (!me)
+    return (
+      <div className="frame grid gap-8 py-8">
+        <EarlyLabel />
+        <EmptyState title="No scores for this model on this tier." body="It was not run on these clips, or every request failed." />
+      </div>
+    );
+  const cats = run.aggregates
+    .filter((a) => a.provider === id && a.tier === tier && a.metric === metric && a.slice_kind === "category" && Number.isFinite(a.error_rate))
+    .sort((a, b) => b.error_rate - a.error_rate);
+  const worst = (run.errors.providers[id]?.worst_clips ?? []).slice(0, 6);
+  const cause = partialCause(me.partial);
+  return (
+    <div className="frame grid gap-8 py-8">
+      <EarlyLabel />
+      <Stats
+        items={[
+          { label: look.metricLabel, value: pct(me.error_rate), note: `95% interval ${pct(me.ci_low)} to ${pct(me.ci_high)}, against creator captions.` },
+          {
+            label: "Clips covered",
+            value: (
+              <span className="inline-flex items-baseline gap-1">
+                {int(me.n_clips)}
+                <span className="text-[18px] text-ink-3">/ {int(me.total)}</span>
+              </span>
+            ),
+            note: me.partial ? `Partial: ${me.partial}.` : "Every clip in the run.",
+          },
+          {
+            label: "Per audio hour",
+            value: me.cost_per_hour ? usdPerHour(me.cost_per_hour) : "free",
+            note: p.paid ? `List price ${usdPerHour(p.usd_per_hour)} per hour, ${usdPerHour(ps.per1k)} per 1,000 min, checked ${date(p.pricing_checked_on)}.` : "No per-request charge.",
+          },
+          look.latency.sequential
+            ? { label: "Median latency", value: ms(me.latency_p50), note: me.latency_p50 == null ? "No timing for this system (captions are fetched, not transcribed)." : `Per clip, upload included, p95 ${ms(me.agg.latency_p95)}.` }
+            : { label: "Hallucination", value: pct(me.hallucination_rate), note: "Invented text beyond the reference length." },
+        ]}
+      />
+      <LatencyNote look={look} />
+      <div className="grid gap-8 lg:grid-cols-2">
+        <Spec
+          n={fig()}
+          title="This run"
+          source={earlySource(look, "aggregates + stability")}
+          rows={[
+            ["Hallucination rate", `${pct(me.hallucination_rate)} of reference length`],
+            ["Long outputs", `${pct(me.long_output_rate)} of clips`],
+            ["Run-to-run drift", me.stability ? `${pct(me.stability.disagreement, 2)} of text, ${int(me.stability.n)} clips x ${me.stability.repeats} repeats` : "Not rerun in this run"],
+            ["Cost of this run", `$${me.agg.cost_usd_total.toFixed(2)} for ${me.agg.audio_hours.toFixed(2)} h of audio`],
+            ["Coverage", me.n_clips < me.total ? `${int(me.n_clips)} of ${int(me.total)} clips${cause ? ` (${cause})` : ""}` : "Every clip"],
+            ["Model id", me.model_id],
+          ]}
+        />
+        {cats.length > 0 && (
+          <Figure n={fig()} title="By content category" caption="This model only, on its own clips. Slices under the minimum are too small to read." source={earlySource(look, "aggregates (slice_kind=category)")} bodyClassName="p-0 sm:p-0" className="self-start">
+            <ul>
+              {cats.map((a) => (
+                <li key={a.slice} className="grid grid-cols-[minmax(0,1fr)_auto_72px] items-center gap-3 border-b border-line px-4 py-2.5 text-[13px] last:border-b-0 sm:px-5">
+                  <span className="truncate text-ink-2">{CATEGORIES[a.slice] ?? a.slice}</span>
+                  {a.too_small ? <Badge tone="warn">Too small</Badge> : <span className="num text-[12px] text-ink-3">{int(a.n_clips)} clips</span>}
+                  <span className={cn("num text-right", a.too_small ? "text-ink-3" : "text-ink")}>{pct(a.error_rate)}</span>
+                </li>
+              ))}
+            </ul>
+          </Figure>
+        )}
+      </div>
+      {worst.length > 0 && (
+        <Figure n={fig()} title="Where it struggled most against the others" caption="Its worst clips, next to the median of every other system on the same clip. A clip flagged for re-review probably has a bad reference." source="source: errors (worst_clips), per_clip" bodyClassName="p-0 sm:p-0">
+          <ul className="grid sm:grid-cols-2 xl:grid-cols-3">
+            {worst.map((w) => {
+              const clip = clipById(run, w.video_id);
+              const errs = new Map(run.per_clip.filter((r) => r.video_id === w.video_id && r.tier === tier && r.metric === metric).map((r) => [r.provider, r.error_rate]));
+              return (
+                <li key={w.video_id} className="flex gap-3 border-b border-line p-4 sm:border-r sm:p-5">
+                  <a href={youtubeUrl(clip ?? { video_id: w.video_id })} target="_blank" rel="noreferrer" className="relative block h-[54px] w-24 shrink-0 overflow-hidden rounded-xs bg-sunken" aria-label={`Open clip ${w.video_id} on YouTube`}>
+                    <img src={thumbUrl(w.video_id)} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="size-full object-cover" />
+                  </a>
+                  <span className="grid min-w-0 gap-1">
+                    <span className="truncate font-mono text-[11.5px] text-ink">{w.video_id}</span>
+                    <span className="text-[12.5px] text-ink-2">
+                      <span className="num text-signal-ink">{pct(w.error_rate, 0)}</span> here, others' median <span className="num">{pct(w.others_median, 0)}</span>
+                    </span>
+                    <HeatStrip run={run} order={look.rows.map((r) => r.provider)} errs={errs} size={9} />
+                    {flagged.has(w.video_id) && <Badge tone="signal">Flagged for re-review</Badge>}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </Figure>
+      )}
+      {has.features && <FeatureRow n={fig()} run={run} id={id} />}
+      <div className="grid gap-8 lg:grid-cols-2">
+        <Spec
+          n={fig()}
+          title="Price and data policy"
+          source={`source: providers, checked ${p.pricing_checked_on}`}
+          rows={[
+            ["List price", p.paid ? `${usdPerHour(p.usd_per_hour)} per hour of audio` : "Free"],
+            ["Per 1,000 minutes", p.paid ? usdPerHour(ps.per1k) : "$0"],
+            ["Audio leaves your machine", p.uploads_audio ? "Yes, uploaded to the provider" : "No"],
+            ["Retention", retention(p.retention_days, p.uploads_audio)],
+            ["Opt-out", p.uploads_audio ? optOut(p.opt_out) : "Not needed"],
+          ]}
+        />
+        <SettingsSpec n={fig()} run={run} id={id} />
+      </div>
+      {st && (
+        <section className="grid gap-6 rounded-md border border-dashed border-line-strong bg-paper p-5 sm:p-6 lg:grid-cols-2 lg:gap-10">
+          <div>
+            <h2 className="label">
+              <span className="text-signal-ink">Not ranked yet</span> / {LANGUAGE_NAME[run.language] ?? run.language}
+            </h2>
+            <p className="mt-3 max-w-[56ch] text-[14px] text-ink-2">Ranks and head-to-head verdicts appear once the language passes the publication gate. The early look shows every system side by side.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link to="/early" className={buttonClass("secondary", "sm")}>
+                Early look <ArrowRight size={14} />
+              </Link>
+              <Link to={`/lang/${run.language}`} className={buttonClass("ghost", "sm")}>
+                Progress
+              </Link>
+            </div>
+          </div>
+          <GateBars status={runLanguageStatus(run)} />
+        </section>
+      )}
+    </div>
+  );
 }

@@ -46,7 +46,8 @@ export function Figure({
         </div>
         {controls && <div className="flex shrink-0 flex-wrap items-center gap-2">{controls}</div>}
       </figcaption>
-      <div className={cn("p-4 sm:p-5", bodyClassName)}>{children}</div>
+      {/* cn() does not merge Tailwind classes, so a given bodyClassName replaces the default padding instead of fighting it. */}
+      <div className={bodyClassName ?? "p-4 sm:p-5"}>{children}</div>
       {source && <div className="border-t border-line px-4 py-2.5 font-mono text-[11px] text-ink-3 sm:px-5">{source}</div>}
     </figure>
   );

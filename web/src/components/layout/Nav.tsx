@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router";
 import * as Sheet from "@radix-ui/react-dialog";
-import { Menu as MenuIcon, Search, X } from "lucide-react";
+import { Menu as MenuIcon, Play, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { GITHUB_URL } from "@/lib/config";
 import { ACCOUNTS } from "@/lib/flags";
@@ -19,7 +19,7 @@ const MobileAccount = ACCOUNTS ? lazy(() => import("./AccountNav").then((m) => (
 
 export const NAV_LINKS = [
   { to: "/leaderboard", label: "Leaderboard" },
-  { to: "/streaming", label: "Streaming" },
+  { to: "/early", label: "Early look" },
   { to: "/compare", label: "Compare" },
   { to: "/picker", label: "Picker" },
   { to: "/features", label: "Features" },
@@ -52,14 +52,14 @@ export function Nav() {
         <Link to="/" aria-label="clipbench home" className="shrink-0 rounded-sm">
           <Wordmark />
         </Link>
-        <nav aria-label="Main" className="hidden items-center gap-0.5 lg:flex">
+        <nav aria-label="Main" className="hidden items-center gap-0.5 xl:flex">
           {NAV_LINKS.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
               className={({ isActive }) =>
                 cn(
-                  "rounded-sm px-2.5 py-1.5 text-[13.5px] transition-colors",
+                  "whitespace-nowrap rounded-sm px-2.5 py-1.5 text-[13.5px] transition-colors",
                   isActive ? "text-ink" : "text-ink-2 hover:text-ink",
                 )
               }
@@ -69,6 +69,18 @@ export function Nav() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-1.5">
+          <NavLink
+            to="/try"
+            className={({ isActive }) =>
+              cn(
+                "hidden h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-sm px-2.5 text-[13px] font-medium transition-colors sm:inline-flex",
+                isActive ? "bg-ink text-paper" : "border border-line-strong bg-surface text-ink hover:border-ink",
+              )
+            }
+          >
+            <Play size={12} strokeWidth={2} aria-hidden className="fill-current" />
+            Try it
+          </NavLink>
           <button
             type="button"
             onClick={() => setCommandMenuOpen(true)}
@@ -120,7 +132,7 @@ function MobileMenu() {
   useEffect(() => setOpen(false), [loc.pathname]);
   return (
     <Sheet.Root open={open} onOpenChange={setOpen}>
-      <Sheet.Trigger className="grid size-8 place-items-center rounded-sm text-ink-2 hover:bg-sunken hover:text-ink lg:hidden" aria-label="Open menu">
+      <Sheet.Trigger className="grid size-8 place-items-center rounded-sm text-ink-2 hover:bg-sunken hover:text-ink xl:hidden" aria-label="Open menu">
         <MenuIcon size={18} />
       </Sheet.Trigger>
       <Sheet.Portal>
@@ -134,7 +146,7 @@ function MobileMenu() {
             </Sheet.Close>
           </div>
           <nav aria-label="Mobile" className="frame grid">
-            {[{ to: "/", label: "Overview" }, ...NAV_LINKS, { to: "/changelog", label: "Changelog" }].map((l) => (
+            {[{ to: "/", label: "Overview" }, { to: "/try", label: "Try it" }, ...NAV_LINKS, { to: "/clips", label: "Clips" }, { to: "/changelog", label: "Changelog" }].map((l) => (
               <NavLink
                 key={l.to}
                 to={l.to}

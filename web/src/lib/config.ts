@@ -26,6 +26,22 @@ export const RULES = {
   maxChannelShare: 0.05,
   /** ... and at least this many content categories (not counting "other"). */
   minCategories: 6,
+  /**
+   * A clip is flagged for re-review when every system with a result is above this error rate (and at least two have a
+   * result): clipbench/analysis/errors.py ALL_FAIL_THRESHOLD. Display only: the export's errors.all_fail_threshold wins.
+   */
+  allFailThreshold: 0.5,
+} as const;
+
+/**
+ * Measurements stated in the README ("First run") that the export does not carry yet. Shown only with this source
+ * line. Contract request: move them into run_meta.latency_mode (see the handoff report), then read them from there.
+ */
+export const README_FIRST_RUN = {
+  source: "README.md, First run (Oct 2026)",
+  /** One provider's latency for the same clip with ten providers uploading at once, and alone, in seconds. */
+  contendedLatencyS: 38,
+  aloneLatencyS: 4.6,
 } as const;
 
 /** v2 languages, in shipping order (docs/V2.md). */

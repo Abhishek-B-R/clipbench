@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { TierControl } from "@/components/ui/TierControl";
 import { ErrorState } from "@/components/ui/State";
 import { buttonClass } from "@/components/ui/Button";
+import { EarlyLookView } from "@/components/early/EarlyLookView";
 
 // Views beyond accuracy (sweeps, long-form, formatting, ...) carry their own chart code: one lazy chunk.
 const LeaderViewPanel = lazy(() => import("@/components/v3/LeaderViews"));
@@ -62,7 +63,7 @@ export default function Leaderboard() {
         description={
           published
             ? "Every model on the same clips, ranked by error rate with 95% bootstrap intervals. The vs-leader column comes from the paired test, not from the gap between rows."
-            : "Rankings appear here once a language passes the publication gate. Until then, this page shows progress."
+            : "No language has passed the publication gate, so there is no ranking yet. Until then this page shows the early look: every system on creator captions, sorted by error, without ranks."
         }
         actions={
           run &&
@@ -75,7 +76,8 @@ export default function Leaderboard() {
         }
       >
         {published && <TierControl run={run ?? undefined} value={tier} onChange={(v) => set("tier", v)} />}
-        {run && published && (
+        {run && !published && <Badge tone="warn">Early look, not a ranking</Badge>}
+        {run && (
           <Segmented
             label="Metric"
             value={metric}
@@ -97,7 +99,9 @@ export default function Leaderboard() {
         )}
       </PageHeader>
       <div className="frame py-8">
-        {state.status === "ready" ? (
+        {state.status === "ready" && run && !published ? (
+          <EarlyLookView run={run} tier={tier} metric={metric} />
+        ) : state.status === "ready" ? (
           <Gated run={run} lang={lang ?? undefined}>
             {run && (
               <div className="grid grid-cols-1 gap-8">

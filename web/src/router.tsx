@@ -22,6 +22,8 @@ const Lang = lazy(() => import("./pages/Lang"));
 const Findings = lazy(() => import("./pages/Findings"));
 const Streaming = lazy(() => import("./pages/Streaming"));
 const Features = lazy(() => import("./pages/Features"));
+const Early = lazy(() => import("./pages/Early"));
+const Try = lazy(() => import("./pages/Try"));
 
 function L({ children }: { children: ReactNode }) {
   return (
@@ -47,6 +49,8 @@ export const router = createBrowserRouter([
     children: [
       { path: "/", element: <Landing /> },
       { path: "/leaderboard", element: <L><Leaderboard /></L> },
+      { path: "/early", element: <L><Early /></L> },
+      { path: "/try", element: <L><Try /></L> },
       { path: "/providers/:id", element: <L><Provider /></L> },
       { path: "/streaming", element: <L><Streaming /></L> },
       { path: "/features", element: <L><Features /></L> },

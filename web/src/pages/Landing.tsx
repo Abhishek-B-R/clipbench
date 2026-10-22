@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { useRun, useSource } from "@/lib/data";
-import { isPublished, languageProgress } from "@/lib/analysis";
+import { LANGUAGE_NAME, isPublished, languageProgress } from "@/lib/analysis";
 import { ACCOUNTS } from "@/lib/flags";
 import { POSITIONING } from "@/lib/config";
 import { Section, Rule } from "@/components/layout/Section";
@@ -14,6 +14,9 @@ import { Reproduce } from "@/landing/Reproduce";
 import { Method } from "@/landing/Method";
 import { RequestCTA } from "@/landing/RequestCTA";
 import { FAQ } from "@/landing/FAQ";
+import { EarlySnapshot, EarlyStatStrip, FirstRun } from "@/landing/FirstRun";
+import { YOUTUBE_NOTE, earlyLook } from "@/lib/early";
+import { int } from "@/lib/format";
 
 // The ranking sections (board, clip types, matrix, cost chart, failure modes) only render for a published language,
 // so their code loads as its own chunk instead of weighing on every first visit while nothing is published.
@@ -38,7 +41,8 @@ export default function Landing() {
 
   return (
     <>
-      <Hero run={run} progress={progress} published={published} />
+      <Hero run={run} published={published} />
+      {!published && run && earlyLook(run).rows.length > 0 && <EarlyStatStrip run={run} />}
 
       {published && run ? (
         <>
@@ -48,6 +52,28 @@ export default function Landing() {
         </>
       ) : (
         <>
+          {run && earlyLook(run).rows.length > 0 && (
+            <>
+              <Section
+                id="first-run"
+                index={idx()}
+                kicker="First run"
+                title="What the first real run already showed."
+                intro={`${int(earlyLook(run).total)} ${LANGUAGE_NAME[run.language] ?? run.language} clips from ${int(earlyLook(run).channels)} channels, ${int(earlyLook(run).rows.length)} systems, scored against the creators' own captions. A pipeline check, not a ranking, and it already surfaced four things.`}
+              >
+                <FirstRun run={run} />
+              </Section>
+              <Section
+                id="early"
+                index={idx()}
+                kicker="Early look"
+                title="Every system on the same clips."
+                intro={YOUTUBE_NOTE}
+              >
+                <EarlySnapshot run={run} />
+              </Section>
+            </>
+          )}
           <Section
             id="measures"
             index={idx()}
@@ -61,8 +87,8 @@ export default function Landing() {
             id="progress"
             index={idx()}
             kicker="Progress"
-            title="First results: in progress."
-            intro="No ranking is published until a language passes the gate below. These counts come straight from the latest export and update with every run."
+            title="The road to a ranking."
+            intro="A language is ranked only once its references are corrected by ear and enough systems cover them. These counts come straight from the latest export."
           >
             {progress ? <LanguageBoard rows={progress} /> : <Skeleton className="h-80 w-full" />}
             {src.status === "error" && <ErrorState className="mt-4" title="Could not load the run index." body="Progress counts show once the data files load." onRetry={() => location.reload()} />}

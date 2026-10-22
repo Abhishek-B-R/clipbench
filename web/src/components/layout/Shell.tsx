@@ -63,7 +63,7 @@ export function DemoBanner() {
         ) : (
           <span className="min-w-0 truncate">
             <span className="font-medium text-ink">First results in progress.</span>
-            <span className="hidden sm:inline"> No language has passed the publication gate yet, so no ranking is shown.</span>
+            <span className="hidden sm:inline"> No language has passed the publication gate yet, so no ranking is shown; the early look has the first run.</span>
           </span>
         )}
         {import.meta.env.DEV && s.forced ? (
@@ -71,8 +71,8 @@ export function DemoBanner() {
             Back to real results
           </button>
         ) : !s.demo ? (
-          <Link to="/#progress" className={btn}>
-            See progress
+          <Link to="/early" className={btn}>
+            See the early look
           </Link>
         ) : null}
         {!import.meta.env.DEV || s.forced ? null : !s.demo ? (

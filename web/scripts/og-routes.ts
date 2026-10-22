@@ -18,7 +18,7 @@
  *
  * Every number in a description comes from dist/data (index.json, findings/<lang>.json). Images come from
  * dist/og (written by the exporter); a route without its own image falls back to og/home.png, or none.
- * SITE_URL sets the absolute origin (default https://clipbench.abhishekbr.workers.dev, the production domain).
+ * SITE_URL sets the absolute origin (default https://clipbench.abhishekbr.com, the production domain; the site Worker itself also answers on clipbench.abhishekbr.workers.dev).
  *
  * Run: bun run scripts/og-routes.ts   (part of `bun run build`)
  */
@@ -29,7 +29,7 @@ import { LANGUAGE_NAME, languageProgress } from "../src/lib/analysis";
 import type { FindingsFile, Run, RunIndex } from "../src/lib/types";
 
 const DIST = process.env.OG_DIST ?? join(import.meta.dir, "..", "dist");
-const SITE = (process.env.SITE_URL ?? "https://clipbench.abhishekbr.workers.dev").replace(/\/$/, "");
+const SITE = (process.env.SITE_URL ?? "https://clipbench.abhishekbr.com").replace(/\/$/, "");
 const LINE = "The independent benchmark for captions on real short-form video: accuracy, word timing, hallucination over music, and cost.";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -126,6 +126,8 @@ for (const lang of LANGUAGES) {
 
 // Static pages. Descriptions state what the page is; no numbers, so they hold whether or not a language is published.
 const PAGES: [string, string, string][] = [
+  ["/try", "Try it: compare speech-to-text on your clip", "Drop or record a short clip and compare how five speech-to-text models caption it, side by side, with word-timed playback and SRT downloads."],
+  ["/early", "Early look", "The first clipbench run on real Japanese short-form video, scored against creator captions. An early look, not a ranking."],
   ["/leaderboard", "Leaderboard", "Speech-to-text models ranked per language on real short-form video, with 95% intervals, once a language passes the publication gate."],
   ["/streaming", "Streaming leaderboard", "Realtime speech-to-text APIs on real short-form video: time to first partial, time to final segment, partial stability and final accuracy, never mixed with batch."],
   ["/features", "Speech-to-text feature matrix", "What each speech-to-text provider offers: languages, streaming, word timestamps, diarization, language ID, custom vocabulary, limits, retention and price, each linked to its docs."],

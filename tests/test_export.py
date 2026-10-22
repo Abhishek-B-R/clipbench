@@ -102,7 +102,9 @@ def test_export_writes_contract(web_settings, monkeypatch):
 
     assert run["errors"]["providers"]["alpha"]["top_substitutions"] == [["きょう", "今日", 3]]
     assert run["errors"]["examples"][0]["video_id"] == "v1"
-    assert set(run["errors"]) == {"providers", "examples"}
+    assert set(run["errors"]) >= {"providers", "examples"}
+    assert set(run["errors"]) <= {"providers", "examples", "all_fail", "all_fail_threshold"}
+    assert all(isinstance(v, str) for v in run["errors"].get("all_fail", []))  # ids only, never text
 
     clips = {c["video_id"]: c for c in run["clips"]}
     assert clips["v0"] == {"video_id": "v0", "tier": "verified", "duration_s": 20.0, "channel": "ch0",

@@ -250,7 +250,12 @@ def errors_section(errors: dict | None) -> dict[str, Any]:
         {k: e.get(k) for k in ("provider", "video_id", "ref_snippet", "hyp_snippet")}
         for e in errors.get("examples", [])
     ]
-    return clean({"providers": providers, "examples": examples})
+    out: dict[str, Any] = {"providers": providers, "examples": examples}
+    # Clips every provider failed (usually a bad reference); ids and the threshold only, no text.
+    if "all_fail" in errors:
+        out["all_fail"] = sorted(str(v) for v in errors.get("all_fail") or [])
+        out["all_fail_threshold"] = errors.get("all_fail_threshold")
+    return clean(out)
 
 
 def _channels(settings: Settings, run_id: str) -> dict[str, str]:

@@ -2,16 +2,13 @@ import { Link } from "react-router";
 import { m, useReducedMotion } from "motion/react";
 import { ArrowRight } from "lucide-react";
 import type { Run } from "@/lib/types";
-import { LANGUAGE_NAME, overall, providerLabel, defaultTier, type LanguageProgress } from "@/lib/analysis";
+import { overall, providerLabel, defaultTier } from "@/lib/analysis";
 import { date, int, ms, pct, usdPerHour } from "@/lib/format";
 import { buttonClass } from "@/components/ui/Button";
-import { Skeleton } from "@/components/ui/Skeleton";
 import { Rule } from "@/components/layout/Section";
 import { CopyCommand } from "./CopyCommand";
-import { LANGUAGES, REPO_SLUG, RULES } from "@/lib/config";
-import { Badge } from "@/components/ui/Badge";
-import { Corners } from "@/components/ui/Card";
-import { GateBar } from "@/components/ui/Gate";
+import { TryCard } from "./TryCard";
+import { LANGUAGES, REPO_SLUG } from "@/lib/config";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
@@ -20,7 +17,7 @@ const ease = [0.16, 1, 0.3, 1] as const;
  * when a language is published, the latest finding and a stat strip; otherwise "first results: in progress"
  * with live progress toward the publication gate. Every number comes from the export.
  */
-export function Hero({ run, progress, published }: { run: Run | undefined; progress: LanguageProgress[] | undefined; published: boolean }) {
+export function Hero({ run, published }: { run: Run | undefined; published: boolean }) {
   const reduce = useReducedMotion();
   const anim = (d: number) =>
     reduce ? {} : { initial: { opacity: 0, y: 14 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.8, ease, delay: d } };
@@ -32,8 +29,8 @@ export function Hero({ run, progress, published }: { run: Run | undefined; progr
         <div className="flex min-w-0 flex-col">
           <m.div {...anim(0)} className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1 pr-3 pl-1.5 text-[12px] text-ink-2">
-              <span className="rounded-full bg-ink px-2 py-0.5 font-mono text-[10.5px] tracking-wide text-paper uppercase">{published ? "Latest run" : "First results"}</span>
-              {published && run ? date(run.created_at) : "in progress"}
+              <span className="rounded-full bg-ink px-2 py-0.5 font-mono text-[10.5px] tracking-wide text-paper uppercase">{published ? "Latest run" : "First run"}</span>
+              {run ? date(run.created_at) : "in progress"}
             </span>
             <span className="label">Independent / open source / no provider funding</span>
           </m.div>
@@ -52,8 +49,8 @@ export function Hero({ run, progress, published }: { run: Run | undefined; progr
                 <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             ) : (
-              <Link to="/methodology" className={buttonClass("primary", "lg", "group")}>
-                How it is measured
+              <Link to="/early" className={buttonClass("primary", "lg", "group")}>
+                See the first run
                 <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             )}
@@ -62,53 +59,11 @@ export function Hero({ run, progress, published }: { run: Run | undefined; progr
         </div>
 
         <m.div {...anim(0.3)} className="min-w-0 self-end">
-          <ProgressCard progress={progress} published={published} />
+          <TryCard />
         </m.div>
       </div>
       {published && run && <StatStrip run={run} />}
     </section>
-  );
-}
-
-/** Live progress toward the first published results, one bar per language. */
-function ProgressCard({ progress, published }: { progress: LanguageProgress[] | undefined; published: boolean }) {
-  return (
-    <div className="relative rounded-lg border border-line bg-surface shadow-card">
-      <Corners />
-      <div className="flex items-center justify-between border-b border-line px-5 py-3">
-        <span className="label">{published ? "Languages" : "Progress to first results"}</span>
-        <Link to="#progress" className="label hover:text-ink">
-          Details
-        </Link>
-      </div>
-      {progress ? (
-        <ul>
-          {progress.map((l) => (
-            <li key={l.lang} className="border-b border-line px-5 py-3.5 last:border-b-0">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <Link to={`/lang/${l.lang}`} className="text-[14px] font-medium text-ink hover:underline">
-                  {LANGUAGE_NAME[l.lang] ?? l.lang}
-                </Link>
-                <span className="flex items-center gap-2.5">
-                  {l.scored > 0 && !l.published && <span className="num text-[11.5px] text-ink-3">{int(l.scored)} scored</span>}
-                  {l.published ? <Badge tone="good">Published</Badge> : l.latestRun ? <Badge tone="outline">Collecting</Badge> : <Badge>Not started</Badge>}
-                </span>
-              </div>
-              <GateBar label="Verified clips" value={l.verified_clips} target={RULES.publishMinVerified} />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="grid gap-3 p-5">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-9 w-full" />
-          ))}
-        </div>
-      )}
-      <p className="border-t border-line px-5 py-3 text-[12px] text-ink-3">
-        A language is ranked at {int(RULES.publishMinVerified)} verified clips, {int(RULES.publishMinProviders)} providers with results on at least {pct(RULES.minProviderCoverage, 0)} of them, and a verified set spread across channels and categories.
-      </p>
-    </div>
   );
 }
 

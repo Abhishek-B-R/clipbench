@@ -11,7 +11,7 @@ function verifiedSentence(run?: Run) {
   const base = "Headline numbers use only clips whose captions a person corrected while listening. Creator captions are scored separately and labelled unverified.";
   if (!run) return base;
   const v = run.clips.filter((c) => c.tier === "verified").length;
-  return v > 0 ? `${base} Verified so far: ${int(v)} ${v === 1 ? "clip" : "clips"}.` : `${base} No clip in the latest run is verified yet.`;
+  return v > 0 ? `${base} Verified so far: ${int(v)} ${v === 1 ? "clip" : "clips"}.` : base;
 }
 
 /** Four trust signals, each with a small diagram drawn in the page's own language. */

@@ -13,7 +13,7 @@ import { EarlyBoardTable, EarlyLabel } from "@/components/early/EarlyBoard";
 export function EarlyStatStrip({ run }: { run: Run }) {
   const look = earlyLook(run);
   const stats = [
-    { value: int(look.total), label: "Clips scored", note: `${LANGUAGE_NAME[run.language] ?? run.language}, from ${int(look.channels)} channels. Creator captions, none checked by ear yet.` },
+    { value: int(look.total), label: "Clips scored", note: `${LANGUAGE_NAME[run.language] ?? run.language}, from ${int(look.channels)} channels. Scored against creator captions.` },
     { value: int(look.rows.length), label: "Systems on the same clips", note: "APIs, open models on a laptop, and YouTube's own auto captions." },
     { value: int(scoredTranscriptions(run, look.tier)), label: "Scored transcriptions", note: "One main pass per system and clip. Stability reruns are on top." },
     { value: `$${runSpend(run, look.tier).toFixed(2)}`, label: "Cost of the main pass", note: "Every system together, at list prices." },

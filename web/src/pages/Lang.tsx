@@ -4,7 +4,7 @@ import { Link, useParams, useSearchParams } from "react-router";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import type { LanguageStatus } from "@/lib/types";
 import { useRunFor, useSource } from "@/lib/data";
-import { CATEGORY_KEYS, LANGUAGE_NAME, aggregatesFor, defaultTier, isPublished, languageProgress, primaryMetric, runLanguageStatus } from "@/lib/analysis";
+import { CATEGORY_KEYS, LANGUAGE_NAME, aggregatesFor, defaultTier, isPublished, languageProgress, pickMetric, pickTier, primaryMetric, runLanguageStatus } from "@/lib/analysis";
 import { hasCaptionMetrics, sliceKindsIn, sliceLabel, slicesOf } from "@/lib/metrics";
 import { SliceFilter, readSlice, sliceParams } from "@/components/ui/SliceFilter";
 import { CaptionMetricsTable } from "@/components/charts/CaptionMetrics";
@@ -17,7 +17,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { buttonClass } from "@/components/ui/Button";
 import { EmptyState, ErrorState } from "@/components/ui/State";
-import { GateBars, NotRanked, NotRankedList, minCoverage } from "@/components/ui/Gate";
+import { LanguageReady, minCoverage } from "@/components/ui/Gate";
+import { EarlyLookView } from "@/components/early/EarlyLookView";
 import { MiniLeaderboard } from "@/landing/MiniLeaderboard";
 
 /**
@@ -67,14 +68,16 @@ export default function Lang() {
       <PageHeader
         eyebrow={
           <span className="inline-flex items-center gap-2">
-            Language / {code} {published ? <Badge tone="good">Published</Badge> : <Badge tone="outline">Not published yet</Badge>}
+            Language / {code} {published ? <Badge tone="good">Ranked</Badge> : run ? <Badge tone="warn">Early look</Badge> : <Badge>Set up</Badge>}
           </span>
         }
         title={name}
         description={
           published
             ? `Ranked on clips whose captions a person corrected by ear, from the run of ${run ? date(run.created_at) : ""}.`
-            : `No ranking yet. ${name} is published once it has ${int(RULES.publishMinVerified)} verified clips, ${int(RULES.publishMinProviders)} providers with results on at least ${pct(minCoverage(status), 0)} of them, and a verified set that passes the diversity rules.`
+            : run
+              ? `What the latest ${name} run measured, every system on the same clips against the creators' own captions. The ranking opens once ${int(RULES.publishMinVerified)} clips are corrected by ear and at least ${int(RULES.publishMinProviders)} systems cover ${pct(minCoverage(status), 0)} of them.`
+              : `${name} is set up in the pipeline. Its results appear here after its first run.`
         }
         actions={
           published && (
@@ -104,43 +107,9 @@ export default function Lang() {
             )}
           </>
         )}
-        {state.status === "ready" && !published && (
-          <div className="grid items-start gap-8 lg:grid-cols-2">
-            <Figure n={1} title="Publication gate" caption="Counts from the latest export for this language." source={run ? `source: run ${run.run_id}` : "source: index.json"}>
-              {status ? <GateBars status={status} /> : <Skeleton className="h-20 w-full" />}
-              {run ? <NotRanked run={run} className="mt-5" /> : status?.providers_excluded?.length ? <NotRankedList items={status.providers_excluded} min={minCoverage(status)} className="mt-5" /> : null}
-            </Figure>
-            <Figure n={2} title="Latest run" source={run ? `source: run ${run.run_id}` : "source: index.json"} bodyClassName="p-0 sm:p-0">
-              {run ? (
-                <dl>
-                  {[
-                    ["Date", date(run.created_at)],
-                    ["Clips scored", `${int(run.clips.length)} (${int(run.clips.filter((c) => c.tier === "verified").length)} verified)`],
-                    ["Providers run", int(run.providers.length)],
-                    ["Run id", run.run_id],
-                  ].map(([k, v]) => (
-                    <div key={k} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-4 border-b border-line px-4 py-2.5 last:border-b-0 sm:px-5">
-                      <dt className="text-[13px] text-ink-3">{k}</dt>
-                      <dd className="num text-[13px] text-ink">{v}</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : (
-                <p className="px-4 py-5 text-[13.5px] text-ink-2 sm:px-5">No run for {name} yet. The clip set is being collected.</p>
-              )}
-            </Figure>
-          </div>
-        )}
-        {state.status === "ready" && <DatasetStatus code={code} status={status} hasRun={Boolean(run)} />}
-        {state.status === "ready" && run && !published && (
-          <p className="text-[13.5px] text-ink-2">
-            Per-clip scores from this run are in the{" "}
-            <Link to="/clips" className="text-ink underline decoration-line-strong underline-offset-4">
-              clip browser
-            </Link>{" "}
-            as pipeline checks, not results.
-          </p>
-        )}
+        {state.status === "ready" && !published && run && <EarlyLookView run={run} tier={pickTier(run, null)} metric={pickMetric(run, null)} />}
+        {state.status === "ready" && !published && !run && <LanguageReady lang={code} />}
+        {state.status === "ready" && published && <DatasetStatus code={code} status={status} hasRun={Boolean(run)} />}
       </div>
     </>
   );

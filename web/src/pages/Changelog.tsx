@@ -75,7 +75,7 @@ function Entry({ c, latest, json, last }: { c: RunChange; latest: boolean; json:
           </h2>
           <p className="mt-1 text-[13.5px] text-ink-2">
             {run.providers.length} models{ranked ? ` (${eligibleProviders(run).size} ranked)` : ""} on {n} {tier === "verified" ? "verified" : "creator-captioned"} clips in {LANGUAGE_NAME[run.language] ?? run.language}
-            {ranked && c.leader ? `. Lowest ${primaryMetric(run).name.toUpperCase()}: ${pct(c.leader.error_rate)} (${pct(c.leader.ci_low)} to ${pct(c.leader.ci_high)}).` : `. ${LANGUAGE_NAME[run.language] ?? run.language} is below the publication gate, so no ranking or leader is shown.`}
+            {ranked && c.leader ? `. Lowest ${primaryMetric(run).name.toUpperCase()}: ${pct(c.leader.error_rate)} (${pct(c.leader.ci_low)} to ${pct(c.leader.ci_high)}).` : `. Early look on creator captions, unranked.`}
           </p>
           {(c.prev ? c.added.length + c.removed.length + c.changed.length > 0 : true) && (
             <ul className="mt-3 flex flex-wrap gap-1.5">

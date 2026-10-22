@@ -1,41 +1,34 @@
 import { AudioLines, Captions, Clock3, Coins, Languages } from "lucide-react";
-import { Badge } from "@/components/ui/Badge";
 import { Reveal } from "@/components/layout/Section";
 
 /**
  * What clipbench measures that other speech-to-text boards do not (docs/V2.md).
- * Each tile says whether the metric is already in the pipeline or comes with the v2 scoring work.
  */
 const ITEMS = [
   {
     icon: AudioLines,
     title: "Accuracy on edited, noisy video",
     body: "Character or word error rate on real Shorts with music beds, sound effects, jump cuts and fast delivery, reported per content category and with or without music.",
-    status: "live" as const,
   },
   {
     icon: Clock3,
     title: "Word timing",
     body: "Does each word light up when it is said? Median and p90 timing error per word against aligned references. A caption app lives or dies on this.",
-    status: "next" as const,
   },
   {
     icon: Captions,
     title: "Hallucination over music and silence",
     body: "Words a model invents where nobody speaks, per minute of non-speech audio. Some models are known to write lyrics or sign-offs over music.",
-    status: "next" as const,
   },
   {
     icon: Languages,
     title: "Non-English and code-switching",
     body: "Commercial APIs and open models on the same clips in English, Japanese, Korean, Spanish, Hindi and French, with the English spans inside other languages scored separately.",
-    status: "next" as const,
   },
   {
     icon: Coins,
     title: "Cost and speed",
     body: "List price per hour of audio and wall-clock latency per clip, next to the error rate, with paired tests so a lead only counts when it is real.",
-    status: "live" as const,
   },
 ];
 
@@ -45,11 +38,10 @@ export function Measures() {
       {ITEMS.map((it, i) => (
         <Reveal key={it.title} delay={(i % 3) * 0.05} y={8} className="bg-surface">
           <article className="flex h-full flex-col p-5 sm:p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center">
               <span className="grid size-9 place-items-center rounded-sm border border-line bg-sunken text-ink-2">
                 <it.icon size={17} strokeWidth={1.6} aria-hidden />
               </span>
-              {it.status === "live" ? <Badge tone="good">In the pipeline</Badge> : <Badge tone="outline">Next run</Badge>}
             </div>
             <h3 className="mt-5 text-[16px] font-medium text-ink">{it.title}</h3>
             <p className="mt-2 text-[13.5px] leading-relaxed text-ink-2">{it.body}</p>

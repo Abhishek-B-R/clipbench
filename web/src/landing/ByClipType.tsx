@@ -45,7 +45,7 @@ export function ByClipType({ run }: { run: Run }) {
   if (winners.length === 0)
     return (
       <EmptyState
-        title="No clip types tagged in this run yet."
+        title="No clip types tagged in this run."
         body="Clip types (music under speech, fast talkers, slang and more) are tagged when a person verifies a clip. Once verified clips land, this view shows which model leads on each kind."
       />
     );

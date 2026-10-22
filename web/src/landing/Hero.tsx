@@ -30,7 +30,7 @@ export function Hero({ run, published }: { run: Run | undefined; published: bool
           <m.div {...anim(0)} className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1 pr-3 pl-1.5 text-[12px] text-ink-2">
               <span className="rounded-full bg-ink px-2 py-0.5 font-mono text-[10.5px] tracking-wide text-paper uppercase">{published ? "Latest run" : "First run"}</span>
-              {run ? date(run.created_at) : "in progress"}
+              {run ? date(run.created_at) : "\u00a0"}
             </span>
             <span className="label">Independent / open source / no provider funding</span>
           </m.div>

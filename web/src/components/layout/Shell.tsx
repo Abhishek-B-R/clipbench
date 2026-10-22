@@ -1,8 +1,7 @@
 import { useEffect } from "react";
-import { Link, Outlet, ScrollRestoration, useLocation } from "react-router";
+import { Outlet, ScrollRestoration, useLocation } from "react-router";
 import { FlaskConical } from "lucide-react";
 import { setDemo, useSource } from "@/lib/data";
-import { languageProgress } from "@/lib/analysis";
 import { Nav } from "./Nav";
 import { Footer } from "./Footer";
 import { CommandMenuHost } from "../ui/CommandMenuHost";
@@ -37,45 +36,32 @@ export function Shell() {
 }
 
 /**
- * Data banner:
- * - real data while no language is published: "First results in progress" with a link to the progress board;
- * - development only: the synthetic fixture (?demo=1), with "Back to real results" (or "View demo data").
+ * Data banner, development only: the synthetic fixture (?demo=1), with "Back to real results" (or "View demo data").
+ * Real data needs no banner: pages that show unranked numbers label them where they appear.
  */
 export function DemoBanner() {
   const src = useSource();
-  const { pathname } = useLocation();
   const s = src.data;
-  if (!s) return null;
-  // Real data: say so plainly while no language is published (the homepage says it itself, so skip it there).
-  const early = !s.demo && !languageProgress(s.index).some((l) => l.published) && pathname !== "/";
-  if (!s.demo && !early) return null;
+  if (!s || !import.meta.env.DEV) return null;
   const btn = "ml-1 shrink-0 rounded-xs px-1.5 py-0.5 font-medium text-ink underline decoration-line-strong underline-offset-[3px] hover:decoration-ink";
   return (
     <aside aria-label="Data status" className="border-b border-line bg-sunken">
       <div className="frame flex min-h-8 items-center justify-center gap-2 py-1 text-[12px] text-ink-2">
         <FlaskConical size={13} className="shrink-0 text-signal" aria-hidden />
-        {import.meta.env.DEV && s.demo ? (
+        {s.demo ? (
           <span className="min-w-0 truncate">
             <span className="font-medium text-ink">Demo data.</span>
             <span className="hidden sm:inline"> {s.forced ? "You are viewing the synthetic demo run" : "No real run has been published yet"}; models are named A to F and every number is synthetic.</span>
             <span className="sm:hidden"> Synthetic numbers, models A to F.</span>
           </span>
         ) : (
-          <span className="min-w-0 truncate">
-            <span className="font-medium text-ink">First results in progress.</span>
-            <span className="hidden sm:inline"> No language has passed the publication gate yet, so no ranking is shown; the early look has the first run.</span>
-          </span>
+          <span className="min-w-0 truncate font-medium text-ink">Real data (development build).</span>
         )}
-        {import.meta.env.DEV && s.forced ? (
+        {s.forced ? (
           <button type="button" className={btn} onClick={() => setDemo(false)}>
             Back to real results
           </button>
         ) : !s.demo ? (
-          <Link to="/early" className={btn}>
-            See the early look
-          </Link>
-        ) : null}
-        {!import.meta.env.DEV || s.forced ? null : !s.demo ? (
           <button type="button" className={btn} onClick={() => setDemo(true)}>
             View demo data
           </button>

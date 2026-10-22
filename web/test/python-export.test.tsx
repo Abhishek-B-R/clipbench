@@ -321,7 +321,7 @@ describe("python export: the publication gate", () => {
     const failing = { ...status, published: false, gate: { ...status.gate, diversity_ok: false }, verified_diversity: { ...status.verified_diversity, passes: false, problems: ["only 12 channels; at least 30 needed"] } };
     const bad = html(<GateBars status={failing} />);
     expect(bad).toContain("only 12 channels; at least 30 needed");
-    expect(bad).toContain("not yet");
+    expect(bad).toContain("not met");
   });
 
   it("an export with the gate fields missing renders as unpublished", () => {
@@ -341,8 +341,8 @@ describe("python export: the publication gate", () => {
     expect(languageProgress(idx).every((l) => !l.published)).toBe(true);
     const out = html(<Gated run={old}>RANKING</Gated>);
     expect(out).not.toContain("RANKING");
-    expect(out).toContain("Not published yet");
-    expect(out).toContain("no publication gate fields");
+    expect(out).toContain("Early look");
+    expect(out).toContain("Full early look");
     // A published flag with a failing gate flag is not published either.
     const half = { ...run, languages: raw.languages.map((l: any) => ({ ...l, gate: { ...l.gate, diversity_ok: false } })) } as Run;
     expect(isPublished(half)).toBe(false);

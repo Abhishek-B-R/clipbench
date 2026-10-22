@@ -11,6 +11,7 @@ import { TierControl } from "@/components/ui/TierControl";
 import { Badge } from "@/components/ui/Badge";
 import { buttonClass } from "@/components/ui/Button";
 import { EarlyLookView } from "@/components/early/EarlyLookView";
+import { LanguageReady } from "@/components/ui/Gate";
 
 /**
  * /early: every system of the latest run on creator captions, sorted by error, with no rank numbers and a
@@ -60,7 +61,7 @@ export default function Early() {
         ) : run ? (
           <EarlyLookView run={run} tier={tier} metric={metric} />
         ) : run === null ? (
-          <p className="text-[14px] text-ink-2">No run for this language yet.</p>
+          <LanguageReady lang={lang ?? "en"} />
         ) : (
           <div className="grid gap-6">
             <Skeleton className="h-10 w-full" />

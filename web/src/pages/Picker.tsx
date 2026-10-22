@@ -70,19 +70,19 @@ export default function Picker() {
         {!loading && state.status === "ready" && (
           <div className="grid items-start gap-8 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)] xl:gap-10">
             <form onSubmit={(e) => e.preventDefault()} aria-label="Your app" className="grid overflow-hidden rounded-md border border-line bg-surface shadow-card lg:sticky lg:top-20">
-              <Step n={1} title="Language" hint={published ? "Published" : "Not published yet"}>
+              <Step n={1} title="Language" hint={published ? "Ranked" : "Early look"}>
                 <div className="flex flex-wrap gap-1.5">
                   {LANGUAGES.map((l) => {
                     const st = progress?.find((x) => x.lang === l);
                     const ok = Boolean(st?.published);
                     return (
-                      <Chip key={l} pressed={l === lang} disabled={!ok && l !== lang} title={ok ? undefined : "Not published yet"} onClick={() => set({ lang: l })}>
+                      <Chip key={l} pressed={l === lang} disabled={!ok && l !== lang} title={ok ? undefined : "Opens once this language is ranked"} onClick={() => set({ lang: l })}>
                         {LANGUAGE_NAME[l]}
                       </Chip>
                     );
                   })}
                 </div>
-                <p className="mt-2 text-[12px] text-ink-3">A language opens here once its results are published.</p>
+                <p className="mt-2 text-[12px] text-ink-3">Picks need a ranked language; the early look has every system side by side.</p>
               </Step>
               <Step n={2} title="Is your audio music-heavy?">
                 <Segmented

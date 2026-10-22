@@ -14,6 +14,7 @@ import { loadRun, runUrl, useRunFor } from "@/lib/data";
 import { Gated, NotRanked } from "@/components/ui/Gate";
 import { LANGUAGE_NAME, TIER_LABEL, aggregatesFor, isPublished, pickMetric, pickTier, pair, providerColor, providerLabel } from "@/lib/analysis";
 import { date, int, ms, pct, usdPerHour } from "@/lib/format";
+import { RULES } from "@/lib/config";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Figure } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
@@ -63,7 +64,7 @@ export default function Leaderboard() {
         description={
           published
             ? "Every model on the same clips, ranked by error rate with 95% bootstrap intervals. The vs-leader column comes from the paired test, not from the gap between rows."
-            : "No language has passed the publication gate, so there is no ranking yet. Until then this page shows the early look: every system on creator captions, sorted by error, without ranks."
+            : `Every system on the same clips, scored against creator captions and sorted by error, with 95% intervals. Ranks and head-to-head verdicts switch on once ${int(RULES.publishMinVerified)} clips are corrected by ear.`
         }
         actions={
           run &&

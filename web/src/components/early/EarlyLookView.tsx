@@ -27,7 +27,7 @@ export function EarlyLookView({ run, tier, metric, showGate = true }: { run: Run
   const fig = () => ++n;
 
   if (!look.rows.length)
-    return <p className="text-[14px] text-ink-2">This run has no scores on the {tier} tier yet.</p>;
+    return <p className="text-[14px] text-ink-2">This run has no scores on the {tier} tier.</p>;
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-8">
@@ -135,10 +135,10 @@ export function EarlyLookView({ run, tier, metric, showGate = true }: { run: Run
         <section aria-labelledby="early-gate" className="grid gap-6 rounded-md border border-dashed border-line-strong bg-paper p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-10">
           <div>
             <h2 id="early-gate" className="label">
-              <span className="text-signal-ink">Not ranked yet</span> / {lang}
+              <span className="text-signal-ink">Road to a ranking</span> / {lang}
             </h2>
             <p className="mt-3 max-w-[56ch] text-[14px] text-ink-2">
-              A ranking needs references a person corrected by ear, enough systems covering them, and a set spread across channels and categories. Until {lang} passes, this page stays an early look.
+              A ranking needs references a person corrected by ear, enough systems covering them, and a set spread across channels and categories. Once {lang} meets all three, the ranked leaderboard opens.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link to={`/lang/${run.language}`} className={buttonClass("secondary", "sm")}>

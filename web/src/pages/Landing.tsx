@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { useRun, useSource } from "@/lib/data";
 import { LANGUAGE_NAME, isPublished, languageProgress } from "@/lib/analysis";
 import { ACCOUNTS } from "@/lib/flags";
-import { POSITIONING } from "@/lib/config";
+import { POSITIONING, RULES } from "@/lib/config";
 import { Section, Rule } from "@/components/layout/Section";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { LanguageBoard } from "@/components/ui/Gate";
@@ -86,12 +86,12 @@ export default function Landing() {
           <Section
             id="progress"
             index={idx()}
-            kicker="Progress"
-            title="The road to a ranking."
-            intro="A language is ranked only once its references are corrected by ear and enough systems cover them. These counts come straight from the latest export."
+            kicker="Languages"
+            title="Every language, one pipeline."
+            intro={`Every language goes through the same scoring code. A language is ranked once ${int(RULES.publishMinVerified)} of its clips have captions corrected by ear; before that it gets an early look against creator captions. Counts come straight from the latest export.`}
           >
             {progress ? <LanguageBoard rows={progress} /> : <Skeleton className="h-80 w-full" />}
-            {src.status === "error" && <ErrorState className="mt-4" title="Could not load the run index." body="Progress counts show once the data files load." onRetry={() => location.reload()} />}
+            {src.status === "error" && <ErrorState className="mt-4" title="Could not load the run index." body="Language counts show once the data files load." onRetry={() => location.reload()} />}
           </Section>
           <Section id="dataset" index={idx()} kicker="Dataset" title="Any public short-form clip, by id." intro="The clip set is a plain CSV per language. Any public Short, Reel or TikTok id can go in; rules in code keep it from leaning on a few channels.">
             <Dataset />

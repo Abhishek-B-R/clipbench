@@ -657,6 +657,8 @@ export interface LanguageProgress extends LanguageStatus {
   latestAt?: string;
   /** Clips scored on any tier in the latest run (creator captions included). */
   scored: number;
+  /** Systems in the latest run. */
+  models: number;
 }
 
 /**
@@ -669,8 +671,9 @@ export function languageProgress(index: RunIndex | undefined): LanguageProgress[
     const r = runs.find((x) => x.language === lang);
     const given = index?.languages?.find((l) => l.lang === lang) ?? r?.languages?.find((l) => l.lang === lang);
     const scored = r ? Object.values(r.n_clips).reduce<number>((t, n) => t + (n ?? 0), 0) : 0;
-    if (given) return { ...normalizeStatus(given), latestRun: r?.run_id, latestAt: r?.created_at, scored };
-    return { lang, verified_clips: r?.n_clips.verified ?? 0, providers_ok: 0, published: false, latestRun: r?.run_id, latestAt: r?.created_at, scored };
+    const models = r?.providers?.length ?? 0;
+    if (given) return { ...normalizeStatus(given), latestRun: r?.run_id, latestAt: r?.created_at, scored, models };
+    return { lang, verified_clips: r?.n_clips.verified ?? 0, providers_ok: 0, published: false, latestRun: r?.run_id, latestAt: r?.created_at, scored, models };
   });
 }
 

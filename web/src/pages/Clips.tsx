@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { ArrowUpRight, Flag, LayoutGrid, Rows3, Search } from "lucide-react";
 import type { Run } from "@/lib/types";
 import { useRun } from "@/lib/data";
-import { LANGUAGE_NAME, TAG_LABEL, isPublished, pickTier, primaryMetric, providerLabel, tagsInRun, youtubeUrl } from "@/lib/analysis";
+import { TAG_LABEL, isPublished, pickTier, primaryMetric, providerLabel, tagsInRun, youtubeUrl } from "@/lib/analysis";
 import { clipScores, earlyLook, flaggedClips, thumbUrl, type ClipScores } from "@/lib/early";
 import { duration, int, pct } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -112,7 +112,7 @@ export default function Clips() {
             <TierNote tier={tier} />
             {!isPublished(run) && (
               <p className="rounded-md border border-line bg-sunken/60 px-4 py-2.5 text-[13px] text-ink-2">
-                <span className="font-medium text-ink">Early look, not results.</span> {LANGUAGE_NAME[run.language] ?? run.language} is below the publication gate, so these per-clip scores are shown for transparency and are not a ranking.{" "}
+                <span className="font-medium text-ink">Early look.</span> Per-clip scores against creator captions, shown in full for transparency; they are not a ranking.{" "}
                 <Link to="/early" className="text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
                   Early look
                 </Link>

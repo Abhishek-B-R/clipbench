@@ -14,7 +14,7 @@ export function TierControl({ run, value, onChange }: { run?: Run; value: Tier; 
     return (
       <span className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-line bg-sunken px-2.5 text-[12.5px] text-ink-2">
         <Info size={13} className="text-ink-3" aria-hidden />
-        {tiers[0] === "creator" ? "Creator captions only. No verified clips in this run yet." : "Verified clips only"}
+        {tiers[0] === "creator" ? "Scored against creator captions" : "Verified clips only"}
       </span>
     );
   return (

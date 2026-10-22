@@ -48,7 +48,7 @@ import { GateBars, NotRankedList, minCoverage } from "@/components/ui/Gate";
 import { EarlyLabel, LatencyNote, earlySource } from "@/components/early/EarlyBoard";
 import { HeatStrip } from "@/components/early/EarlyCharts";
 import { earlyLook, earlyRowOf, flaggedClips, partialCause, thumbUrl } from "@/lib/early";
-import { CATEGORIES } from "@/lib/config";
+import { CATEGORIES, RULES } from "@/lib/config";
 import { BadgeEmbed, CanaryHistory, ComputeSpec, EveryMeasure, FeatureRow, ReliabilitySpec, SettingsSpec, StrengthsFailures, priceSpeed, providerSections } from "@/components/v3/ProviderSections";
 
 // Only with accounts on; it carries the Better Auth client, so the public build never loads it.
@@ -399,7 +399,7 @@ function ByType({ n, run, id, tier, metric }: { n: number; run: Run; id: string;
     >
       {rows.length === 0 ? (
         <EmptyState
-          title={kind === "tag" ? "No clip types tagged in this run yet." : "No length slices in this run."}
+          title={kind === "tag" ? "No clip types tagged in this run." : "No length slices in this run."}
           body={kind === "tag" ? "Clip types are tagged when a person verifies a clip. Switch to Length to see how clip length affects this model." : undefined}
         />
       ) : (
@@ -807,9 +807,9 @@ function EarlyModel({ run, id, tier, metric }: { run: Run; id: string; tier: Tie
         <section className="grid gap-6 rounded-md border border-dashed border-line-strong bg-paper p-5 sm:p-6 lg:grid-cols-2 lg:gap-10">
           <div>
             <h2 className="label">
-              <span className="text-signal-ink">Not ranked yet</span> / {LANGUAGE_NAME[run.language] ?? run.language}
+              <span className="text-signal-ink">Road to a ranking</span> / {LANGUAGE_NAME[run.language] ?? run.language}
             </h2>
-            <p className="mt-3 max-w-[56ch] text-[14px] text-ink-2">Ranks and head-to-head verdicts appear once the language passes the publication gate. The early look shows every system side by side.</p>
+            <p className="mt-3 max-w-[56ch] text-[14px] text-ink-2">Ranks and head-to-head verdicts switch on once {int(RULES.publishMinVerified)} clips are corrected by ear. The early look shows every system side by side.</p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link to="/early" className={buttonClass("secondary", "sm")}>
                 Early look <ArrowRight size={14} />

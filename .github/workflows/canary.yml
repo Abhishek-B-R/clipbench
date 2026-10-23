@@ -10,6 +10,9 @@
 # Money: scheduled runs are dry runs (no network, price check only) until the repository variable
 # CANARY_LIVE is "true". Live runs spend from canary_budget_usd_per_month (default $2) and refuse past it.
 #
+# Off until the runner exists: the job only runs when the repository variable CANARY_RUNNER is "true".
+# Without it a scheduled run would wait 24 hours for a runner that is not there and end as a failure.
+#
 # Safety with a self-hosted runner on a public repo: this workflow never runs on pull requests, the runner
 # carries the label clipbench-canary that no other workflow uses, and the repository setting "Require
 # approval for all outside collaborators" must stay on (Settings, Actions, General).
@@ -21,7 +24,7 @@ on:
   workflow_dispatch:
     inputs:
       lang:
-        description: "Language (en, ja, ko, es, hi) or all"
+        description: "Language (en, ja, ko, es, hi, fr) or all"
         default: "all"
         type: string
       force:
@@ -42,7 +45,7 @@ concurrency:
 
 jobs:
   canary:
-    if: github.repository == 'Abhishek-B-R/clipbench' && github.event_name != 'pull_request'
+    if: github.repository == 'Abhishek-B-R/clipbench' && github.event_name != 'pull_request' && vars.CANARY_RUNNER == 'true'
     runs-on: [self-hosted, macOS, clipbench-canary]
     timeout-minutes: 240
     env:

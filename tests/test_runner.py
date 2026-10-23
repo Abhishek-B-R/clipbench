@@ -433,7 +433,11 @@ def test_cli_dry_run_rejects_unknown_language_and_empty_plan(tmp_settings):
     from clipbench.cli import app
 
     r = CliRunner().invoke(app, ["run", "--dry-run", "--lang", "xx", "--providers", "fake"])
-    assert r.exit_code == 2 and "--lang must be one of" in r.output
+    # Rich draws the error in a box and wraps it to the terminal width, so compare the bare words.
+    import re
+
+    words = " ".join(re.sub(r"[│╭╮╰╯─]", " ", re.sub(r"\x1b\[[0-9;]*m", "", r.output)).split())
+    assert r.exit_code == 2 and "--lang must be one of" in words
     r = CliRunner().invoke(app, ["run", "--dry-run", "--providers", "fake"])
     assert r.exit_code == 1
 

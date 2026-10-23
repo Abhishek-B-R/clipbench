@@ -197,7 +197,9 @@ function timeout<T>(p: Promise<T>, ms: number, ctrl: AbortController): Promise<T
       reject(new ProviderFailure(`No answer within ${Math.round(ms / 1000)} s.`, true));
     }, ms);
   });
-  return Promise.race([p, t]).finally(() => clearTimeout(timer));
+  return Promise.race([p, t]).finally(() => {
+    if (timer !== undefined) clearTimeout(timer);
+  });
 }
 
 /** A fixed sentence for a thrown error. The provider's own text is only matched, never shown or logged. */

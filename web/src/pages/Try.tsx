@@ -11,7 +11,7 @@ import { clipCost, runTry, TRY_LANGUAGES, TRY_MODELS, TryError, type TryLanguage
 import { ACCEPT, decodeFile, useRecorder, type Loaded } from "@/try/audio";
 import { CaptionPlayer } from "@/try/CaptionPlayer";
 import { CompareView } from "@/try/Compare";
-import { ResultCard, usd } from "@/try/Results";
+import { ResultCard, stoppedEarly, usd } from "@/try/Results";
 import { useTurnstile } from "@/try/turnstile";
 import { clock, Waveform, type Selection } from "@/try/Waveform";
 import { downmix, encodeWav, MAX_CLIP_SECONDS, MIN_CLIP_SECONDS, TARGET_RATE, toMono16k } from "@/try/wav";
@@ -135,6 +135,7 @@ export default function Try() {
   };
 
   const done = useMemo(() => TRY_MODELS.map((m) => results[m.provider]).filter((r): r is TryResult => Boolean(r)), [results]);
+  const stopped = useMemo(() => stoppedEarly(results), [results]);
   const diffLanguage = sent && sent.language !== "auto" ? sent.language : majorityLanguage(done);
   const answered = done.filter((r) => !r.error);
 
@@ -324,7 +325,7 @@ export default function Try() {
             >
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {TRY_MODELS.map((m) => (
-                  <ResultCard key={m.provider} provider={m.provider} label={m.label} model_id={m.model_id} result={results[m.provider] ?? null} language={sent.language === "auto" ? null : sent.language} />
+                  <ResultCard key={m.provider} provider={m.provider} label={m.label} model_id={m.model_id} result={results[m.provider] ?? null} language={sent.language === "auto" ? null : sent.language} stopped={stopped[m.provider]} />
                 ))}
               </div>
             </Figure>

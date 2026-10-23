@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { buildCues, splitLines, toSrt, toVtt, type Word } from "@/try/captions";
 import { diffMode, diffText, tokenize } from "@/try/diff";
-import { ndjson } from "@/try/api";
+import { ndjson, type TryResult } from "@/try/api";
+import { stoppedEarly } from "@/try/Results";
 import { downmix, encodeWav, peaks, resampledLength, resampleLinear, TARGET_RATE } from "@/try/wav";
 
 const timed = (tokens: string[], pauseBefore: number | null = null): Word[] => {
@@ -134,5 +135,29 @@ describe("NDJSON stream", () => {
     const out: unknown[] = [];
     for await (const l of ndjson(body)) out.push(l);
     expect(out).toEqual([{ type: "start", seconds: 1 }, { type: "result", provider: "a" }, { type: "done", cost_usd: 0 }]);
+  });
+});
+
+describe("stoppedEarly", () => {
+  const res = (provider: string, endMs: number | null, error: string | null = null): TryResult => ({
+    provider,
+    label: provider,
+    model_id: provider,
+    text: "x",
+    words: endMs == null ? [] : [{ text: "x", start_ms: 0, end_ms: endMs }],
+    latency_ms: 1,
+    cost_usd: 0,
+    detected_language: null,
+    error,
+  });
+  it("flags a model whose transcript ends well before the others", () => {
+    const out = stoppedEarly({ a: res("a", 6000), b: res("b", 29000), c: res("c", 28500) });
+    expect(out).toEqual({ a: { at: 6000, others: 29000 } });
+  });
+  it("leaves small gaps, errors and missing timings alone", () => {
+    expect(stoppedEarly({ a: res("a", 26000), b: res("b", 29000) })).toEqual({});
+    expect(stoppedEarly({ a: res("a", 1000, "The call failed."), b: res("b", 29000) })).toEqual({});
+    expect(stoppedEarly({ a: res("a", null), b: res("b", 29000) })).toEqual({});
+    expect(stoppedEarly({ a: res("a", 6000), b: null })).toEqual({});
   });
 });

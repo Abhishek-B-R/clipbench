@@ -27,6 +27,28 @@ export function countUnits(r: TryResult, language: string | null) {
   return { n: tokenize(r.text, mode).length, unit: mode === "char" ? "chars" : "words" };
 }
 
+const clock = (msv: number) => {
+  const sec = Math.round(msv / 1000);
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+};
+
+/**
+ * Where a model's transcript ends, when it ends well before the others: its last word is more than 4 s and 30%
+ * short of the latest last word among the models that answered. Some hosted models stop early on noisy audio
+ * (Workers AI Nova-3 did on real clips where Deepgram's own API did not), and a short transcript should say so
+ * rather than read as complete. Needs word timings from at least two models; otherwise nothing is flagged.
+ */
+export function stoppedEarly(results: Record<string, TryResult | null | undefined>): Record<string, { at: number; others: number }> {
+  const ends = Object.values(results)
+    .filter((r): r is TryResult => Boolean(r && !r.error && r.words.length))
+    .map((r) => ({ provider: r.provider, end: r.words[r.words.length - 1]!.end_ms }));
+  if (ends.length < 2) return {};
+  const latest = Math.max(...ends.map((e) => e.end));
+  const out: Record<string, { at: number; others: number }> = {};
+  for (const e of ends) if (latest - e.end > 4000 && e.end < latest * 0.7) out[e.provider] = { at: e.end, others: latest };
+  return out;
+}
+
 function Stat({ k, v }: { k: string; v: string }) {
   return (
     <div className="min-w-0">
@@ -37,7 +59,7 @@ function Stat({ k, v }: { k: string; v: string }) {
 }
 
 /** One card per model, filled in as its line arrives. */
-export function ResultCard({ provider, label, model_id, result, language }: { provider: string; label: string; model_id: string; result: TryResult | null; language: string | null }) {
+export function ResultCard({ provider, label, model_id, result, language, stopped }: { provider: string; label: string; model_id: string; result: TryResult | null; language: string | null; stopped?: { at: number; others: number } }) {
   const lang = language ?? result?.detected_language ?? undefined;
   const units = result && !result.error ? countUnits(result, language) : null;
   return (
@@ -54,6 +76,8 @@ export function ResultCard({ provider, label, model_id, result, language }: { pr
           <Badge tone="neutral">Waiting</Badge>
         ) : result.error ? (
           <Badge tone="signal">Error</Badge>
+        ) : stopped ? (
+          <Badge tone="warn">Stopped early</Badge>
         ) : (
           <Badge tone="outline">Done</Badge>
         )}
@@ -71,9 +95,16 @@ export function ResultCard({ provider, label, model_id, result, language }: { pr
             <span>{result.error} The other models are unaffected.</span>
           </p>
         ) : result.text ? (
-          <p lang={lang} className="max-h-48 overflow-y-auto text-[14.5px] leading-relaxed whitespace-pre-wrap text-ink">
-            {result.text}
-          </p>
+          <>
+            <p lang={lang} className="max-h-48 overflow-y-auto text-[14.5px] leading-relaxed whitespace-pre-wrap text-ink">
+              {result.text}
+            </p>
+            {stopped && (
+              <p className="mt-2 text-[12.5px] text-ink-3">
+                The transcript stops at {clock(stopped.at)}; other models heard speech until {clock(stopped.others)}. This model returned nothing after that point.
+              </p>
+            )}
+          </>
         ) : (
           <p className="text-[13.5px] text-ink-3">No speech heard.</p>
         )}
